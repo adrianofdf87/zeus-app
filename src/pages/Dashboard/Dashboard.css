@@ -1,0 +1,573 @@
+/* Importando uma fonte moderna e limpa (Inter) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary: #0b0f19;
+  --danger: #d93025;
+  --bg-light: #dbe0ed;
+  --border-light: #e5e7eb;
+}
+
+* {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.dashboard {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   SIDEBAR (ULTRA MODERNA & COMPACTA)
+   ========================================================================== */
+.sidebar {
+  width: 250px;
+  background: linear-gradient(180deg, #111827 0%, #0b0f19 100%);
+  color: white;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 6px 0 25px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sidebar.hidden {
+  width: 0;
+  padding: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 60px;
+  padding: 0 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.close-btn {
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #38bdf8;
+}
+
+/* ==========================================================================
+   AVATAR E MENU FLUTUANTE (SEM PISCAR)
+   ========================================================================== */
+.user-avatar-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.user-avatar-container {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.avatar-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 85, 150, 0.9);
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.user-avatar-container:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.user-avatar svg {
+  width: 16px;
+  height: 16px;
+  color: #38bdf8;
+}
+
+/* Menu Dropdown Flutuante Estilizado */
+.avatar-dropdown-menu {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  width: 155px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  animation: fadeInMenu 0.15s ease;
+}
+
+@keyframes fadeInMenu {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.avatar-dropdown-menu button {
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 8px 10px;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 100%;
+}
+
+.avatar-dropdown-menu button:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.avatar-dropdown-menu button.danger-option:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+/* Nome do usuário seguindo a tipografia unificada da sidebar */
+.user-name-text {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-info span {
+  font-size: 10px;
+  color: #38bdf8;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Tag de perfil com a mesma cor exata do Bom dia (#38bdf8) */
+.user-perfil-tag {
+  font-size: 10px !important;
+  color: #38bdf8 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+}
+
+.menu {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 8px;
+}
+
+.menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.menu a svg,
+.menu-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+}
+
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-bottom: 2px;
+  transition: all 0.2s ease;
+}
+
+.menu a:hover {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+}
+
+.menu a:hover svg {
+  color: #38bdf8;
+  transform: scale(1.1);
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.menu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.menu-link:hover {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+}
+
+.menu-link:hover svg {
+  color: #38bdf8;
+}
+
+.arrow {
+  margin-left: auto;
+  width: 14px !important;
+  height: 14px !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-item.open .arrow {
+  transform: rotate(180deg);
+  color: #38bdf8;
+}
+
+.submenu {
+  display: none;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin: 4px 0 6px 0;
+  padding: 6px 0;
+}
+
+.menu-item.open .submenu {
+  display: flex;
+}
+
+.submenu a {
+  display: flex;    
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 36px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: #94a3b8;
+  text-decoration: none;
+  border-radius: 6px;
+  margin: 1px 8px;
+  transition: all 0.2s ease;
+}
+
+.submenu a:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #38bdf8;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.topbar {
+  height: 60px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-top {
+  font-size: 17px;
+  color: #005596;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.toggle-btn {
+  cursor: pointer;
+  height: 32px;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.toggle-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.logout-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.logout-top svg {
+  width: 16px;
+  height: 16px;
+}
+
+.logout-top:hover {
+  background: #fef2f2;
+  color: var(--danger);
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(217, 48, 37, 0.1);
+}
+
+.main {
+  flex: 1;
+  padding: 8px 8px;
+  background: var(--bg-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+
+.footer {
+  height: 40px;
+  background: #ffffff;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.swal2-actions {
+  display: flex !important;
+  justify-content: center;
+  gap: 8px;
+}
+
+.swal2-confirm,
+.swal2-cancel {
+  width: 130px !important;
+  min-width: 90px !important;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ==========================================================================
+   ESTILIZAÇÃO PROFISSIONAL PARA O MODAL DO SWEETALERT (FOTO DE PERFIL / OUTROS)
+   ========================================================================== */
+.swal2-enterprise-modal {
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid #e2e8f0;
+}
+
+.swal2-custom-actions {
+  margin: 0 !important;
+  padding: 16px 24px 20px 24px !important;
+  background: #f8fafc !important;
+  border-top: 1px solid #f1f5f9 !important;
+  display: flex !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.swal2-confirm-pro,
+.swal2-deny-pro,
+.swal2-cancel-pro {
+  flex: 1 !important;
+  margin: 0 !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.swal2-confirm-pro {
+  background-color: #005596 !important;
+  color: #fff !important;
+}
+.swal2-confirm-pro:hover {
+  background-color: #004070 !important;
+}
+
+.swal2-deny-pro {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+}
+.swal2-deny-pro:hover {
+  background-color: #fecaca !important;
+}
+
+.swal2-cancel-pro {
+  background-color: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.swal2-cancel-pro:hover {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+.page-container {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.page-content > * {
+  max-width: 100%;
+}
+
+.page-content table {
+  width: 100%;
+  table-layout: auto;
+}
+
+.page-content th,
+.page-content td {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.titulo-pagina {
+  font-size: 20px;
+  color: #0f172a;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
