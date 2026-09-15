@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login/Login.jsx";
-import Reset from "./pages/reset/Reset.jsx";
+import Reset from "./pages/Reset/Reset.jsx";
 import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 import Usuarios from "./pages/Usuarios/Usuarios.jsx";
 import Carteira from "./pages/Carteira/carteira.jsx";
