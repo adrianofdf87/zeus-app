@@ -76,11 +76,9 @@ export default function Login() {
   };
 
   const abrirModalNovaSenha = async (userId, senhaAtualHash) => {
-    // Ícones do olho (Mostrar/Ocultar Senha)
     const icLk = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
     const icUnlk = icLk.replace('#94a3b8', '#005596').replace('10 0v4', '9.9-1');
 
-    // Gerador de Inputs Modernos
     const inputHtml = (id, label) => `
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
         <label style="font-size:0.85rem;font-weight:600;color:#475569;">${label}</label>
@@ -94,10 +92,10 @@ export default function Login() {
     const { value: novaSenha } = await Swal.fire({
       padding: '0', 
       background: '#ffffff', 
-      showCloseButton: false, // Na tela de login forçamos a troca, então não permite fechar no "X"
+      showCloseButton: false,
       showCancelButton: true,
       reverseButtons: true,
-      allowOutsideClick: false, // Bloqueia clique fora
+      allowOutsideClick: false,
       customClass: { 
         popup: 'swal2-enterprise-modal', 
         actions: 'swal2-custom-actions', 
@@ -107,7 +105,6 @@ export default function Login() {
       html: `
         <div style="background:#f8fafc;padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;text-align:left;">
           <div style="background:#005596;color:#fff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,85,150,0.2);flex-shrink:0;">
-            <!-- Ícone de Chave -->
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
           </div>
           <div>
@@ -134,7 +131,6 @@ export default function Login() {
       cancelButtonText: "Cancelar",
       focusConfirm: false,
       didOpen: () => {
-        // Lógica de alternância de visualização de senha
         ['s-nova', 's-conf'].forEach(id => {
           const i = document.getElementById(id), b = document.getElementById(`btn-${id}`);
           if (i && b) {
@@ -148,7 +144,6 @@ export default function Login() {
       preConfirm: () => {
         const nSenha = document.getElementById('s-nova').value;
         const cSenha = document.getElementById('s-conf').value;
-        
         const regexSenha = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[&#@$])[A-Za-z\d&#@$]{8,}$/;
 
         if (!nSenha || !cSenha) return Swal.showValidationMessage("Preencha todos os campos obrigatórios.");
@@ -168,7 +163,6 @@ export default function Login() {
       
       if (error) throw error;
 
-      // Modal de sucesso padronizado
       await Swal.fire({
         padding: '0', 
         background: '#ffffff', 
@@ -243,11 +237,10 @@ export default function Login() {
         <section className="login-section">
           <div className="login-container">
             
-            {/* LOGO ATUALIZADA COM O DEGRADÊ NO TEXTO */}
+            {/* LOGO */}
             <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
                 
-                {/* Ícone Raio */}
                 <div style={{ 
                   background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
                   padding: '12px', 
@@ -258,7 +251,6 @@ export default function Login() {
                   <Zap size={36} color="white" fill="white" />
                 </div>
                 
-                {/* Texto ZEUS - Degradê fiel à imagem */}
                 <span style={{ 
                   background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
                   WebkitBackgroundClip: 'text', 
@@ -276,7 +268,6 @@ export default function Login() {
                 
               </div>
               
-              {/* Tagline */}
               <p className="tagline" style={{ 
                 color: '#64748b', 
                 fontWeight: '600', 
@@ -291,18 +282,54 @@ export default function Login() {
             {/* FIM DA LOGO */}
 
             <div className="input-group">
-              <div className="password-wrapper">
-                <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
-                <span className="eye-btn" style={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><User /></span>
+              {/* Input de E-mail */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                <input 
+                  type="email" 
+                  placeholder="E-mail" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
+                  style={{ width: '100%', paddingRight: '40px' }}
+                />
+                <span style={{ position: 'absolute', right: '12px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
+                  <User size={18} />
+                </span>
               </div>
-              <div className="password-wrapper">
-                <input type={showPassword ? "text" : "password"} placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
-                <button type="button" className="eye-btn" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <LockOpen /> : <Lock />}
+
+              {/* Input de Senha */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="Senha" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
+                  style={{ width: '100%', paddingRight: '40px' }}
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ 
+                    position: 'absolute', 
+                    right: '12px', 
+                    background: 'none', 
+                    border: 'none', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    padding: 0,
+                    color: '#94a3b8'
+                  }}
+                >
+                  {showPassword ? <LockOpen size={18} /> : <Lock size={18} />}
                 </button>
               </div>
+
               <Link to="/reset" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500' }}>Esqueceu a senha?</Link>
             </div>
+            
             <button className="btn-primary" onClick={handleLogin}>ACESSAR</button>
           </div>
         </section>
