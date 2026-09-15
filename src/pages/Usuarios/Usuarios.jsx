@@ -21,7 +21,7 @@ export default function Usuarios() {
     try {
       setCarregando(true);
       const { data, error } = await supabase
-        .from("0-Interno_usuarios")
+        .from("tabi_cad_usuarios")
         .select('id, nome, email, "Telefone", "Perfil", situacao, "Usu_cad", "Data_cad"');
 
       if (error) throw error;
@@ -63,7 +63,7 @@ export default function Usuarios() {
     try {
       setCarregando(true);
       const novaSituacao = usuarioAtualBloqueado() ? "ATIVO" : "BLOQUEADO";
-      const { error } = await supabase.from("0-Interno_usuarios").update({ situacao: novaSituacao }).eq("id", usuarioSelecionadoId);
+      const { error } = await supabase.from("tabi_cad_usuarios").update({ situacao: novaSituacao }).eq("id", usuarioSelecionadoId);
       if (error) throw error;
       await carregarUsuarios();
       const objAtualizado = dadosUsuarios.find(u => String(u.id) === String(usuarioSelecionadoId));
@@ -90,8 +90,8 @@ export default function Usuarios() {
 
     try {
       setCarregando(true);
-      await supabase.from("0-Interno_permissoes").delete().eq("usuario_id", usuarioSelecionadoId);
-      const { error } = await supabase.from("0-Interno_usuarios").delete().eq("id", usuarioSelecionadoId);
+      await supabase.from("tabi_cad_usuarios_permissoes").delete().eq("usuario_id", usuarioSelecionadoId);
+      const { error } = await supabase.from("tabi_cad_usuarios").delete().eq("id", usuarioSelecionadoId);
       if (error) throw error;
       
       await Swal.fire({ icon: "success", title: "Excluído!", text: "Usuário excluído com sucesso.", confirmButtonColor: "#005596" });
@@ -170,7 +170,7 @@ export default function Usuarios() {
     try {
       setCarregando(true);
       if (userId) {
-        const { error } = await supabase.from("0-Interno_usuarios").update(formValues).eq("id", userId);
+        const { error } = await supabase.from("tabi_cad_usuarios").update(formValues).eq("id", userId);
         if (error) throw error;
       } else {
         const senhaPlana = Math.random().toString(36).slice(-8) + "A1@";
@@ -178,7 +178,7 @@ export default function Usuarios() {
         const senhaHash = dcodeIO.bcrypt.hashSync(senhaPlana, salt);
         const usuarioLogadoNome = JSON.parse(localStorage.getItem("usuario_logado"))?.nome || "Sistema";
 
-        const { error } = await supabase.from("0-Interno_usuarios").insert([{ ...formValues, senha: senhaHash, senha_temporaria: true, situacao: "ATIVO", Usu_cad: usuarioLogadoNome }]);
+        const { error } = await supabase.from("tabi_cad_usuarios").insert([{ ...formValues, senha: senhaHash, senha_temporaria: true, situacao: "ATIVO", Usu_cad: usuarioLogadoNome }]);
         if (error) throw error;
       }
       carregarUsuarios();
@@ -246,7 +246,7 @@ export default function Usuarios() {
         )}
       </div>
 
-      {/* Conteúdo da Aba 2: Perfis e Permissões (Renderiza apenas se o usuário estiver selecionado e a aba ativa for 'perfis') */}
+      {/* Conteúdo da Aba 2: Perfis e Permissões */}
       <div style={{ display: abaAtiva === 'perfis' && usuarioSelecionadoObj ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0 }}>
         <PermissoesTab usuario={usuarioSelecionadoObj} />
       </div>

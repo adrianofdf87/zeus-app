@@ -35,15 +35,25 @@ export default function Login() {
 
     try {
       const { data: usuario, error: userError } = await supabase
-        .from("0-Interno_usuarios")
+        .from("tabi_cad_usuarios")
         .select("id, senha, situacao, id_sessao, nome, senha_temporaria, Perfil")
         .eq("email", email)
         .single();
 
-      if (userError || !usuario) throw new Error("E-mail ou senha incorretos.");
+      if (userError) {
+        console.error("Erro retornado pelo Supabase:", userError);
+        throw new Error("Erro no banco de dados: " + userError.message);
+      }
+
+      if (!usuario) {
+        throw new Error("E-mail ou senha incorretos.");
+      }
 
       const senhaValida = bcrypt.compareSync(password, usuario.senha);
-      if (!senhaValida) throw new Error("E-mail ou senha incorretos.");
+      if (!senhaValida) {
+        console.warn("A senha digitada não confere com o Hash salvo no banco.");
+        throw new Error("E-mail ou senha incorretos.");
+      }
 
       if (usuario.situacao !== "Ativo") {
         throw new Error("Sua conta está inativa. Contate o administrador.");
@@ -60,81 +70,91 @@ export default function Login() {
       await concluirLogin(usuario, email);
     } catch (err) {
       setLoading(false);
+      console.error("Erro capturado no catch:", err);
       Swal.fire("Erro de acesso", traduzirErro(err.message), "error");
     }
   };
 
   const abrirModalNovaSenha = async (userId, senhaAtualHash) => {
-    // Ícones SVG para usarmos dentro do texto do SweetAlert
-    const iconLock = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-    const iconLockOpen = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#005596" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
+    // Ícones do olho (Mostrar/Ocultar Senha)
+    const icLk = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+    const icUnlk = icLk.replace('#94a3b8', '#005596').replace('10 0v4', '9.9-1');
+
+    // Gerador de Inputs Modernos
+    const inputHtml = (id, label) => `
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+        <label style="font-size:0.85rem;font-weight:600;color:#475569;">${label}</label>
+        <div style="position:relative;">
+          <input type="password" id="${id}" style="width:100%;height:40px;padding:0 36px 0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;box-sizing:border-box;font-size:0.9rem;color:#1e293b;outline:none;transition:all 0.2s ease;" onfocus="this.style.borderColor='#005596';this.style.boxShadow='0 0 0 3px rgba(0,85,150,0.12)';" onblur="this.style.borderColor='#cbd5e1';this.style.boxShadow='none';">
+          <button type="button" id="btn-${id}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;transition:color 0.2s;">${icLk}</button>
+        </div>
+      </div>
+    `;
 
     const { value: novaSenha } = await Swal.fire({
-      title: "Redefinição Obrigatória",
+      padding: '0', 
+      background: '#ffffff', 
+      showCloseButton: false, // Na tela de login forçamos a troca, então não permite fechar no "X"
+      showCancelButton: true,
+      reverseButtons: true,
+      allowOutsideClick: false, // Bloqueia clique fora
+      customClass: { 
+        popup: 'swal2-enterprise-modal', 
+        actions: 'swal2-custom-actions', 
+        confirmButton: 'swal2-confirm-pro', 
+        cancelButton: 'swal2-cancel-pro' 
+      },
       html: `
-        <div style="text-align: left; font-size: 14px; color: #555; margin-bottom: 20px;">
-          Você acessou usando uma senha temporária. Por segurança, cadastre uma nova senha definitiva.<br><br>
-          <strong style="color: #005596;">Requisitos mínimos:</strong><br>
-          • Mínimo de 8 caracteres<br>
-          • Letras (pelo menos uma maiúscula e uma minúscula)<br>
-          • Pelo menos um número<br>
-          • Pelo menos um caractere especial (&#@$)
+        <div style="background:#f8fafc;padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;text-align:left;">
+          <div style="background:#005596;color:#fff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,85,150,0.2);flex-shrink:0;">
+            <!-- Ícone de Chave -->
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          </div>
+          <div>
+            <h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Redefinição Obrigatória</h2>
+            <p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Cadastre sua senha definitiva</p>
+          </div>
         </div>
-        
-        <div style="position: relative; margin-bottom: 10px;">
-          <input type="password" id="swal-nova-senha" class="swal2-input" placeholder="Nova Senha" style="width: 100%; margin: 0; padding-right: 45px; box-sizing: border-box;">
-          <button type="button" id="btn-nova-senha" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 5px;">
-            ${iconLock}
-          </button>
-        </div>
-
-        <div style="position: relative; margin-bottom: 10px;">
-          <input type="password" id="swal-confirma-senha" class="swal2-input" placeholder="Confirme a Nova Senha" style="width: 100%; margin: 0; padding-right: 45px; box-sizing: border-box;">
-          <button type="button" id="btn-confirma-senha" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 5px;">
-            ${iconLock}
-          </button>
+        <div style="padding:20px 24px 10px;display:flex;flex-direction:column;text-align:left;">
+          ${inputHtml('s-nova', 'Nova Senha')}
+          ${inputHtml('s-conf', 'Confirme a Nova Senha')}
+          
+          <div style="margin-top:4px;margin-bottom:8px;background:#f0f9ff;padding:12px 14px;border-radius:8px;border-left:3px solid #005596;">
+            <strong style="color:#005596;font-size:0.8rem;display:block;margin-bottom:6px;">Requisitos mínimos:</strong>
+            <ul style="margin:0;padding-left:16px;color:#475569;font-size:0.8rem;line-height:1.5;">
+              <li>Mínimo de 8 caracteres</li>
+              <li>Letras maiúsculas e minúsculas</li>
+              <li>Pelo menos um número</li>
+              <li>Caractere especial (&#@$)</li>
+            </ul>
+          </div>
         </div>
       `,
-      focusConfirm: false,
-      showCancelButton: true,
+      confirmButtonText: "Salvar Senha",
       cancelButtonText: "Cancelar",
-      confirmButtonText: "Salvar",
+      focusConfirm: false,
       didOpen: () => {
-        const inputNova = document.getElementById('swal-nova-senha');
-        const btnNova = document.getElementById('btn-nova-senha');
-        btnNova.addEventListener('click', () => {
-          if (inputNova.type === 'password') {
-            inputNova.type = 'text';
-            btnNova.innerHTML = iconLockOpen;
-          } else {
-            inputNova.type = 'password';
-            btnNova.innerHTML = iconLock;
-          }
-        });
-
-        const inputConfirma = document.getElementById('swal-confirma-senha');
-        const btnConfirma = document.getElementById('btn-confirma-senha');
-        btnConfirma.addEventListener('click', () => {
-          if (inputConfirma.type === 'password') {
-            inputConfirma.type = 'text';
-            btnConfirma.innerHTML = iconLockOpen;
-          } else {
-            inputConfirma.type = 'password';
-            btnConfirma.innerHTML = iconLock;
+        // Lógica de alternância de visualização de senha
+        ['s-nova', 's-conf'].forEach(id => {
+          const i = document.getElementById(id), b = document.getElementById(`btn-${id}`);
+          if (i && b) {
+            b.onclick = () => { 
+              i.type = i.type === 'password' ? 'text' : 'password'; 
+              b.innerHTML = i.type === 'password' ? icLk : icUnlk; 
+            };
           }
         });
       },
       preConfirm: () => {
-        const nSenha = document.getElementById('swal-nova-senha').value;
-        const cSenha = document.getElementById('swal-confirma-senha').value;
+        const nSenha = document.getElementById('s-nova').value;
+        const cSenha = document.getElementById('s-conf').value;
         
-        // REGEX ATUALIZADA: Exige minúscula (?=.*[a-z]), maiúscula (?=.*[A-Z]), número (?=.*\d) e especial (?=.*[&#@$])
         const regexSenha = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[&#@$])[A-Za-z\d&#@$]{8,}$/;
 
-        if (!nSenha || !cSenha) return Swal.showValidationMessage("Preencha todos os campos.");
+        if (!nSenha || !cSenha) return Swal.showValidationMessage("Preencha todos os campos obrigatórios.");
         if (nSenha !== cSenha) return Swal.showValidationMessage("As senhas não coincidem.");
-        if (!regexSenha.test(nSenha)) return Swal.showValidationMessage("A senha não atende aos requisitos mínimos.");
-        if (senhaAtualHash && bcrypt.compareSync(nSenha, senhaAtualHash)) return Swal.showValidationMessage("Não pode ser igual à anterior.");
+        if (!regexSenha.test(nSenha)) return Swal.showValidationMessage("A senha não atende aos requisitos mínimos de segurança.");
+        if (senhaAtualHash && bcrypt.compareSync(nSenha, senhaAtualHash)) return Swal.showValidationMessage("A nova senha não pode ser igual à senha temporária.");
         return nSenha;
       }
     });
@@ -144,11 +164,34 @@ export default function Login() {
     try {
       const salt = bcrypt.genSaltSync(10);
       const novoHash = bcrypt.hashSync(novaSenha, salt);
-      const { error } = await supabase.from("0-Interno_usuarios").update({ senha: novoHash, senha_temporaria: false }).eq("id", userId);
+      const { error } = await supabase.from("tabi_cad_usuarios").update({ senha: novoHash, senha_temporaria: false }).eq("id", userId);
       
       if (error) throw error;
 
-      await Swal.fire("Senha atualizada!", "Sua senha definitiva foi cadastrada.", "success");
+      // Modal de sucesso padronizado
+      await Swal.fire({
+        padding: '0', 
+        background: '#ffffff', 
+        showCloseButton: false,
+        allowOutsideClick: false,
+        customClass: { popup: 'swal2-enterprise-modal', actions: 'swal2-custom-actions', confirmButton: 'swal2-confirm-pro' },
+        html: `
+          <div style="background:#f8fafc;padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;text-align:left;">
+            <div style="background:#10b981;color:#fff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(16,185,129,0.2);flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div>
+              <h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Senha Atualizada!</h2>
+              <p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Acesso liberado.</p>
+            </div>
+          </div>
+        `,
+        confirmButtonText: "Entrar no Sistema",
+        didOpen: () => {
+          const btn = Swal.getConfirmButton();
+          if (btn) btn.style.backgroundColor = '#10b981'; 
+        }
+      });
       return true;
     } catch (err) {
       Swal.fire("Erro", "Não foi possível atualizar: " + err.message, "error");
@@ -172,7 +215,7 @@ export default function Login() {
     }
 
     const novoIdSessao = crypto.randomUUID();
-    const { error: updateError } = await supabase.from("0-Interno_usuarios").update({
+    const { error: updateError } = await supabase.from("tabi_cad_usuarios").update({
       id_sessao: novoIdSessao,
       data_sessao: new Date().toISOString()
     }).eq("id", usuario.id);
@@ -199,12 +242,54 @@ export default function Login() {
         </section>
         <section className="login-section">
           <div className="login-container">
-            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <h1 className="logo-text" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Zap style={{ color: '#005596', fill: '#005596', marginRight: '4px' }} size={64} /> ZEUS
-              </h1>
-              <p className="tagline">Gestão Integrada de Obras Elétricas</p>
+            
+            {/* LOGO ATUALIZADA COM O DEGRADÊ NO TEXTO */}
+            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+                
+                {/* Ícone Raio */}
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
+                  padding: '12px', 
+                  borderRadius: '16px', 
+                  display: 'flex', 
+                  boxShadow: '0 8px 20px rgba(2, 132, 199, 0.3)' 
+                }}>
+                  <Zap size={36} color="white" fill="white" />
+                </div>
+                
+                {/* Texto ZEUS - Degradê fiel à imagem */}
+                <span style={{ 
+                  background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
+                  WebkitBackgroundClip: 'text', 
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                  fontWeight: '900', 
+                  letterSpacing: '-1.5px', 
+                  fontSize: '48px',
+                  lineHeight: '1',
+                  fontFamily: 'Inter, sans-serif'
+                }}>
+                  ZEUS
+                </span>
+                
+              </div>
+              
+              {/* Tagline */}
+              <p className="tagline" style={{ 
+                color: '#64748b', 
+                fontWeight: '600', 
+                fontSize: '12px',
+                letterSpacing: '0.3px',
+                margin: '0',
+                textTransform: 'uppercase'
+              }}>
+                Gestão Integrada de Obras Elétricas
+              </p>
             </div>
+            {/* FIM DA LOGO */}
+
             <div className="input-group">
               <div className="password-wrapper">
                 <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} />
@@ -216,7 +301,7 @@ export default function Login() {
                   {showPassword ? <LockOpen /> : <Lock />}
                 </button>
               </div>
-              <Link to="/reset" className="forgot-link">Esqueceu a senha?</Link>
+              <Link to="/reset" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500' }}>Esqueceu a senha?</Link>
             </div>
             <button className="btn-primary" onClick={handleLogin}>ACESSAR</button>
           </div>

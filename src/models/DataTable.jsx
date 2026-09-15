@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   ChevronDown, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, 
-  Columns3, Maximize2, Minimize2, Edit2, Check, Filter, RotateCcw 
+  Columns3, Maximize2, Minimize2, Edit2, Check, RotateCcw 
 } from "lucide-react";
 import Swal from "sweetalert2";
 import "./DataTable.css";
@@ -27,7 +27,18 @@ const formatarDado = (valor, coluna) => {
   return String(valor);
 };
 
-export default function DataTable({ data = [], tableId = "tabela_geral", onSelectionChange }) {
+export default function DataTable({ 
+  data = [], 
+  tableId = "tabela_geral", 
+  onSelectionChange, 
+  totalBanco,
+  paginaAtual = 1,
+  registrosPorPagina = 100,
+  onPageChange,
+  onLimitChange,
+  onFilterChange,
+  onFetchColumnOptions
+}) {
   const [colunasTabela, setColunasTabela] = useState([]);
   const [colunasOcultas, setColunasOcultas] = useState([]);
   const [tempColunasOcultas, setTempColunasOcultas] = useState([]);
@@ -35,8 +46,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
   const [filtrosGlobais, setFiltrosGlobais] = useState({});
   const [ordenacao, setOrdenacao] = useState({ coluna: null, asc: true });
   
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const [registrosPorPagina, setRegistrosPorPagina] = useState(100);
   const [linhasSelecionadas, setLinhasSelecionadas] = useState(new Set());
   const [telaCheia, setTelaCheia] = useState(false);
   
@@ -46,6 +55,8 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
   const [tempFiltrosCheckbox, setTempFiltrosCheckbox] = useState(new Set());
   const [inputMaiorQue, setInputMaiorQue] = useState("");
   const [inputMenorQue, setInputMenorQue] = useState("");
+  const [opcoesBancoColuna, setOpcoesBancoColuna] = useState([]);
+  const [loadingOpcoes, setLoadingOpcoes] = useState(false);
   
   const [editandoNome, setEditandoNome] = useState(false);
   const [novoApelidoCol, setNovoApelidoCol] = useState("");
@@ -144,8 +155,8 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
     return processados;
   }, [data, filtrosGlobais, ordenacao]);
 
-  const totalPaginas = Math.ceil(dadosProcessados.length / registrosPorPagina) || 1;
-  const dadosPagina = dadosProcessados.slice((paginaAtual - 1) * registrosPorPagina, paginaAtual * registrosPorPagina);
+  const totalRegistrosReal = totalBanco !== undefined ? totalBanco : data.length;
+  const totalPaginas = Math.ceil(totalRegistrosReal / registrosPorPagina) || 1;
 
   const toggleSelecionarLinha = (id) => {
     const novas = new Set(linhasSelecionadas);
@@ -155,25 +166,42 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
     if (onSelectionChange) onSelectionChange(Array.from(novas));
   };
 
-  const abrirMenuExcel = (coluna, e) => {
+  const handleDoubleClickCheckboxCell = (e) => {
+    e.stopPropagation();
+    const todosIdsVisiveis = dadosProcessados.map(r => r.id).filter(Boolean);
+    const todosJaSelecionados = todosIdsVisiveis.every(id => linhasSelecionadas.has(id));
+
+    const novas = new Set(linhasSelecionadas);
+    if (todosJaSelecionados) {
+      todosIdsVisiveis.forEach(id => novas.delete(id));
+    } else {
+      todosIdsVisiveis.forEach(id => novas.add(id));
+    }
+    setLinhasSelecionadas(novas);
+    if (onSelectionChange) onSelectionChange(Array.from(novas));
+  };
+
+  const abrirMenuExcel = async (coluna, e) => {
     e.stopPropagation();
     const cellContainer = e.currentTarget.closest('.th-cell-container') || e.currentTarget;
     const rect = cellContainer.getBoundingClientRect();
     
-    const popupWidth = 270;
-    const popupHeight = 360;
+    const popupWidth = 275;
+    const popupHeight = 390;
 
     let leftPos = rect.left;
-    if (leftPos + popupWidth > window.innerWidth) {
-      leftPos = window.innerWidth - popupWidth - 10;
+    if (leftPos + popupWidth > window.innerWidth - 15) {
+      leftPos = window.innerWidth - popupWidth - 15;
     }
+    if (leftPos < 15) leftPos = 15;
 
     let topPos = rect.bottom + 4;
-    if (topPos + popupHeight > window.innerHeight) {
-      topPos = rect.top - popupHeight - 4; 
+    if (topPos + popupHeight > window.innerHeight - 15) {
+      topPos = rect.top - popupHeight - 4;
     }
+    if (topPos < 15) topPos = 15;
 
-    setPosicaoPopup({ top: topPos, left: Math.max(10, leftPos) });
+    setPosicaoPopup({ top: topPos, left: leftPos });
 
     const filtrosAtivos = filtrosGlobais[coluna] || [];
     const exatos = filtrosAtivos.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
@@ -187,12 +215,35 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
     setEditandoNome(false);
     setNovoApelidoCol(colunasApelidos[coluna] || coluna.toUpperCase());
     setMenuAtivo({ tipo: 'excel', coluna });
+
+    if (onFetchColumnOptions) {
+      setLoadingOpcoes(true);
+      const opcoes = await onFetchColumnOptions(coluna);
+      setOpcoesBancoColuna(opcoes || []);
+      setLoadingOpcoes(false);
+    }
   };
 
   const abrirMenuColunasGeral = (e) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    setPosicaoPopup({ top: rect.bottom + 4, left: rect.left });
+    
+    const popupWidth = 275;
+    const popupHeight = 300;
+
+    let leftPos = rect.left;
+    if (leftPos + popupWidth > window.innerWidth - 15) {
+      leftPos = window.innerWidth - popupWidth - 15;
+    }
+    if (leftPos < 15) leftPos = 15;
+
+    let topPos = rect.bottom + 4;
+    if (topPos + popupHeight > window.innerHeight - 15) {
+      topPos = rect.top - popupHeight - 4;
+    }
+    if (topPos < 15) topPos = 15;
+
+    setPosicaoPopup({ top: topPos, left: leftPos });
     setTempColunasOcultas([...colunasOcultas]);
     setMenuAtivo({ tipo: 'colunas' });
   };
@@ -210,30 +261,33 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
     if (inputMaiorQue.trim() !== "") novasRegras.push(`>=|${inputMaiorQue}`);
     if (inputMenorQue.trim() !== "") novasRegras.push(`<=|${inputMenorQue}`);
 
+    let copia = { ...filtrosGlobais };
     if (novasRegras.length === 0) {
-      const copia = { ...filtrosGlobais };
       delete copia[coluna];
-      setFiltrosGlobais(copia);
     } else {
-      setFiltrosGlobais(prev => ({ ...prev, [coluna]: novasRegras }));
+      copia[coluna] = novasRegras;
     }
 
+    setFiltrosGlobais(copia);
     setMenuAtivo(null);
-    setPaginaAtual(1);
+    if (onFilterChange) onFilterChange(copia);
+    if (onPageChange) onPageChange(1);
   };
 
   const limparFiltroColuna = (coluna) => {
-    const copia = { ...filtrosGlobais };
+    let copia = { ...filtrosGlobais };
     delete copia[coluna];
     setFiltrosGlobais(copia);
     setMenuAtivo(null);
-    setPaginaAtual(1);
+    if (onFilterChange) onFilterChange(copia);
+    if (onPageChange) onPageChange(1);
   };
 
   const limparTodosFiltros = () => {
     setFiltrosGlobais({});
     setMenuAtivo(null);
-    setPaginaAtual(1);
+    if (onFilterChange) onFilterChange({});
+    if (onPageChange) onPageChange(1);
   };
 
   const aplicarColunasOcultas = () => {
@@ -244,30 +298,45 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
 
   const colunasVisiveis = colunasTabela.filter(c => !colunasOcultas.includes(c));
 
+  // Opções combinando os dados do banco (que já traz todos os distintos) e pesquisa dinâmica caso busque algo específico
   const opcoesFiltroAtual = useMemo(() => {
-    if (!menuAtivo || menuAtivo.tipo !== 'excel') return [];
-    const coluna = menuAtivo.coluna;
-    const vistos = new Set();
-    const lista = [];
+    let baseOpcoes = [];
 
-    data.forEach(item => {
-      let val = item[coluna];
-      let isNull = (val === null || val === undefined || String(val).trim() === "");
-      let chave = isNull ? "##NULL##" : String(val);
-      let exibicao = isNull ? "-" : formatarDado(val, coluna);
-
-      if (!vistos.has(chave)) {
-        if (termoBuscaFiltro === "" || exibicao.toLowerCase().includes(termoBuscaFiltro.toLowerCase())) {
+    if (opcoesBancoColuna.length > 0) {
+      baseOpcoes = opcoesBancoColuna;
+    } else {
+      const coluna = menuAtivo?.coluna;
+      if (!coluna) return [];
+      const vistos = new Set();
+      data.forEach(item => {
+        let val = item[coluna];
+        let isNull = (val === null || val === undefined || String(val).trim() === "");
+        let chave = isNull ? "##NULL##" : String(val);
+        let exibicao = isNull ? "-" : formatarDado(val, coluna);
+        if (!vistos.has(chave)) {
           vistos.add(chave);
-          lista.push({ chave, exibicao });
+          baseOpcoes.push({ chave, exibicao });
         }
-      }
-    });
-    return lista.sort((a, b) => a.exibicao.localeCompare(b.exibicao));
-  }, [menuAtivo, data, termoBuscaFiltro]);
+      });
+    }
+
+    // Filtragem local pelo termo digitado
+    if (!termoBuscaFiltro) return baseOpcoes.sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+
+    const termoLower = termoBuscaFiltro.toLowerCase();
+    const filtradasLocal = baseOpcoes.filter(op => op.exibicao.toLowerCase().includes(termoLower));
+
+    // Se o usuário digitou algo e não encontrou localmente nas opções carregadas, podemos simular ou garantir que o banco cubra.
+    // Como `opcoesBancoColuna` já puxa todos os distintos do banco, se não achar nem lá, retornará vazio.
+    return filtradasLocal.sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+  }, [opcoesBancoColuna, menuAtivo, data, termoBuscaFiltro]);
 
   const temFiltroNaColunaAtual = menuAtivo && menuAtivo.tipo === 'excel' && filtrosGlobais[menuAtivo.coluna] && filtrosGlobais[menuAtivo.coluna].length > 0;
   const temQualquerFiltroAtivo = Object.keys(filtrosGlobais).some(col => filtrosGlobais[col] && filtrosGlobais[col].length > 0);
+
+  if (data.length > 0 && colunasTabela.length === 0) {
+    return null;
+  }
 
   return (
     <div className={`table-card ${telaCheia ? "maximized" : ""}`}>
@@ -284,8 +353,9 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
               </th>
 
               {colunasVisiveis.map((col, idx) => {
-                const ativo = filtrosGlobais[col] && filtrosGlobais[col].length > 0 || ordenacao.coluna === col;
+                const ativo = (filtrosGlobais[col] && filtrosGlobais[col].length > 0) || ordenacao.coluna === col;
                 const nomeExibicao = colunasApelidos[col] || col.toUpperCase();
+
                 return (
                   <th 
                     key={col} 
@@ -324,28 +394,40 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
           </thead>
 
           <tbody>
-            {dadosPagina.length === 0 ? (
+            {dadosProcessados.length === 0 ? (
               <tr>
                 <td colSpan={colunasVisiveis.length + 1} style={{ textAlign: 'center', padding: '20px', color: '#6b7280', backgroundColor: '#fff' }}>
                   Nenhum registro encontrado.
                 </td>
               </tr>
             ) : (
-              dadosPagina.map(row => (
-                <tr key={row.id || Math.random()} className={linhasSelecionadas.has(row.id) ? "selected" : ""}>
-                  <td className="table-col-checkbox-td">
-                    <input 
-                      type="checkbox" 
-                      checked={linhasSelecionadas.has(row.id)} 
-                      onChange={() => toggleSelecionarLinha(row.id)} 
-                      className="table-col-checkbox-input"
-                    />
-                  </td>
-                  {colunasVisiveis.map(col => (
-                    <td key={col}>{formatarDado(row[col], col)}</td>
-                  ))}
-                </tr>
-              ))
+              dadosProcessados.map(row => {
+                const selecionada = linhasSelecionadas.has(row.id);
+
+                return (
+                  <tr key={row.id || Math.random()} className={selecionada ? "selected" : ""}>
+                    <td 
+                      className="table-col-checkbox-td"
+                      onDoubleClick={handleDoubleClickCheckboxCell}
+                      title="Dê duplo clique para selecionar/desselecionar todos"
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={selecionada} 
+                        onChange={() => toggleSelecionarLinha(row.id)} 
+                        className="table-col-checkbox-input"
+                      />
+                    </td>
+                    {colunasVisiveis.map((col) => {
+                      return (
+                        <td key={col}>
+                          {formatarDado(row[col], col)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -354,34 +436,44 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
       {/* RODAPÉ E PAGINAÇÃO COMPACTO */}
       <div className="pagination-bar">
         <div className="page-controls" style={{ fontWeight: '500', color: '#334155' }}>
-          Mostrando <strong>{dadosProcessados.length}</strong> de <strong>{data.length}</strong> registros
+          Mostrando <strong>{dadosProcessados.length}</strong> de <strong>{totalRegistrosReal}</strong> registros do banco
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="page-controls">
             <span>Mostrar:</span>
-            <select value={registrosPorPagina} onChange={e => { setRegistrosPorPagina(Number(e.target.value)); setPaginaAtual(1); }}>
+            <select value={registrosPorPagina} onChange={e => { if (onLimitChange) onLimitChange(Number(e.target.value)); }}>
               <option value="50">50</option>
               <option value="100">100</option>
               <option value="500">500</option>
+              <option value="1000">1000</option>
             </select>
           </div>
 
           <div className="page-controls">
             <span className="page-indicator">Página {paginaAtual} de {totalPaginas}</span>
             <div className="page-buttons-group">
-              <button disabled={paginaAtual === 1} onClick={() => setPaginaAtual(1)}><ChevronLeft size={14}/><ChevronLeft size={14}/></button>
-              <button disabled={paginaAtual === 1} onClick={() => setPaginaAtual(p => p - 1)}><ChevronLeft size={14}/></button>
-              <button disabled={paginaAtual === totalPaginas} onClick={() => setPaginaAtual(p => p + 1)}><ChevronRight size={14}/></button>
-              <button disabled={paginaAtual === totalPaginas} onClick={() => setPaginaAtual(totalPaginas)}><ChevronRight size={14}/><ChevronRight size={14}/></button>
+              <button disabled={paginaAtual === 1} onClick={() => onPageChange && onPageChange(1)} title="Primeira Página">
+                <div style={{ display: 'flex', marginLeft: '-2px' }}><ChevronLeft size={14} /><ChevronLeft size={14} style={{ marginLeft: '-6px' }} /></div>
+              </button>           
+              
+              <button disabled={paginaAtual === 1} onClick={() => onPageChange && onPageChange(paginaAtual - 1)} title="Página Anterior">
+                <ChevronLeft size={14}/>
+              </button>           
+              
+              <button disabled={paginaAtual === totalPaginas} onClick={() => onPageChange && onPageChange(paginaAtual + 1)} title="Próxima Página">
+                <ChevronRight size={14}/>
+              </button>           
+              
+              <button disabled={paginaAtual === totalPaginas} onClick={() => onPageChange && onPageChange(totalPaginas)} title="Última Página">
+                <div style={{ display: 'flex', marginRight: '-2px' }}><ChevronRight size={14} /><ChevronRight size={14} style={{ marginLeft: '-6px' }} /></div>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ==========================================================================
-         CARDS FLUTUANTES (EXCEL E GERENCIAR COLUNAS)
-         ========================================================================== */}
+      {/* CARDS FLUTUANTES (EXCEL E GERENCIAR COLUNAS) */}
       {menuAtivo && (
         <div 
           ref={popupRef} 
@@ -391,8 +483,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
         >
           {menuAtivo.tipo === 'excel' && (
             <div className="excel-card-completo">
-              
-              {/* NOME DA COLUNA E EDIÇÃO */}
               <div className="excel-column-title-box">
                 {editandoNome ? (
                   <div style={{ display: 'flex', gap: '4px', width: '100%', alignItems: 'center' }}>
@@ -419,7 +509,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
 
               <div className="menu-opcoes-divider"></div>
 
-              {/* ORDENAÇÃO */}
               <div className="excel-section">
                 <button 
                   className={`excel-filter-item menu-opcoes-btn bg-transparent ${ordenacao.coluna === menuAtivo.coluna && ordenacao.asc ? 'ordenacao-ativa' : ''}`} 
@@ -439,7 +528,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
 
               <div className="menu-opcoes-divider"></div>
 
-              {/* FILTROS NUMÉRICOS EM UMA SÓ LINHA */}
               <div className="excel-section">
                 <span className="excel-filter-header">Filtro Numérico (Condicional)</span>
                 <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
@@ -464,7 +552,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
 
               <div className="menu-opcoes-divider"></div>
 
-              {/* FILTRO POR VALORES (FIXO PARA 6 LINHAS + FANTOMAS CINZAS) */}
               <div className="excel-section">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1px' }}>
                   <span className="excel-filter-header">Filtrar por Valores</span>
@@ -490,28 +577,32 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
                   <span className="excel-filter-header-acoes" onClick={() => setTempFiltrosCheckbox(new Set(opcoesFiltroAtual.map(o => o.chave)))}>Selecionar Todos</span>
                   <span className="excel-filter-header-acoes" onClick={() => setTempFiltrosCheckbox(new Set())}>Limpar</span>
                 </div>
-                
-                <div className="excel-filter-list-valores">
-                  {opcoesFiltroAtual.map(op => {
-                    const marcado = tempFiltrosCheckbox.has(op.chave);
-                    return (
-                      <label key={op.chave} className="excel-filter-item">
-                        <input 
-                          type="checkbox" 
-                          checked={marcado} 
-                          onChange={(e) => {
-                            const novo = new Set(tempFiltrosCheckbox);
-                            if (e.target.checked) novo.add(op.chave);
-                            else novo.delete(op.chave);
-                            setTempFiltrosCheckbox(novo);
-                          }} 
-                        />
-                        <span>{op.exibicao}</span>
-                      </label>
-                    );
-                  })}
 
-                  {Array.from({ length: Math.max(0, 6 - opcoesFiltroAtual.length) }).map((_, index) => (
+                <div className="excel-filter-list-valores">
+                  {loadingOpcoes ? (
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '0.8rem', color: '#64748b' }}>Carregando valores...</div>
+                  ) : (
+                    opcoesFiltroAtual.map(op => {
+                      const marcado = tempFiltrosCheckbox.has(op.chave);
+                      return (
+                        <label key={op.chave} className="excel-filter-item">
+                          <input 
+                            type="checkbox" 
+                            checked={marcado} 
+                            onChange={(e) => {
+                              const novo = new Set(tempFiltrosCheckbox);
+                              if (e.target.checked) novo.add(op.chave);
+                              else novo.delete(op.chave);
+                              setTempFiltrosCheckbox(novo);
+                            }} 
+                          />
+                          <span>{op.exibicao}</span>
+                        </label>
+                      );
+                    })
+                  )}
+
+                  {!loadingOpcoes && Array.from({ length: Math.max(0, 6 - opcoesFiltroAtual.length) }).map((_, index) => (
                     <div key={`vazio-${index}`} className="excel-filter-item-vazio">
                       <div className="excel-vazio-checkbox-mock"></div>
                       <div className="excel-vazio-linha-mock"></div>
@@ -520,7 +611,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
                 </div>
               </div>
 
-              {/* RODAPÉ DO CARD */}
               <div className="excel-filter-footer">
                 {temFiltroNaColunaAtual && (
                   <button className="btn-limpar-filtro" onClick={() => limparFiltroColuna(menuAtivo.coluna)}>Limpar Filtro</button>
@@ -530,11 +620,9 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
                   <button className="btn-aplicar-filtro" onClick={() => aplicarFiltrosCompletos(menuAtivo.coluna)}>Aplicar</button>
                 </div>
               </div>
-
             </div>
           )}
 
-          {/* GERENCIAR COLUNAS */}
           {menuAtivo.tipo === 'colunas' && (
             <div className="excel-card-completo" onClick={(e) => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
@@ -576,7 +664,6 @@ export default function DataTable({ data = [], tableId = "tabela_geral", onSelec
                 })}
               </div>
 
-              {/* RODAPÉ DO CARD DE COLUNAS */}
               <div className="excel-filter-footer">
                 <button className="btn-cancelar" onClick={() => setMenuAtivo(null)}>Cancelar</button>
                 <div className="excel-filter-footer-group">

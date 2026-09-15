@@ -38,7 +38,7 @@ export default function Reset() {
     setLoading(true);
     try {
       const { data: usuario, error: erroBusca } = await supabase
-        .from("0-Interno_usuarios")
+        .from("tabi_cad_usuarios")
         .select("id, email, situacao")
         .eq("email", email.toLowerCase().trim())
         .single();
@@ -50,7 +50,7 @@ export default function Reset() {
       const salt = bcrypt.genSaltSync(10);
       const senhaHash = bcrypt.hashSync(novaSenhaTemp, salt);
 
-      const { error: erroUpdate } = await supabase.from("0-Interno_usuarios").update({ 
+      const { error: erroUpdate } = await supabase.from("tabi_cad_usuarios").update({ 
         senha: senhaHash, senha_temporaria: true 
       }).eq("id", usuario.id);
 

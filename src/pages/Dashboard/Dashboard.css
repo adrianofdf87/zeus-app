@@ -68,7 +68,7 @@
 }
 
 /* ==========================================================================
-   AVATAR E MENU FLUTUANTE (SEM PISCAR)
+   AVATAR E MENU FLUTUANTE
    ========================================================================== */
 .user-avatar-wrapper {
   position: relative;
@@ -132,7 +132,6 @@
   color: #38bdf8;
 }
 
-/* Menu Dropdown Flutuante Estilizado */
 .avatar-dropdown-menu {
   position: absolute;
   top: 42px;
@@ -181,44 +180,30 @@
   color: #ef4444;
 }
 
+/* ==========================================================================
+   INFORMAÇÕES DO USUÁRIO (TEXTO ALINHADO E ESTILIZADO)
+   ========================================================================== */
 .user-info {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  height: 36px;
   min-width: 0;
-  gap: 1px;
-}
-
-/* Nome do usuário seguindo a tipografia unificada da sidebar */
-.user-name-text {
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  color: #ffffff !important;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 2px;
 }
 
 .user-info span {
-  font-size: 10px;
-  color: #38bdf8;
-  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-/* Tag de perfil com a mesma cor exata do Bom dia (#38bdf8) */
-.user-perfil-tag {
-  font-size: 10px !important;
+  line-height: 1;
+  font-weight: 400 !important;
   color: #38bdf8 !important;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.3px !important;
 }
 
+/* ==========================================================================
+   MENU DE NAVEGAÇÃO
+   ========================================================================== */
 .menu {
   flex: 1;
   overflow-y: auto;
@@ -340,6 +325,9 @@
   color: #38bdf8;
 }
 
+/* ==========================================================================
+   CONTEÚDO PRINCIPAL
+   ========================================================================== */
 .content {
   flex: 1;
   display: flex;
@@ -449,6 +437,9 @@
   font-weight: 500;
 }
 
+/* ==========================================================================
+   ESTILIZAÇÃO SWEETALERT
+   ========================================================================== */
 .swal2-actions {
   display: flex !important;
   justify-content: center;
@@ -465,9 +456,6 @@
   font-family: 'Inter', sans-serif;
 }
 
-/* ==========================================================================
-   ESTILIZAÇÃO PROFISSIONAL PARA O MODAL DO SWEETALERT (FOTO DE PERFIL / OUTROS)
-   ========================================================================== */
 .swal2-enterprise-modal {
   border-radius: 14px !important;
   overflow: hidden;
@@ -529,6 +517,9 @@
   color: #1e293b !important;
 }
 
+/* ==========================================================================
+   PÁGINAS INTERNAS
+   ========================================================================== */
 .page-container {
   flex: 1;
   min-height: 0;

@@ -1,0 +1,961 @@
+/* Trava o scroll global da página quando esta aba estiver ativa */
+html, body {
+    height: 100%;
+    overflow: hidden !important;
+}
+
+/* Container raiz preenchendo exatamente a altura disponível da tela */
+.data-apoio-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden !important;
+    background-color: #f8fafc;
+}
+
+/* Cabeçalho fixo no topo */
+.data-apoio-header {
+    flex-shrink: 0;
+    background-color: #f8fafc;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    position: relative;
+}
+
+.data-apoio-header h2 {
+    font-size: 1.3rem;
+    color: #1e293b;
+    margin: 0 0 2px 0;
+    font-weight: 600;
+}
+
+.data-apoio-header p {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* Barra de Filtros fixa logo abaixo do cabeçalho */
+.filter-bar {
+    flex-shrink: 0;
+    background-color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    z-index: 10;
+}
+
+/* ÁREA COM SCROLL EXCLUSIVO: Ocupa o restante da tela e rola apenas os cards */
+#gridTabelasApoio {
+    flex: 1;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-right: 6px;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+}
+
+/* GRUPOS E CARDS */
+.grupo-desenvolvedor-container {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.grupo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.grupo-header h3 {
+    font-size: 1rem;
+    color: #1e293b;
+    margin: 0;
+    font-weight: 600;
+}
+
+.grupo-grid-atalhos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+}
+
+.link-card-wrapper {
+    position: relative;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.link-card-wrapper:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 16px -3px rgba(0, 0, 0, 0.08);
+}
+
+.link-card {
+    background: transparent;
+    border: none;
+    padding: 8px 9px 6px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-decoration: none;
+    color: inherit;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+    flex: 1;
+}
+
+.card-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.card-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.card-icon i {
+    width: 14px;
+    height: 14px;
+}
+
+.card-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.card-content h3 {
+    font-size: 0.8rem;
+    color: #0f172a;
+    margin: 0 0 1px 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-content p {
+    font-size: 0.68rem;
+    color: #475569;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.card-action {
+    color: #94a3b8;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.link-card-wrapper:hover .card-action {
+    color: #0f172a;
+}
+
+.card-meta-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px 5px 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.card-info-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.card-badge-area {
+    font-size: 0.6rem;
+    font-weight: 500;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.8);
+    color: #334155;
+    border: 1px solid rgba(0,0,0,0.04);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+}
+
+.card-badge-dev {
+    font-size: 0.6rem;
+    color: #64748b;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70px;
+}
+
+.card-badge-count {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.card-options {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.card-options button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border-radius: 3px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.card-options button i {
+    width: 7px !important;
+    height: 7px !important;
+    stroke-width: 2.5;
+}
+
+.card-options button:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #1e293b;
+}
+
+.card-options button.btn-delete:hover {
+    background: #fef2f2;
+    color: #ef4444;
+}
+
+/* Modais do SweetAlert2 */
+.swal2-popup {
+    border-radius: 14px !important;
+    padding: 24px !important;
+    font-family: inherit !important;
+}
+
+/* LARGURA DO MODAL DE CADASTRO AJUSTADA PARA 1350PX */
+.swal2-popup.swal-atalho-modal {
+    width: 650px !important;
+    max-width: 95vw !important;
+    overflow: visible !important;
+}
+
+/* Aumento de +30% na largura do modal da Tabela */
+.swal2-popup.swal-tabela-crud-modal {
+    width: 1000px !important;
+    max-width: 95vw !important;
+    min-height: 600px !important;
+}
+
+/* Força a ocultação do botão OK no modal de listagem da tabela */
+.swal2-popup.swal-tabela-crud-modal .swal2-confirm {
+    display: none !important;
+}
+
+.swal2-popup.swal-feedback .swal2-cancel {
+    display: none !important;
+}
+
+.swal2-popup.swal-feedback .swal2-confirm {
+    display: flex !important;
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    height: 42px !important;
+    margin: 0 auto !important;
+}
+
+/* =========================================================
+   ESTILIZAÇÃO DO CABEÇALHO DO MODAL (FORMATO DA IMAGEM)
+   ========================================================= */
+
+.swal-modal-header-custom {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.modal-header-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.modal-header-icon i {
+    width: 26px;
+    height: 26px;
+}
+
+.modal-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.modal-header-text h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.modal-header-text p {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0;
+}
+
+/* =========================================================
+   DIV DE FERRAMENTAS DO CRUD (BUSCA + BOTÕES)
+   ========================================================= */
+
+.crud-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    gap: 16px;
+}
+
+.crud-search-box {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0 12px;
+    flex: 1;
+    max-width: 350px;
+    height: 38px;
+    transition: all 0.2s ease;
+}
+
+.crud-search-box i {
+    color: #64748b;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+}
+
+.crud-search-box input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    font-size: 0.85rem;
+    color: #1e293b;
+}
+
+.crud-search-box input::placeholder {
+    color: #94a3b8;
+}
+
+.crud-search-box:focus-within {
+    border-color: #005596;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(0, 85, 150, 0.1);
+}
+
+.crud-action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* =========================================================
+   BOTÕES DE CRUD
+   ========================================================= */
+
+.btn-adicionar-registro {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    height: 38px;
+    width: 150px;
+    transition: background 0.2s;
+}
+
+.btn-adicionar-registro:hover {
+    background: #059669;
+}
+
+.btn-adicionar-registro i {
+    width: 14px; height: 14px;
+}
+
+/* BOTÃO IMPORTAR */
+.btn-importar-registro {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    height: 38px;
+    width: 150px;
+    transition: all 0.2s;
+}
+
+.btn-importar-registro:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+.btn-importar-registro i {
+    width: 14px; height: 14px;
+}
+
+/* =========================================================
+   ESTILOS DA TABELA DE CRUD INTERNO
+   ========================================================= */
+
+.tabela-apoio-estilizada {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    text-align: left;
+    font-size: 0.85rem;
+}
+
+.tabela-apoio-estilizada thead {
+    background-color: #f1f5f9;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.tabela-apoio-estilizada th {
+    padding: 10px 12px;
+    color: #475569;
+    font-weight: 600;
+    border-bottom: 2px solid #cbd5e1;
+    white-space: nowrap;
+}
+
+.tabela-apoio-estilizada td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #1e293b;
+}
+
+.tabela-apoio-estilizada tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.btn-acao-crud {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-acao-crud i {
+    width: 12px; height: 12px; stroke-width: 2.5;
+}
+
+.btn-acao-crud.edit:hover {
+    background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8;
+}
+
+.btn-acao-crud.delete:hover {
+    background: #fef2f2; border-color: #fecaca; color: #dc2626;
+}
+
+/* FORMULÁRIO SWEET ALERT */
+.swal-form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+    overflow: visible !important;
+    position: relative;
+}
+
+.swal-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.swal-form-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.swal-form-input, 
+.swal-form-select,
+.icon-selector-trigger {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    outline: none;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    color: #1e293b;
+}
+
+.swal-form-input:focus,
+.swal-form-select:focus,
+.icon-selector-trigger:hover {
+    border-color: #005596;
+    box-shadow: 0 0 0 3px rgba(0, 85, 150, 0.1);
+}
+
+.swal-esconder-cancelamento {
+    display: none !important;
+}
+
+.icon-selector-trigger {
+    background-color: #f8fafc;
+    cursor: pointer;
+    justify-content: space-between;
+}
+
+.leque-popover-flutuante {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    padding: 16px;
+    z-index: 9999999 !important;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.leque-header-busca {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+}
+
+.leque-btn-fechar {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+.icon-popup-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    overflow-y: auto;
+    flex: 1;
+    padding: 2px;
+}
+
+.icon-popup-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: 64px;
+    padding: 7px 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.icon-popup-option svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 2;
+    flex-shrink: 0;
+}
+
+.icon-popup-option span {
+    display: block;
+    width: 100%;
+    font-size: 10px;
+    line-height: 12px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #475569;
+}
+
+.icon-popup-option:hover,
+.icon-popup-option.active {
+    border-color: #005596;
+    color: #005596;
+    background: #f0f6ff;
+}
+
+.icon-popup-option:hover span,
+.icon-popup-option.active span {
+    color: #005596;
+}
+
+.swal2-actions {
+    display: flex !important;
+    gap: 12px !important;
+    margin-top: 24px !important;
+    width: 100% !important;
+}
+
+.swal2-confirm, .swal2-cancel {
+    flex: 1 !important;
+    height: 42px !important;
+    margin: 0 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.swal2-confirm { background-color: #005596 !important; color: #ffffff !important; }
+.swal2-cancel { background-color: #f1f5f9 !important; color: #1e293b !important; border: 1px solid #e2e8f0 !important; }
+
+.swal2-actions .swal-botao-ok-curto {
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    margin: 0 auto !important;
+}
+
+/* FILTROS E BADGES */
+.filter-controls-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 14px 16px;
+    border-radius: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.filter-select-group {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-control-field {
+    height: 28px;
+    width: 160px;
+    padding: 0 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-size: 0.7rem;
+    background: #f8fafc;
+    color: #1e293b;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.filter-control-field:focus {
+    border-color: #0284c7;
+    background: #ffffff;
+}
+
+select.filter-control-field {
+    cursor: pointer;
+}
+
+.filter-btn-aplicar {
+    height: 28px;
+    padding: 0 10px;
+    background: #005596;
+    color: #ffffff;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.filter-btn-aplicar:hover {
+    background: #004074;
+}
+
+.filter-btn-limpar-todos {
+    height: 28px;
+    padding: 0 8px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    border-radius: 7px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.filter-badges-container {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-top: 3px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.active-filter-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+}
+
+.active-filter-badge button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1d4ed8;
+    padding: 0;
+}
+
+.card-badge-visibilidade {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    text-transform: uppercase;
+}
+
+/* BOTÃO DE ADICIONAR CARD */
+.btn-adicionar-card-global {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 34px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #005596;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 85, 150, 0.18);
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-adicionar-card-global svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.5;
+}
+
+.btn-adicionar-card-global:hover {
+    background: #004074;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 85, 150, 0.25);
+}
+
+@keyframes spin { 
+    100% { transform: rotate(360deg); } 
+}
+
+/* =========================================================
+   ESTILOS DE ORDENAÇÃO DE TABELA
+   ========================================================= */
+
+.tabela-apoio-estilizada th.th-ordenavel {
+    cursor: pointer;
+    transition: background-color 0.2s;
+    user-select: none;
+}
+
+.tabela-apoio-estilizada th.th-ordenavel:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+.tabela-apoio-estilizada th.th-ordenavel:hover i {
+    opacity: 1 !important;
+    color: #005596;
+}
+
+/* =======================================================
+   BOTÃO DE EXPORTAR (Excel) NA TOOLBAR DO MODAL
+   ======================================================= */
+
+.btn-exportar-registro {
+    background-color: #005596;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-exportar-registro:hover:not(:disabled) {
+    background-color: #025ba0;
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-exportar-registro:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.btn-exportar-registro:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.8;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-exportar-registro i {
+    width: 15px;
+    height: 15px;
+}

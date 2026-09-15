@@ -1,407 +1,306 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Outlet, Link } from "react-router-dom";
-import { 
-  ChevronLeft, User, Home, Sliders, ChevronDown, Users, 
-  Truck, Zap, Wallet, CalendarRange, TrendingUp, Database, 
-  FileText, Settings, Lock, Menu, LogOut, Camera, Trash2, Upload 
-} from "lucide-react";
+import { ChevronLeft, User, Home, ChevronDown, Users, Zap, Wallet, CalendarRange, TrendingUp, Database, Settings, Lock, Menu, LogOut, Camera, Trash2, Upload, Bell } from "lucide-react";
 import bcrypt from "bcryptjs";
 import Swal from "sweetalert2";
 import { supabase } from "../../services/supabase";
 import "./Dashboard.css"; 
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState("");
   const [menuPerfilAberto, setMenuPerfilAberto] = useState(false);
-  const [userData, setUserData] = useState({ 
-    nome: "Carregando...", 
-    id_sessao: "...", 
-    perfil: "", 
-    foto: null 
-  });
-  const fileInputRef = useRef(null);
-  const menuRef = useRef(null);
-  const navigate = useNavigate();
+  const [userData, setUserData] = useState({ nome: "Carregando...", id_sessao: "...", perfil: "", foto: null });
+  
+  // ESTADO PARA NOTIFICAÇÕES
+  const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
+  
+  const fileInputRef = useRef(null), menuRef = useRef(null), navigate = useNavigate();
 
-  // =========================
-  // VALIDAÇÃO E INATIVIDADE
-  // =========================
   useEffect(() => {
-    let tempoInatividade;
-    let canalSessao; 
+    let tempoInat, canalSessao;
+    const eventos = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
     
-    const resetarTemporizador = () => {
-      clearTimeout(tempoInatividade);
-      tempoInatividade = setTimeout(() => {
-        encerrarSessao("Sua sessão foi encerrada por inatividade de 15 minutos.");
-      }, 900000); // 15 minutos
+    const resetTimer = () => {
+      clearTimeout(tempoInat);
+      tempoInat = setTimeout(() => encerrarSessao("Sessão encerrada por inatividade (15 min)."), 900000);
     };
 
     const validarSessao = async () => {
       try {
-        const dadosLocal = localStorage.getItem("usuario_logado");
-        const idLocal = localStorage.getItem("id_sessao");
+        const dadosL = localStorage.getItem("usuario_logado"), idL = localStorage.getItem("id_sessao");
+        if (!dadosL || !idL) throw new Error("Faltam dados de autenticação.");
+        const userObj = JSON.parse(dadosL);
 
-        if (!dadosLocal || !idLocal) throw new Error("Faltam dados de autenticação no navegador.");
-        const usuarioObj = JSON.parse(dadosLocal);
+        const { data: usr, error } = await supabase.from("tabi_cad_usuarios").select("id_sessao, situacao, nome, \"Perfil\"").eq("id", userObj.id).single();
+        if (error || !usr) throw new Error("Usuário não encontrado.");
+        if (usr.situacao?.toUpperCase() !== "ATIVO") throw new Error("Conta inativa.");
+        if (usr.id_sessao !== idL) throw new Error("Sessão inválida.");
 
-        const { data: usuario, error } = await supabase
-          .from("0-Interno_usuarios")
-          .select("id_sessao, situacao, nome, \"Perfil\"")
-          .eq("id", usuarioObj.id)
-          .single();
+        setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
 
-        if (error) throw new Error(`Erro ao buscar usuário: ${error.message}`);
-        if (!usuario) throw new Error("Usuário não encontrado no banco de dados.");
-        if (usuario.situacao?.toUpperCase() !== "ATIVO") throw new Error(`Conta inativa.`);
-        if (usuario.id_sessao !== idLocal) throw new Error("O ID da sessão no banco não atualizou.");
-
-        const fotoSalva = localStorage.getItem(`foto_perfil_${usuarioObj.id}`) || null;
-
-        setUserData({ 
-          nome: usuario.nome, 
-          id_sessao: usuario.id_sessao, 
-          perfil: usuario.Perfil || usuario.perfil || "Usuário",
-          foto: fotoSalva 
-        });
-
-        const nomeCanalUnico = `usuario-${usuarioObj.id}-${Date.now()}`;
-
-        canalSessao = supabase.channel(nomeCanalUnico)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: '0-Interno_usuarios', filter: `id=eq.${usuarioObj.id}` }, (payload) => {
-            if (payload.new.id_sessao !== idLocal) encerrarSessao("Sessão iniciada em outro dispositivo.");
-          })
-          .subscribe();
-
-      } catch (e) {
-        console.error("Falha na Sessão:", e);
-        encerrarSessao(`Falha na segurança: ${e.message}`); 
-      }
+        canalSessao = supabase.channel(`usr-${userObj.id}-${Date.now()}`)
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tabi_cad_usuarios', filter: `id=eq.${userObj.id}` }, 
+            (p) => p.new.id_sessao !== idL && encerrarSessao("Sessão iniciada em outro dispositivo.")).subscribe();
+      } catch (e) { encerrarSessao(`Falha: ${e.message}`); }
     };
+
+    const clickFora = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenuPerfilAberto(false);
 
     validarSessao();
-    
-    ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'].forEach(e => document.addEventListener(e, resetarTemporizador));
-    resetarTemporizador();
-
-    // Fecha o menu flutuante ao clicar fora dele
-    const handleClickFora = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuPerfilAberto(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickFora);
+    eventos.forEach(e => document.addEventListener(e, resetTimer));
+    document.addEventListener("mousedown", clickFora);
+    resetTimer();
 
     return () => {
-      clearTimeout(tempoInatividade);
-      ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'].forEach(e => document.removeEventListener(e, resetarTemporizador));
-      document.removeEventListener("mousedown", handleClickFora);
-      
-      if (canalSessao) {
-        supabase.removeChannel(canalSessao);
-      }
+      clearTimeout(tempoInat);
+      eventos.forEach(e => document.removeEventListener(e, resetTimer));
+      document.removeEventListener("mousedown", clickFora);
+      if (canalSessao) supabase.removeChannel(canalSessao);
     };
   }, [navigate]);
 
-  const encerrarSessao = async (msg) => {
-    await Swal.fire({ icon: "warning", title: "Sessão encerrada", text: msg, confirmButtonColor: "#005596" });
-    deslogar();
-  };
-
   const deslogar = async (perguntar = false) => {
     if (perguntar) {
-      const r = await Swal.fire({ 
-        title: "Deseja sair?", icon: "question", showCancelButton: true, 
-        confirmButtonText: "Sair", cancelButtonText: "Cancelar", confirmButtonColor: "#d93025" 
-      });
+      const r = await Swal.fire({ title: "Deseja sair?", icon: "question", showCancelButton: true, confirmButtonText: "Sair", confirmButtonColor: "#d93025" });
       if (!r.isConfirmed) return;
     }
-
-    const dadosLocal = localStorage.getItem("usuario_logado");
-    if (dadosLocal) {
-      const { id } = JSON.parse(dadosLocal);
-      await supabase.from("0-Interno_usuarios").update({ id_sessao: null, data_sessao: null }).eq("id", id);
-    }
-    
+    const userL = JSON.parse(localStorage.getItem("usuario_logado") || "null");
+    if (userL) await supabase.from("tabi_cad_usuarios").update({ id_sessao: null, data_sessao: null }).eq("id", userL.id);
     localStorage.clear();
     navigate("/");
   };
 
-  // =========================
-  // GERENCIAR FOTO DE PERFIL (FLUIDO, SEM PISCAR E COM LOADER)
-  // =========================
-  const handleAvatarClick = () => {
-    const temFoto = !!userData.foto;
-    if (!temFoto) {
-      // Se não tem foto, abre o explorador de arquivos na hora
-      fileInputRef.current.click();
-    } else {
-      // Se tem foto, abre o menu suspenso nativo
-      setMenuPerfilAberto(prev => !prev);
-    }
+  const encerrarSessao = async (msg) => { await Swal.fire({ icon: "warning", title: "Atenção", text: msg, confirmButtonColor: "#005596" }); deslogar(); };
+
+  const atualizarFoto = (novaFoto, msg) => {
+    const usr = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
+    setMenuPerfilAberto(false);
+    const ldr = document.getElementById("global-loader");
+    if (ldr) ldr.classList.add("active");
+    
+    setTimeout(() => {
+      if (usr.id) {
+        novaFoto ? localStorage.setItem(`foto_perfil_${usr.id}`, novaFoto) : localStorage.removeItem(`foto_perfil_${usr.id}`);
+        setUserData(p => ({ ...p, foto: novaFoto }));
+        Swal.fire({ icon: "success", title: msg, timer: 1200, showConfirmButton: false });
+      }
+      if (ldr) ldr.classList.remove("active");
+    }, 300);
   };
 
   const handleTrocarFoto = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      Swal.fire("Arquivo muito grande", "Escolha uma imagem de até 2MB.", "error");
-      return;
-    }
-
-    // Fecha o menu flutuante imediatamente
-    setMenuPerfilAberto(false);
-
-    // Ativa o loader global do sistema para dar feedback visual imediato
-    const loader = document.getElementById("global-loader");
-    if (loader) loader.classList.add("active");
-
+    if (file.size > 2e6) return Swal.fire("Erro", "Escolha uma imagem de até 2MB.", "error");
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result;
-      const usuarioObj = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
-      
-      if (usuarioObj.id) {
-        localStorage.setItem(`foto_perfil_${usuarioObj.id}`, base64String);
-        
-        // Pequeno delay simulando processamento fluído para o loader aparecer bonito
-        setTimeout(() => {
-          setUserData(prev => ({ ...prev, foto: base64String }));
-          if (loader) loader.classList.remove("active");
-          Swal.fire({ icon: "success", title: "Foto atualizada!", timer: 1200, showConfirmButton: false });
-        }, 300);
-      } else {
-        if (loader) loader.classList.remove("active");
-      }
-    };
+    reader.onloadend = () => atualizarFoto(reader.result, "Foto atualizada!");
     reader.readAsDataURL(file);
   };
 
-  const handleRemoverFoto = () => {
-    const usuarioObj = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
-    
-    // Fecha o menu flutuante imediatamente
-    setMenuPerfilAberto(false);
-
-    // Ativa o loader global
-    const loader = document.getElementById("global-loader");
-    if (loader) loader.classList.add("active");
-
-    setTimeout(() => {
-      if (usuarioObj.id) {
-        localStorage.removeItem(`foto_perfil_${usuarioObj.id}`);
-        setUserData(prev => ({ ...prev, foto: null }));
-        if (loader) loader.classList.remove("active");
-        Swal.fire({ icon: "success", title: "Foto removida!", timer: 1200, showConfirmButton: false });
-      } else {
-        if (loader) loader.classList.remove("active");
-      }
-    }, 300);
-  };
-
-  // =========================
-  // ALTERAR SENHA
-  // =========================
   const abrirModalAlterarSenha = async () => {
-    const usuarioLocal = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
-    const { data: usuarioDb } = await supabase.from("0-Interno_usuarios").select("senha").eq("id", usuarioLocal.id).single();
-    
-    if (!usuarioDb) return;
-    const senhaAtualHash = usuarioDb.senha;
+    const usrL = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
+    const { data } = await supabase.from("tabi_cad_usuarios").select("senha").eq("id", usrL.id).single();
+    if (!data) return;
 
-    const iconLock = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-    const iconLockOpen = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#005596" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
+    const icLk = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+    const icUnlk = icLk.replace('#94a3b8', '#005596').replace('10 0v4', '9.9-1');
+    const inputHtml = (id, ph) => `<div style="position:relative;margin-bottom:10px;"><input type="password" id="${id}" class="swal2-input" placeholder="${ph}" style="width:100%;margin:0;padding-right:40px;box-sizing:border-box;"><button type="button" id="btn-${id}" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;">${icLk}</button></div>`;
 
-    const { value: formValues } = await Swal.fire({
+    const { value: form } = await Swal.fire({
       title: "Alterar Senha",
-      html: `
-        <div style="text-align: left; font-size: 14px; color: #555; margin-bottom: 20px;">
-          Por segurança, digite sua senha atual e escolha uma nova.<br><br>
-          <strong style="color: #005596;">Requisitos mínimos:</strong><br>
-          • Mínimo de 8 caracteres<br>
-          • Letras (maiúsculas e minúsculas)<br>
-          • Pelo menos um número<br>
-          • Pelo menos um caractere especial (&#@$)
-        </div>
-        <div style="position: relative; margin-bottom: 10px;">
-          <input type="password" id="swal-senha-atual" class="swal2-input" placeholder="Senha Atual" style="width: 100%; margin: 0; padding-right: 40px; box-sizing: border-box;">
-          <button type="button" id="btn-senha-atual" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">${iconLock}</button>
-        </div>
-        <div style="position: relative; margin-bottom: 10px;">
-          <input type="password" id="swal-nova-senha" class="swal2-input" placeholder="Nova Senha" style="width: 100%; margin: 0; padding-right: 40px; box-sizing: border-box;">
-          <button type="button" id="btn-nova-senha" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">${iconLock}</button>
-        </div>
-        <div style="position: relative; margin-bottom: 10px;">
-          <input type="password" id="swal-confirma-senha" class="swal2-input" placeholder="Confirme a Nova Senha" style="width: 100%; margin: 0; padding-right: 40px; box-sizing: border-box;">
-          <button type="button" id="btn-confirma-senha" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">${iconLock}</button>
-        </div>
-      `,
-      focusConfirm: false, showCancelButton: true, confirmButtonText: "Salvar", cancelButtonText: "Cancelar",
-      didOpen: () => {
-        ['atual', 'nova', 'confirma'].forEach(tipo => {
-          const input = document.getElementById(`swal-${tipo === 'atual' ? 'senha-atual' : tipo + '-senha'}`);
-          const btn = document.getElementById(`btn-${tipo === 'atual' ? 'senha-atual' : tipo + '-senha'}`);
-          btn.addEventListener('click', () => {
-            input.type = input.type === 'password' ? 'text' : 'password';
-            btn.innerHTML = input.type === 'password' ? iconLock : iconLockOpen;
-          });
-        });
-      },
+      html: `<div style="text-align:left;font-size:14px;color:#555;margin-bottom:20px;">Por segurança, digite sua senha atual e escolha uma nova.<br><br><strong style="color:#005596;">Requisitos mínimos:</strong><br>• Mín. 8 chars<br>• Letras (Maiús. e Minús.)<br>• 1 Número<br>• 1 Char especial (&#@$)</div>` + 
+            inputHtml('s-atual', 'Senha Atual') + inputHtml('s-nova', 'Nova Senha') + inputHtml('s-conf', 'Confirme a Nova Senha'),
+      focusConfirm: false, showCancelButton: true, confirmButtonText: "Salvar",
+      didOpen: () => ['s-atual', 's-nova', 's-conf'].forEach(id => {
+        const i = document.getElementById(id), b = document.getElementById(`btn-${id}`);
+        b.onclick = () => { i.type = i.type === 'password' ? 'text' : 'password'; b.innerHTML = i.type === 'password' ? icLk : icUnlk; };
+      }),
       preConfirm: () => {
-        const sAtual = document.getElementById('swal-senha-atual').value;
-        const nSenha = document.getElementById('swal-nova-senha').value;
-        const cSenha = document.getElementById('swal-confirma-senha').value;
-        const regexSenha = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[&#@$])[A-Za-z\d&#@$]{8,}$/;
-
-        if (!sAtual || !nSenha || !cSenha) return Swal.showValidationMessage("Preencha todos os campos.");
-        if (!bcrypt.compareSync(sAtual, senhaAtualHash)) return Swal.showValidationMessage("Senha atual incorreta.");
-        if (nSenha !== cSenha) return Swal.showValidationMessage("As novas senhas não coincidem.");
-        if (!regexSenha.test(nSenha)) return Swal.showValidationMessage("A nova senha não atende aos requisitos.");
-        if (bcrypt.compareSync(nSenha, senhaAtualHash)) return Swal.showValidationMessage("A nova senha não pode ser igual à atual.");
-        return nSenha;
+        const [a, n, c] = ['s-atual', 's-nova', 's-conf'].map(id => document.getElementById(id).value);
+        if (!a || !n || !c) return Swal.showValidationMessage("Preencha tudo.");
+        if (!bcrypt.compareSync(a, data.senha)) return Swal.showValidationMessage("Senha atual incorreta.");
+        if (n !== c) return Swal.showValidationMessage("Senhas não coincidem.");
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[&#@$])[A-Za-z\d&#@$]{8,}$/.test(n)) return Swal.showValidationMessage("Requisitos inválidos.");
+        if (bcrypt.compareSync(n, data.senha)) return Swal.showValidationMessage("Senha igual à atual.");
+        return n;
       }
     });
 
-    if (formValues) {
-      const novoHash = bcrypt.hashSync(formValues, bcrypt.genSaltSync(10));
-      await supabase.from("0-Interno_usuarios").update({ senha: novoHash }).eq("id", usuarioLocal.id);
+    if (form) {
+      await supabase.from("tabi_cad_usuarios").update({ senha: bcrypt.hashSync(form, 10) }).eq("id", usrL.id);
       Swal.fire("Sucesso!", "Senha atualizada.", "success");
     }
   };
 
-  const toggleMenu = (menuName) => setOpenMenu(openMenu === menuName ? "" : menuName);
+  const getSaudacao = () => { const h = new Date().getHours(); return h >= 5 && h < 12 ? "Bom dia," : h < 18 ? "Boa tarde," : "Boa noite,"; };
 
-  const getSaudacao = () => {
-    const hora = new Date().getHours();
-    if (hora >= 5 && hora < 12) return "Bom dia,";
-    if (hora >= 12 && hora < 18) return "Boa tarde,";
-    return "Boa noite,";
+  const itemMenuClass = {
+    justifyContent: sidebarOpen ? 'flex-start' : 'center',
+    padding: sidebarOpen ? '10px 12px' : '10px 0'
   };
 
   return (
     <div className="dashboard">
-      <aside className={`sidebar ${sidebarOpen ? "" : "hidden"}`} id="sidebar">
-        <div className="sidebar-header">
-          <button className="close-btn" onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none' }}><ChevronLeft /></button>
+      <aside className="sidebar" id="sidebar" style={{ width: sidebarOpen ? '250px' : '50px', transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        
+        <div className="sidebar-header" style={{ padding: sidebarOpen ? '0 14px' : '0', justifyContent: sidebarOpen ? 'flex-start' : 'center', display: 'flex', alignItems: 'center' }}>
           
-          {/* Avatar com suporte a menu suspenso sem piscar */}
-          <div className="user-avatar-wrapper" ref={menuRef}>
-            <div className="user-avatar-container" onClick={handleAvatarClick} title="Gerenciar foto do perfil">
-              {userData.foto ? (
-                <img src={userData.foto} alt="Perfil" className="user-avatar-img" />
-              ) : (
-                <div className="user-avatar"><User /></div>
-              )}
-              <div className="avatar-overlay">
-                <Camera size={12} color="#fff" />
+          {!sidebarOpen ? (
+            <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '60px' }}>
+              <Menu size={22} />
+            </button>
+          ) : (
+            <>
+              <button className="close-btn" onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none' }}>
+                <ChevronLeft />
+              </button>
+              
+              <div className="user-avatar-wrapper" ref={menuRef} style={{ margin: '0' }}>
+                <div 
+                  className="user-avatar-container" 
+                  onClick={() => {
+                    if (userData.foto) setMenuPerfilAberto(p => !p);
+                    else fileInputRef.current.click();
+                  }} 
+                  title="Gerenciar foto"
+                >
+                  {userData.foto ? <img src={userData.foto} alt="Perfil" className="user-avatar-img" /> : <div className="user-avatar"><User /></div>}
+                  <div className="avatar-overlay"><Camera size={12} color="#fff" /></div>
+                </div>
+                
+                {menuPerfilAberto && (
+                  <div className="avatar-dropdown-menu">
+                    <button onClick={() => { setMenuPerfilAberto(false); fileInputRef.current.click(); }}><Upload size={13} /> Nova Foto</button>
+                    <button onClick={() => atualizarFoto(null, "Foto removida!")} className="danger-option"><Trash2 size={13} /> Remover Foto</button>
+                  </div>
+                )}
               </div>
-            </div>
+              
+              <div className="user-info" style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                <span style={{ fontSize: '11px', color: '#fff', fontWeight: '500', textTransform: 'none', lineHeight: '1.1' }}>
+                  {getSaudacao()}
+                </span>
+                <span style={{ fontSize: '11px', color: '#fff', fontWeight: '500', textTransform: 'none', lineHeight: '1.1' }}>
+                  {userData.nome}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+        
+        <input type="file" ref={fileInputRef} onChange={handleTrocarFoto} accept="image/*" style={{ display: 'none' }} />
 
-            {/* Menu flutuante que aparece apenas se já houver foto cadastrada */}
-            {menuPerfilAberto && (
-              <div className="avatar-dropdown-menu">
-                <button onClick={() => { setMenuPerfilAberto(false); fileInputRef.current.click(); }}>
-                  <Upload size={13} /> Enviar Nova Foto
-                </button>
-                <button onClick={handleRemoverFoto} className="danger-option">
-                  <Trash2 size={13} /> Remover Foto
-                </button>
+        <div className="menu">
+          <Link to="/dashboard" style={itemMenuClass} title={!sidebarOpen ? "Início" : ""} onClick={() => setSidebarOpen(false)}>
+            <Home />
+            {sidebarOpen && <span>Início</span>}
+          </Link>
+          
+          <div className={`menu-item ${openMenu === "operacao" && sidebarOpen ? "open" : ""}`}>
+            <div className="menu-link" style={itemMenuClass} title={!sidebarOpen ? "Operação" : ""} onClick={() => { 
+                if (!sidebarOpen) setSidebarOpen(true); 
+                setOpenMenu(p => p === "operacao" ? "" : "operacao"); 
+            }}>
+              <Zap />
+              {sidebarOpen && <span>Operação</span>}
+              {sidebarOpen && <ChevronDown className="arrow" />}
+            </div>
+            
+            {sidebarOpen && (
+              <div className="submenu">
+                <Link to="/dashboard/carteira" onClick={() => setSidebarOpen(false)}><Wallet /><span>Carteira</span></Link>
+                <Link to="/dashboard/programacao" onClick={() => setSidebarOpen(false)}><CalendarRange /><span>Programação</span></Link>
+                <Link to="/dashboard/producao" onClick={() => setSidebarOpen(false)}><TrendingUp /><span>Produção</span></Link>
               </div>
             )}
           </div>
-
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleTrocarFoto} 
-            accept="image/*" 
-            style={{ display: 'none' }} 
-          />
-
-          <div className="user-info">
-            <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '600', textTransform: 'uppercase' }}>{getSaudacao()}</span>
-            <span className="user-name-text">{userData.nome}</span>
-            <span className="user-perfil-tag">{userData.perfil}</span>
+          
+          <Link to="/dashboard/tabelas-internas" style={itemMenuClass} title={!sidebarOpen ? "Database" : ""} onClick={() => setSidebarOpen(false)}>
+            <Database />
+            {sidebarOpen && <span>Database</span>}
+          </Link>
+          
+          <div className={`menu-item ${openMenu === "config" && sidebarOpen ? "open" : ""}`}>
+            <div className="menu-link" style={itemMenuClass} title={!sidebarOpen ? "Configurações" : ""} onClick={() => { 
+                if (!sidebarOpen) setSidebarOpen(true); 
+                setOpenMenu(p => p === "config" ? "" : "config"); 
+            }}>
+              <Settings />
+              {sidebarOpen && <span>Configurações</span>}
+              {sidebarOpen && <ChevronDown className="arrow" />}
+            </div>
+            
+            {sidebarOpen && (
+              <div className="submenu">
+                <Link to="/dashboard/usuarios" onClick={() => setSidebarOpen(false)}><Users /><span>Usuários</span></Link>
+                <a href="#" onClick={(e) => { e.preventDefault(); setSidebarOpen(false); abrirModalAlterarSenha(); }}><Lock /><span>Alterar Senha</span></a>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="menu">
-          <Link to="/dashboard"><Home /><span>Início</span></Link>
-
-          <div className={`menu-item ${openMenu === "atividades" ? "open" : ""}`}>
-            <div className="menu-link" onClick={() => toggleMenu("atividades")}>
-              <Zap /><span>Atividades</span><ChevronDown className="arrow" />
-            </div>
-            <div className="submenu">
-              <Link to="/dashboard/carteira"><Wallet /><span>Carteira</span></Link>
-              <Link to="/dashboard/programacao"><CalendarRange /><span>Programação</span></Link>
-              <Link to="/dashboard/producao"><TrendingUp /><span>Produção</span></Link>
-            </div>
-          </div>
-
-          <div className={`menu-item ${openMenu === "database" ? "open" : ""}`}>
-            <div className="menu-link" onClick={() => toggleMenu("database")}>
-              <Database /><span>Database</span><ChevronDown className="arrow" />
-            </div>
-            <div className="submenu">
-              <Link to="/dashboard/tabelas-externas"><FileText /><span>Tabelas Externas</span></Link>
-              <Link to="/dashboard/tabelas-internas"><Database /><span>Tabelas Internas</span></Link>
-            </div>
-          </div>
-
-          <div className={`menu-item ${openMenu === "configuracoes" ? "open" : ""}`}>
-            <div className="menu-link" onClick={() => toggleMenu("configuracoes")}>
-              <Settings /><span>Configurações</span><ChevronDown className="arrow" />
-            </div>
-            <div className="submenu">
-              <Link to="/dashboard/usuarios"><Users /><span>Usuários</span></Link>
-              <a href="#" onClick={(e) => { e.preventDefault(); abrirModalAlterarSenha(); }}><Lock /><span>Alterar Senha</span></a>
-            </div>
-          </div>
+        <div style={{ height: '50px', display: 'flex', alignItems: 'center', padding: sidebarOpen ? '0 8px' : '0', justifyContent: 'center', background: 'transparent' }}>
+          <button 
+            title={!sidebarOpen ? "Sair" : ""}
+            onClick={() => deslogar(true)} 
+            style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarOpen ? 'flex-start' : 'center', gap: '12px', width: '100%', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '13px', fontWeight: '500', cursor: 'pointer', padding: sidebarOpen ? '10px 12px' : '10px 0', borderRadius: '8px', transition: 'all 0.2s ease' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <LogOut size={18} />
+            {sidebarOpen && <span>Sair</span>}
+          </button>
         </div>
       </aside>
 
       <div className="content">
         <div className="topbar">
           <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            {!sidebarOpen && (
-              <button className="toggle-btn" onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex' }}>
-                <Menu size={22} />
-              </button>
-            )}
-            
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', padding: '6px', borderRadius: '8px', display: 'flex', boxShadow: '0 4px 10px rgba(2, 132, 199, 0.3)' }}>
-                <Zap size={16} color="white" fill="white" />
-              </div>
+              <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', padding: '6px', borderRadius: '8px', display: 'flex', boxShadow: '0 4px 10px rgba(2, 132, 199, 0.3)' }}><Zap size={16} color="white" fill="white" /></div>
               <span className="logo-top" style={{ display: 'flex', alignItems: 'baseline' }}>
-                <span style={{ background: 'linear-gradient(to right, #0f172a, #0284c7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '900', letterSpacing: '-0.5px', fontSize: '20px' }}>
-                  ZEUS
-                </span>
-                <span style={{ color: '#64748b', fontWeight: '500', fontSize: '14px', marginLeft: '8px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px' }}>
-                  Gestão Integrada de Obras Elétricas
-                </span>
+                <span style={{ background: 'linear-gradient(to right, #0f172a, #0284c7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '900', letterSpacing: '-0.5px', fontSize: '20px' }}>ZEUS</span>
+                <span style={{ color: '#64748b', fontWeight: '500', fontSize: '14px', marginLeft: '8px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px' }}>Gestão Integrada de Obras Elétricas</span>
               </span>
             </div>
           </div>
-
-          <button className="logout-top" onClick={() => deslogar(true)} title="Sair da conta">
-            <LogOut size={16} />
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Sair</span>
+          
+          <button 
+            title="Notificações"
+            style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '36px', width: '36px', borderRadius: '50%', transition: 'all 0.2s ease', position: 'relative' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}
+          >
+            <Bell size={20} />
+            
+            {notificacoesNaoLidas === 0 ? (
+              <span style={{ 
+                position: 'absolute', top: '7px', right: '7px', 
+                width: '10px', height: '10px', 
+                background: '#10b981',
+                borderRadius: '50%', 
+                border: '2px solid #fff' 
+              }}></span>
+            ) : (
+              <span style={{ 
+                position: 'absolute', top: '1px', right: '1px', 
+                background: '#ef4444',
+                color: '#ffffff', fontSize: '9px', fontWeight: 'bold', 
+                minWidth: '16px', height: '16px', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                borderRadius: '20px', padding: '0 4px', 
+                border: '2px solid #ffffff'
+              }}>
+                {notificacoesNaoLidas > 99 ? '99+' : notificacoesNaoLidas}
+              </span>
+            )}
           </button>
         </div>
 
-        <div className="main">    
-          <div className="page-container">
-            <div className="page-content" id="mainContent">
-              <Outlet />
-            </div>
-          </div>
-        </div>
-
-        <div className="footer">
+        <div className="main"><div className="page-container"><div className="page-content" id="mainContent"><Outlet /></div></div></div>
+        
+        <div className="footer" style={{ height: '50px' }}>
           <span>© 2026 ZEUS System - Todos os direitos reservados.</span>
           <span>Sessão: {userData.id_sessao.substring(0, 8)}...</span>
         </div>

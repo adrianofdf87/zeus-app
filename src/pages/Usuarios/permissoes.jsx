@@ -120,7 +120,7 @@ export default function PermissoesTab({ usuario }) {
                     });
                 } else {
                     const { data, error } = await supabase
-                        .from("0-Interno_permissoes")
+                        .from("tabi_cad_usuarios_permissoes")
                         .select("chave_acao")
                         .eq("usuario_id", usuarioId);
 
@@ -177,7 +177,7 @@ export default function PermissoesTab({ usuario }) {
 
             // 1. Remove antigas permissões do usuário específico
             const { error: errDel } = await supabase
-                .from("0-Interno_permissoes")
+                .from("tabi_cad_usuarios_permissoes")
                 .delete()
                 .eq("usuario_id", usuarioId);
 
@@ -191,7 +191,7 @@ export default function PermissoesTab({ usuario }) {
 
             if (payload.length > 0) {
                 const { error: errIns } = await supabase
-                    .from("0-Interno_permissoes")
+                    .from("tabi_cad_usuarios_permissoes")
                     .insert(payload);
 
                 if (errIns) throw errIns;
