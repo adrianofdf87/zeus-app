@@ -29,7 +29,8 @@ export default function Dashboard() {
     
     const resetTimer = () => {
       clearTimeout(tempoInat);
-      tempoInat = setTimeout(() => encerrarSessao("Sessão encerrada por inatividade (15 min)."), 900000);
+      // 1 - Ajustado para 30 minutos (1800000 ms)
+      tempoInat = setTimeout(() => encerrarSessao("Sessão encerrada por inatividade (30 min).", false), 1800000);
     };
 
     const validarSessao = async () => {
@@ -41,14 +42,26 @@ export default function Dashboard() {
         const { data: usr, error } = await supabase.from("tabi_cad_usuarios").select("id_sessao, situacao, nome, \"Perfil\"").eq("id", userObj.id).single();
         if (error || !usr) throw new Error("Usuário não encontrado.");
         if (usr.situacao?.toUpperCase() !== "ATIVO") throw new Error("Conta inativa.");
-        if (usr.id_sessao !== idL) throw new Error("Sessão inválida.");
+        if (usr.id_sessao !== idL) throw new Error("Atenção|Sessão inválida, acesso inativado por outro acesso!");
 
         setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
 
         canalSessao = supabase.channel(`usr-${userObj.id}-${Date.now()}`)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tabi_cad_usuarios', filter: `id=eq.${userObj.id}` }, 
-            (p) => p.new.id_sessao !== idL && encerrarSessao("Sessão iniciada em outro dispositivo.")).subscribe();
-      } catch (e) { encerrarSessao(`Falha: ${e.message}`); }
+            (p) => {
+              if (p.new.id_sessao !== idL) {
+                // 2 e 3 - Identifica troca de dispositivo de imediato sem limpar o banco da sessão ativa nova
+                encerrarSessao("Sessão inválida, acesso inativado por outro acesso!", true);
+              }
+            }).subscribe();
+      } catch (e) { 
+        const errParts = e.message.split('|');
+        if (errParts.length > 1) {
+          encerrarSessao(errParts[1], true);
+        } else {
+          encerrarSessao(`Falha: ${e.message}`, false);
+        }
+      }
     };
 
     const clickFora = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenuPerfilAberto(false);
@@ -66,18 +79,32 @@ export default function Dashboard() {
     };
   }, [navigate]);
 
-  const deslogar = async (perguntar = false) => {
+  const deslogar = async (perguntar = false, limparBanco = true) => {
     if (perguntar) {
       const r = await Swal.fire({ title: "Deseja sair?", icon: "question", showCancelButton: true, confirmButtonText: "Sair", confirmButtonColor: "#d93025" });
       if (!r.isConfirmed) return;
     }
     const userL = JSON.parse(localStorage.getItem("usuario_logado") || "null");
-    if (userL) await supabase.from("tabi_cad_usuarios").update({ id_sessao: null, data_sessao: null }).eq("id", userL.id);
+    
+    // 3 - Só limpa no banco se for logout manual ou inatividade, preservando a sessão nova caso tenha sido derrubado por outro acesso
+    if (userL && limparBanco) {
+      await supabase.from("tabi_cad_usuarios").update({ id_sessao: null, data_sessao: null }).eq("id", userL.id);
+    }
+    
     localStorage.clear();
     navigate("/");
   };
 
-  const encerrarSessao = async (msg) => { await Swal.fire({ icon: "warning", title: "Atenção", text: msg, confirmButtonColor: "#005596" }); deslogar(); };
+  const encerrarSessao = async (msg, porOutroAcesso = false) => { 
+    await Swal.fire({ 
+      icon: "warning", 
+      title: "Atenção", 
+      text: msg, 
+      confirmButtonColor: "#005596" 
+    }); 
+    // Se foi por outro acesso, não limpa o id_sessao do banco para não derrubar o novo dispositivo
+    deslogar(false, !porOutroAcesso); 
+  };
 
   const atualizarFoto = (novaFoto, msg) => {
     const usr = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
@@ -249,7 +276,7 @@ export default function Dashboard() {
         <div style={{ height: '50px', display: 'flex', alignItems: 'center', padding: sidebarOpen ? '0 8px' : '0', justifyContent: 'center', background: 'transparent' }}>
           <button 
             title={!sidebarOpen ? "Sair" : ""}
-            onClick={() => deslogar(true)} 
+            onClick={() => deslogar(true, true)} 
             style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarOpen ? 'flex-start' : 'center', gap: '12px', width: '100%', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '13px', fontWeight: '500', cursor: 'pointer', padding: sidebarOpen ? '10px 12px' : '10px 0', borderRadius: '8px', transition: 'all 0.2s ease' }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
