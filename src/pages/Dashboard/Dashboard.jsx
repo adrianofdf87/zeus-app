@@ -29,7 +29,7 @@ export default function Dashboard() {
     
     const resetTimer = () => {
       clearTimeout(tempoInat);
-      // 1 - Ajustado para 30 minutos (1800000 ms)
+      // Ajustado para 30 minutos (1800000 ms)
       tempoInat = setTimeout(() => encerrarSessao("Sessão encerrada por inatividade (30 min).", false), 1800000);
     };
 
@@ -48,7 +48,7 @@ export default function Dashboard() {
 
         setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
 
-        // Configuração do canal Realtime para capturar a troca de sessão instantaneamente em tempo de execução
+        // Configuração do canal Realtime corrigida para ler diretamente do localStorage em tempo de execução
         canalSessao = supabase
           .channel(`canal-sessao-${userObj.id}`)
           .on(
@@ -61,8 +61,11 @@ export default function Dashboard() {
             }, 
             (payload) => {
               const novoIdSessaoBanco = payload.new.id_sessao;
-              // Identifica de imediato se o id_sessao do banco mudou e não é mais o ID atual deste dispositivo
-              if (novoIdSessaoBanco && novoIdSessaoBanco !== idL) {
+              // Lê o id_sessao atualizado diretamente do localStorage para evitar problemas de closure do React
+              const idAtualLocal = localStorage.getItem("id_sessao");
+              
+              // Se o ID do banco mudou e é diferente do localStorage atual deste dispositivo, encerra na hora
+              if (novoIdSessaoBanco && novoIdSessaoBanco !== idAtualLocal) {
                 encerrarSessao("Sessão inválida, acesso inativado por outro acesso!", true);
               }
             }
