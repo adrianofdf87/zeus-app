@@ -24,13 +24,31 @@ export default function Dashboard() {
       });
     }
 
-    let tempoInat, canalSessao;
+    let tempoInat, canalSessao, intervaloVerificacao;
     const eventos = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
     
     const resetTimer = () => {
       clearTimeout(tempoInat);
       // Ajustado para 30 minutos (1800000 ms)
       tempoInat = setTimeout(() => encerrarSessao("Sessão encerrada por inatividade (30 min).", false), 1800000);
+    };
+
+    const verificarSeSessaoCaiu = async () => {
+      try {
+        const dadosL = localStorage.getItem("usuario_logado"), idL = localStorage.getItem("id_sessao");
+        if (!dadosL || !idL) return;
+        const userObj = JSON.parse(dadosL);
+
+        const { data: usr, error } = await supabase.from("tabi_cad_usuarios").select("id_sessao, situacao").eq("id", userObj.id).single();
+        if (error || !usr) return;
+        
+        if (usr.situacao?.toUpperCase() !== "ATIVO" || (usr.id_sessao && usr.id_sessao !== idL)) {
+          clearInterval(intervaloVerificacao);
+          encerrarSessao("Atenção|Sessão inválida, acesso inativado por outro acesso!", true);
+        }
+      } catch (e) {
+        // Silencia erros de rede pontuais no intervalo para não pipocar alertas desnecessários
+      }
     };
 
     const validarSessao = async () => {
@@ -43,12 +61,12 @@ export default function Dashboard() {
         if (error || !usr) throw new Error("Usuário não encontrado.");
         if (usr.situacao?.toUpperCase() !== "ATIVO") throw new Error("Conta inativa.");
         
-        // Se ao carregar a página o ID do banco já for diferente do local, dispara a mensagem customizada
+        // Se ao carregar a página o ID do banco já for diferente do local
         if (usr.id_sessao !== idL) throw new Error("Atenção|Sessão inválida, acesso inativado por outro acesso!");
 
         setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
 
-        // Configuração do canal Realtime corrigida para ler diretamente do localStorage em tempo de execução
+        // 1. Canal Realtime do Supabase para captura imediata
         canalSessao = supabase
           .channel(`canal-sessao-${userObj.id}`)
           .on(
@@ -61,16 +79,18 @@ export default function Dashboard() {
             }, 
             (payload) => {
               const novoIdSessaoBanco = payload.new.id_sessao;
-              // Lê o id_sessao atualizado diretamente do localStorage para evitar problemas de closure do React
               const idAtualLocal = localStorage.getItem("id_sessao");
               
-              // Se o ID do banco mudou e é diferente do localStorage atual deste dispositivo, encerra na hora
               if (novoIdSessaoBanco && novoIdSessaoBanco !== idAtualLocal) {
+                clearInterval(intervaloVerificacao);
                 encerrarSessao("Sessão inválida, acesso inativado por outro acesso!", true);
               }
             }
           )
           .subscribe();
+
+        // 2. Intervalo de segurança a cada 4 segundos (Garante que se o realtime falhar, o banco é checado ativamente)
+        intervaloVerificacao = setInterval(verificarSeSessaoCaiu, 4000);
 
       } catch (e) { 
         const errParts = e.message.split('|');
@@ -91,6 +111,7 @@ export default function Dashboard() {
 
     return () => {
       clearTimeout(tempoInat);
+      clearInterval(intervaloVerificacao);
       eventos.forEach(e => document.removeEventListener(e, resetTimer));
       document.removeEventListener("mousedown", clickFora);
       if (canalSessao) supabase.removeChannel(canalSessao);
@@ -104,7 +125,6 @@ export default function Dashboard() {
     }
     const userL = JSON.parse(localStorage.getItem("usuario_logado") || "null");
     
-    // Só limpa no banco se for logout manual ou inatividade, preservando a sessão nova caso tenha sido derrubado por outro acesso
     if (userL && limparBanco) {
       await supabase.from("tabi_cad_usuarios").update({ id_sessao: null, data_sessao: null }).eq("id", userL.id);
     }
@@ -114,7 +134,6 @@ export default function Dashboard() {
   };
 
   const encerrarSessao = async (msg, porOutroAcesso = false) => { 
-    // Evita múltiplos disparos de alertas simultâneos caso o canal dispare mais de uma vez
     if (Swal.isVisible()) return;
 
     await Swal.fire({ 
@@ -126,7 +145,6 @@ export default function Dashboard() {
       allowEscapeKey: false
     }); 
     
-    // Se foi por outro acesso, desloga apenas localmente (limparBanco = false) para não apagar a sessão nova
     deslogar(false, !porOutroAcesso); 
   };
 
