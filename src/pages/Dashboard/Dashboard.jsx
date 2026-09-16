@@ -42,18 +42,33 @@ export default function Dashboard() {
         const { data: usr, error } = await supabase.from("tabi_cad_usuarios").select("id_sessao, situacao, nome, \"Perfil\"").eq("id", userObj.id).single();
         if (error || !usr) throw new Error("Usuário não encontrado.");
         if (usr.situacao?.toUpperCase() !== "ATIVO") throw new Error("Conta inativa.");
+        
+        // Se ao carregar a página o ID do banco já for diferente do local, dispara a mensagem customizada
         if (usr.id_sessao !== idL) throw new Error("Atenção|Sessão inválida, acesso inativado por outro acesso!");
 
         setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
 
-        canalSessao = supabase.channel(`usr-${userObj.id}-${Date.now()}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tabi_cad_usuarios', filter: `id=eq.${userObj.id}` }, 
-            (p) => {
-              if (p.new.id_sessao !== idL) {
-                // 2 e 3 - Identifica troca de dispositivo de imediato sem limpar o banco da sessão ativa nova
+        // Configuração do canal Realtime para capturar a troca de sessão instantaneamente em tempo de execução
+        canalSessao = supabase
+          .channel(`canal-sessao-${userObj.id}`)
+          .on(
+            'postgres_changes', 
+            { 
+              event: 'UPDATE', 
+              schema: 'public', 
+              table: 'tabi_cad_usuarios', 
+              filter: `id=eq.${userObj.id}` 
+            }, 
+            (payload) => {
+              const novoIdSessaoBanco = payload.new.id_sessao;
+              // Identifica de imediato se o id_sessao do banco mudou e não é mais o ID atual deste dispositivo
+              if (novoIdSessaoBanco && novoIdSessaoBanco !== idL) {
                 encerrarSessao("Sessão inválida, acesso inativado por outro acesso!", true);
               }
-            }).subscribe();
+            }
+          )
+          .subscribe();
+
       } catch (e) { 
         const errParts = e.message.split('|');
         if (errParts.length > 1) {
@@ -86,7 +101,7 @@ export default function Dashboard() {
     }
     const userL = JSON.parse(localStorage.getItem("usuario_logado") || "null");
     
-    // 3 - Só limpa no banco se for logout manual ou inatividade, preservando a sessão nova caso tenha sido derrubado por outro acesso
+    // Só limpa no banco se for logout manual ou inatividade, preservando a sessão nova caso tenha sido derrubado por outro acesso
     if (userL && limparBanco) {
       await supabase.from("tabi_cad_usuarios").update({ id_sessao: null, data_sessao: null }).eq("id", userL.id);
     }
@@ -96,13 +111,19 @@ export default function Dashboard() {
   };
 
   const encerrarSessao = async (msg, porOutroAcesso = false) => { 
+    // Evita múltiplos disparos de alertas simultâneos caso o canal dispare mais de uma vez
+    if (Swal.isVisible()) return;
+
     await Swal.fire({ 
       icon: "warning", 
       title: "Atenção", 
       text: msg, 
-      confirmButtonColor: "#005596" 
+      confirmButtonColor: "#005596",
+      allowOutsideClick: false,
+      allowEscapeKey: false
     }); 
-    // Se foi por outro acesso, não limpa o id_sessao do banco para não derrubar o novo dispositivo
+    
+    // Se foi por outro acesso, desloga apenas localmente (limparBanco = false) para não apagar a sessão nova
     deslogar(false, !porOutroAcesso); 
   };
 
