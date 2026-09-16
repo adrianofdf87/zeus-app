@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Zap } from "lucide-react";
+import { Zap, User } from "lucide-react";
 import bcrypt from "bcryptjs";
 import Swal from "sweetalert2";
 import emailjs from "@emailjs/browser";
@@ -10,6 +10,15 @@ export default function Reset() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Tenta forçar a orientação horizontal em dispositivos móveis
+    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+      window.screen.orientation.lock("landscape").catch((err) => {
+        console.log("Orientação landscape restrita pelo navegador:", err);
+      });
+    }
+  }, []);
 
   const gerarSenhaTemporaria = () => {
     const letrasMaiusculas = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -73,24 +82,85 @@ export default function Reset() {
   return (
     <>
       <main className="main-wrapper">
-        <section className="side-image"><div className="overlay"></div></section>
+        <section className="side-image">
+          <div className="overlay"></div>
+        </section>
         <section className="login-section">
           <div className="login-container">
-            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <h1 className="logo-text" style={{ display: 'flex', alignItems: 'center' }}>
-                <Zap style={{ color: '#005596', fill: '#005596', marginRight: '4px' }} size={64} /> GIOE
-              </h1>
-              <p className="tagline">RECUPERAÇÃO DE SENHA</p>
+            
+            {/* LOGO PADRONIZADA */}
+            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+                
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
+                  padding: '12px', 
+                  borderRadius: '16px', 
+                  display: 'flex', 
+                  boxShadow: '0 8px 20px rgba(2, 132, 199, 0.3)' 
+                }}>
+                  <Zap size={36} color="white" fill="white" />
+                </div>
+                
+                <span style={{ 
+                  background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
+                  WebkitBackgroundClip: 'text', 
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                  fontWeight: '900', 
+                  letterSpacing: '-1.5px', 
+                  fontSize: '48px',
+                  lineHeight: '1',
+                  fontFamily: 'Inter, sans-serif'
+                }}>
+                  ZEUS
+                </span>
+                
+              </div>
+              
+              <p className="tagline" style={{ 
+                color: '#64748b', 
+                fontWeight: '600', 
+                fontSize: '12px',
+                letterSpacing: '0.3px',
+                margin: '0',
+                textTransform: 'uppercase'
+              }}>
+                Recuperação de Senha
+              </p>
             </div>
+            {/* FIM DA LOGO */}
+
             <div className="input-group">
-              <input type="email" placeholder="Digite seu e-mail cadastrado" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleRecuperar()} />
+              {/* Input de E-mail com Ícone */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                <input 
+                  type="email" 
+                  placeholder="E-mail cadastrado" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  onKeyDown={(e) => e.key === "Enter" && handleRecuperar()} 
+                  style={{ width: '100%', paddingRight: '40px' }}
+                />
+                <span style={{ position: 'absolute', right: '12px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
+                  <User size={18} />
+                </span>
+              </div>
+
+              <Link to="/" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', display: 'block', textAlign: 'left', marginBottom: '8px' }}>Voltar para o Login</Link>
             </div>
+            
             <button className="btn-primary" onClick={handleRecuperar}>ENVIAR NOVA SENHA</button>
-            <Link to="/" style={{ textAlign: 'center', marginTop: '15px', color: '#005596', textDecoration: 'none', display: 'block' }}>Voltar para o Login</Link>
           </div>
         </section>
       </main>
-      {loading && <div className="loader-overlay active"><div className="loader-spinner"></div></div>}
+
+      {loading && (
+        <div className="loader-overlay active">
+          <div className="loader-spinner"></div>
+        </div>
+      )}
     </>
   );
 }

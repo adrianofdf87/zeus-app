@@ -10,11 +10,14 @@
 
 * {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
 }
 
 .dashboard {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* Adapta-se perfeitamente às barras de navegação do iOS e Android */
+  width: 100vw;
   overflow: hidden;
   position: relative;
 }
@@ -421,6 +424,8 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  max-width: 100vw;
+  overflow: hidden;
 }
 
 .topbar {
@@ -449,7 +454,7 @@
 
 .main {
   flex: 1;
-  padding: 8px 8px;
+  padding: 6px;
   background: var(--bg-light);
   display: flex;
   flex-direction: column;
@@ -561,6 +566,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .page-content {
@@ -569,9 +575,10 @@
   min-width: 0;
   overflow: auto;
   background: #ffffff;
-  padding: 16px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 10px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
 }
 
 .page-content > * {
