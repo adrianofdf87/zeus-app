@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Zap, User } from "lucide-react";
 import bcrypt from "bcryptjs";
@@ -10,14 +10,6 @@ export default function Reset() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-      window.screen.orientation.lock("landscape").catch((err) => {
-        console.log("Orientação landscape restrita pelo navegador:", err);
-      });
-    }
-  }, []);
 
   const gerarSenhaTemporaria = () => {
     const letrasMaiusculas = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -87,10 +79,8 @@ export default function Reset() {
         <section className="login-section">
           <div className="login-container">
             
-            {/* LOGO PADRONIZADA */}
             <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
-                
                 <div style={{ 
                   background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
                   padding: '12px', 
@@ -100,7 +90,6 @@ export default function Reset() {
                 }}>
                   <Zap size={36} color="white" fill="white" />
                 </div>
-                
                 <span style={{ 
                   background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
                   WebkitBackgroundClip: 'text', 
@@ -115,9 +104,7 @@ export default function Reset() {
                 }}>
                   ZEUS
                 </span>
-                
               </div>
-              
               <p className="tagline" style={{ 
                 color: '#64748b', 
                 fontWeight: '600', 
@@ -129,10 +116,8 @@ export default function Reset() {
                 Recuperação de Senha
               </p>
             </div>
-            {/* FIM DA LOGO */}
 
             <div className="input-group">
-              {/* Input de E-mail com Ícone e marginBottom exato de 6px */}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                 <input 
                   type="email" 
@@ -147,7 +132,6 @@ export default function Reset() {
                 </span>
               </div>
 
-              {/* Link posicionado no lado direito com gap máximo de 6px */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
                 <Link to="/" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', fontSize: '0.85rem' }}>Voltar para o Login</Link>
               </div>

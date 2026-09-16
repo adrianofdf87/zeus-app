@@ -16,39 +16,14 @@
 .dashboard {
   display: flex;
   height: 100vh;
-  height: 100dvh; /* Adapta-se perfeitamente às barras de navegação do iOS e Android */
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   position: relative;
 }
 
 /* ==========================================================================
-   AVISO DE ROTAÇÃO PARA DISPOSITIVOS MÓVEIS (MODO HORIZONTAL OBRIGATÓRIO)
-   ========================================================================== */
-@media screen and (max-width: 1024px) and (orientation: portrait) {
-  .dashboard::before {
-    content: "Por favor, vire o celular na horizontal (paisagem) para visualizar os dados do sistema ZEUS com melhor qualidade.";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: #0b0f19;
-    color: #ffffff;
-    z-index: 999999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 30px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-}
-
-/* ==========================================================================
-   AJUSTES DE RESPONSIVIDADE PARA CELULARES E TABLETS (ENQUADRAMENTO AUTOMÁTICO)
+   AJUSTES DE RESPONSIVIDADE PARA CELULARES E TABLETS (QUALQUER ORIENTAÇÃO)
    ========================================================================== */
 @media screen and (max-width: 1024px) {
   .sidebar {

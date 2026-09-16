@@ -13,12 +13,6 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-      window.screen.orientation.lock("landscape").catch((err) => {
-        console.log("Orientação landscape restrita pelo navegador:", err);
-      });
-    }
-
     localStorage.removeItem("id_sessao");
     localStorage.removeItem("mapa_aberto");
     localStorage.removeItem("usuario_logado");
@@ -243,10 +237,8 @@ export default function Login() {
         <section className="login-section">
           <div className="login-container">
             
-            {/* LOGO */}
             <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
-                
                 <div style={{ 
                   background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
                   padding: '12px', 
@@ -256,7 +248,6 @@ export default function Login() {
                 }}>
                   <Zap size={36} color="white" fill="white" />
                 </div>
-                
                 <span style={{ 
                   background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
                   WebkitBackgroundClip: 'text', 
@@ -271,9 +262,7 @@ export default function Login() {
                 }}>
                   ZEUS
                 </span>
-                
               </div>
-              
               <p className="tagline" style={{ 
                 color: '#64748b', 
                 fontWeight: '600', 
@@ -285,10 +274,8 @@ export default function Login() {
                 Gestão de Obras Elétricas
               </p>
             </div>
-            {/* FIM DA LOGO */}
 
             <div className="input-group">
-              {/* Input de E-mail */}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
                 <input 
                   type="email" 
@@ -303,7 +290,6 @@ export default function Login() {
                 </span>
               </div>
 
-              {/* Input de Senha */}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                 <input 
                   type={showPassword ? "text" : "password"} 
@@ -333,7 +319,6 @@ export default function Login() {
                 </button>
               </div>
 
-              {/* Link com gap de 6px */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
                 <Link to="/reset" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', fontSize: '0.85rem' }}>Esqueceu a senha?</Link>
               </div>
