@@ -72,23 +72,21 @@ export default function Reset() {
 
   return (
     <>
-      <main className="main-wrapper">
-        <section className="side-image">
-          <div className="overlay"></div>
-        </section>
-        <section className="login-section">
-          <div className="login-container">
+      <main className="main-wrapper" style={{ minHeight: '100vh', minHeight: '100dvh', height: 'auto', overflowY: 'auto', display: 'flex', flexWrap: 'wrap' }}>
+        <section className="side-image" style={{ display: 'none' }}></section>
+        <section className="login-section" style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 15px', boxSizing: 'border-box' }}>
+          <div className="login-container" style={{ width: '100%', maxWidth: '400px', margin: 'auto', boxSizing: 'border-box' }}>
             
-            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
                 <div style={{ 
                   background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
-                  padding: '12px', 
-                  borderRadius: '16px', 
+                  padding: '10px', 
+                  borderRadius: '14px', 
                   display: 'flex', 
-                  boxShadow: '0 8px 20px rgba(2, 132, 199, 0.3)' 
+                  boxShadow: '0 6px 16px rgba(2, 132, 199, 0.3)' 
                 }}>
-                  <Zap size={36} color="white" fill="white" />
+                  <Zap size={30} color="white" fill="white" />
                 </div>
                 <span style={{ 
                   background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
@@ -98,7 +96,7 @@ export default function Reset() {
                   color: 'transparent',
                   fontWeight: '900', 
                   letterSpacing: '-1.5px', 
-                  fontSize: '48px',
+                  fontSize: '38px',
                   lineHeight: '1',
                   fontFamily: 'Inter, sans-serif'
                 }}>
@@ -108,7 +106,7 @@ export default function Reset() {
               <p className="tagline" style={{ 
                 color: '#64748b', 
                 fontWeight: '600', 
-                fontSize: '12px',
+                fontSize: '11px',
                 letterSpacing: '0.3px',
                 margin: '0',
                 textTransform: 'uppercase'
@@ -118,14 +116,14 @@ export default function Reset() {
             </div>
 
             <div className="input-group">
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '14px' }}>
                 <input 
                   type="email" 
                   placeholder="E-mail cadastrado" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
                   onKeyDown={(e) => e.key === "Enter" && handleRecuperar()} 
-                  style={{ width: '100%', paddingRight: '40px' }}
+                  style={{ width: '100%', paddingRight: '40px', height: '42px', boxSizing: 'border-box' }}
                 />
                 <span style={{ position: 'absolute', right: '12px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
                   <User size={18} />
@@ -137,7 +135,7 @@ export default function Reset() {
               </div>
             </div>
             
-            <button className="btn-primary" onClick={handleRecuperar}>ENVIAR NOVA SENHA</button>
+            <button className="btn-primary" onClick={handleRecuperar} style={{ width: '100%', height: '44px', boxSizing: 'border-box' }}>ENVIAR NOVA SENHA</button>
           </div>
         </section>
       </main>
