@@ -142,7 +142,9 @@ async function processarImportacaoCadernoServico(limpar, file, sb, update) {
       const { error } = await sb.from("tabe_imp_caderno_servico").insert(ch); if(error) throw error;
       ins += ch.length; update(Math.round(70 + ((ins/inserir.length) * 30)), `Gravando (${ins}/${inserir.length})...`);
     }
-    await sb.from("tabe_imp_caderno_servico").delete().eq("contrato", "PLACEHOLDER").catch(()=>{});
+    try {
+      await sb.from("tabe_imp_caderno_servico").delete().eq("contrato", "PLACEHOLDER");
+    } catch(e) {}
   } catch(err) { throw err; }
 }
 
@@ -170,7 +172,9 @@ async function processarImportacaoLTGProj(limpar, file, sb, update) {
       const { error } = await sb.from("tabe_imp_ltg_proj").insert(ch); if(error) throw error;
       ins += ch.length; update(Math.round(70 + ((ins/inserir.length) * 30)), `Gravando (${ins}/${inserir.length})...`);
     }
-    await sb.from("tabe_imp_ltg_proj").delete().eq("ind_principal", "PLACEHOLDER").catch(()=>{});
+    try {
+      await sb.from("tabe_imp_ltg_proj").delete().eq("ind_principal", "PLACEHOLDER");
+    } catch(e) {}
   } catch(err) { throw err; }
 }
 
@@ -300,6 +304,8 @@ async function executarProcessamentoPEP(limpar, file, sb, update) {
       }
       ins += ch.length;
     }
-    await sb.from("tabe_imp_pep").delete().eq("pep", "PLACEHOLDER").catch(()=>{});
+    try {
+      await sb.from("tabe_imp_pep").delete().eq("pep", "PLACEHOLDER");
+    } catch(e) {}
   } catch(err) { travarSwal(); throw err; }
 }
