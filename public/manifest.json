@@ -1,0 +1,9 @@
+{
+  "short_name": "ZEUS",
+  "name": "ZEUS - Gestão de Obras Elétricas",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0284c7"
+}
