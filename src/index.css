@@ -39,7 +39,8 @@ input::-ms-clear{display:none!important;}
     background:url("./assets/Login_1.webp") center/cover no-repeat;
 }
 
-@media(min-width:768px){
+/* A imagem lateral APENAS aparecerá em Desktops grandes (a partir de 1024px de largura) */
+@media(min-width:1024px){
     .side-image{display:block;}
 }
 
@@ -198,7 +199,7 @@ input::-ms-clear{display:none!important;}
     to{transform:rotate(360deg);}
 }
 
-@media(max-width:767px){
+@media(max-width:1023px){
     .login-section{padding:20px;}
     .login-container{
         padding:32px 24px;
@@ -207,36 +208,6 @@ input::-ms-clear{display:none!important;}
         border:none;
     }
     .logo-text{font-size:52px;}
-}
-
-/* =========================================
-   BLOQUEIO VISUAL PARA MODO HORIZONTAL (MOBILE)
-   ========================================= */
-@media screen and (max-width: 900px) and (orientation: landscape) {
-  .main-wrapper {
-    display: none !important;
-  }
-  
-  body::before {
-    content: "Por favor, utilize o celular na posição vertical (retrato) para acessar o Zeus.";
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #0f172a;
-    color: #ffffff;
-    font-family: 'Inter', sans-serif;
-    font-size: 1.1rem;
-    font-weight: 500;
-    padding: 24px;
-    z-index: 999999;
-    box-sizing: border-box;
-  }
 }
 
 /* =========================================
