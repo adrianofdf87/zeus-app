@@ -551,11 +551,20 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     try {
       const campos = (await obterEstruturaTabela(tabelaBd)).filter(col => !col.oculta);
       if (!campos.length) return Swal.fire('Atenção', 'Sem campos disponíveis.', 'warning');
+      
       let filiais = [], usaFilial = false;
       if (tabelaBd !== 'tabi_apoio_contrato' && campos.some(c => c.nome_coluna.toLowerCase() === 'filial')) {
-        const { data } = await supabase.from('tabi_apoio_contrato').select('filial').catch(()=>({data:null}));
-        if (data) { filiais = [...new Set(data.map(d => d.filial).filter(Boolean))].sort(); usaFilial = true; }
+        try {
+          const { data } = await supabase.from('tabi_apoio_contrato').select('filial');
+          if (data) { 
+            filiais = [...new Set(data.map(d => d.filial).filter(Boolean))].sort(); 
+            usaFilial = true; 
+          }
+        } catch {
+          // Ignora caso a tabela de apoio não exista ou ocorra restrição de acesso
+        }
       }
+
       const trmUsr = ['usu_cad','usu_cada','usucad','usuario','usuario_cadastro','cadastrado_por'];
       const vis = campos.filter(c => !trmUsr.includes(c.nome_coluna.toLowerCase()));
       const hdd = campos.filter(c => trmUsr.includes(c.nome_coluna.toLowerCase())).map(c => `<input type="hidden" class="input-dinamico" data-col="${c.nome_coluna}" value="${editando && rowData[c.nome_coluna] ? rowData[c.nome_coluna] : nmUsr}">`).join('');
