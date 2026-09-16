@@ -13,6 +13,12 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+      window.screen.orientation.lock("landscape").catch((err) => {
+        console.log("Orientação landscape restrita pelo navegador:", err);
+      });
+    }
+
     localStorage.removeItem("id_sessao");
     localStorage.removeItem("mapa_aberto");
     localStorage.removeItem("usuario_logado");
@@ -230,24 +236,27 @@ export default function Login() {
 
   return (
     <>
-      <main className="main-wrapper" style={{ minHeight: '100vh', minHeight: '100dvh', height: 'auto', overflowY: 'auto' }}>
+      <main className="main-wrapper">
         <section className="side-image">
           <div className="overlay"></div>
         </section>
-        <section className="login-section" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 15px', boxSizing: 'border-box' }}>
-          <div className="login-container" style={{ width: '100%', maxWidth: '400px', margin: 'auto', boxSizing: 'border-box' }}>
+        <section className="login-section">
+          <div className="login-container">
             
-            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
+            {/* LOGO */}
+            <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+                
                 <div style={{ 
                   background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
-                  padding: '10px', 
-                  borderRadius: '14px', 
+                  padding: '12px', 
+                  borderRadius: '16px', 
                   display: 'flex', 
-                  boxShadow: '0 6px 16px rgba(2, 132, 199, 0.3)' 
+                  boxShadow: '0 8px 20px rgba(2, 132, 199, 0.3)' 
                 }}>
-                  <Zap size={32} color="white" fill="white" />
+                  <Zap size={36} color="white" fill="white" />
                 </div>
+                
                 <span style={{ 
                   background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
                   WebkitBackgroundClip: 'text', 
@@ -256,17 +265,19 @@ export default function Login() {
                   color: 'transparent',
                   fontWeight: '900', 
                   letterSpacing: '-1.5px', 
-                  fontSize: '40px',
+                  fontSize: '48px',
                   lineHeight: '1',
                   fontFamily: 'Inter, sans-serif'
                 }}>
                   ZEUS
                 </span>
+                
               </div>
+              
               <p className="tagline" style={{ 
                 color: '#64748b', 
                 fontWeight: '600', 
-                fontSize: '11px',
+                fontSize: '12px',
                 letterSpacing: '0.3px',
                 margin: '0',
                 textTransform: 'uppercase'
@@ -274,22 +285,25 @@ export default function Login() {
                 Gestão de Obras Elétricas
               </p>
             </div>
+            {/* FIM DA LOGO */}
 
             <div className="input-group">
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '14px' }}>
+              {/* Input de E-mail */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
                 <input 
                   type="email" 
                   placeholder="E-mail" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
                   onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
-                  style={{ width: '100%', paddingRight: '40px', height: '42px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', paddingRight: '40px' }}
                 />
                 <span style={{ position: 'absolute', right: '12px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
                   <User size={18} />
                 </span>
               </div>
 
+              {/* Input de Senha */}
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                 <input 
                   type={showPassword ? "text" : "password"} 
@@ -297,7 +311,7 @@ export default function Login() {
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   onKeyDown={(e) => e.key === "Enter" && handleLogin()} 
-                  style={{ width: '100%', paddingRight: '40px', height: '42px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', paddingRight: '40px' }}
                 />
                 <button 
                   type="button" 
@@ -319,12 +333,13 @@ export default function Login() {
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+              {/* Link com gap de 6px */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
                 <Link to="/reset" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', fontSize: '0.85rem' }}>Esqueceu a senha?</Link>
               </div>
             </div>
             
-            <button className="btn-primary" onClick={handleLogin} style={{ width: '100%', height: '44px', boxSizing: 'border-box' }}>ACESSAR</button>
+            <button className="btn-primary" onClick={handleLogin}>ACESSAR</button>
           </div>
         </section>
       </main>
