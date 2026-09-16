@@ -44,7 +44,7 @@ export default function Dashboard() {
         
         if (usr.situacao?.toUpperCase() !== "ATIVO" || (usr.id_sessao && usr.id_sessao !== idL)) {
           clearInterval(intervaloVerificacao);
-          encerrarSessao("Sessão inválida, acesso inativado por outro acesso!", true);
+          encerrarSessao("Sessão inválida, inativada por outro acesso!", true);
         }
       } catch (e) {
         // Silencia erros de rede pontuais no intervalo para não pipocar alertas desnecessários
