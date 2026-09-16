@@ -13,6 +13,13 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Tenta forçar a orientação horizontal em dispositivos móveis
+    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+      window.screen.orientation.lock("landscape").catch((err) => {
+        console.log("Orientação landscape restrita pelo navegador:", err);
+      });
+    }
+
     localStorage.removeItem("id_sessao");
     localStorage.removeItem("mapa_aberto");
     localStorage.removeItem("usuario_logado");

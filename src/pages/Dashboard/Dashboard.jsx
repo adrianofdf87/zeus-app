@@ -12,12 +12,18 @@ export default function Dashboard() {
   const [menuPerfilAberto, setMenuPerfilAberto] = useState(false);
   const [userData, setUserData] = useState({ nome: "Carregando...", id_sessao: "...", perfil: "", foto: null });
   
-  // ESTADO PARA NOTIFICAÇÕES
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
   
   const fileInputRef = useRef(null), menuRef = useRef(null), navigate = useNavigate();
 
   useEffect(() => {
+    // Tenta forçar o modo paisagem ao carregar o dashboard
+    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+      window.screen.orientation.lock("landscape").catch((err) => {
+        console.log("Orientação landscape travada ou restrita:", err);
+      });
+    }
+
     let tempoInat, canalSessao;
     const eventos = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
     
