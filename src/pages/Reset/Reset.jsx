@@ -12,7 +12,6 @@ export default function Reset() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Tenta forçar a orientação horizontal em dispositivos móveis
     if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
       window.screen.orientation.lock("landscape").catch((err) => {
         console.log("Orientação landscape restrita pelo navegador:", err);
@@ -133,8 +132,8 @@ export default function Reset() {
             {/* FIM DA LOGO */}
 
             <div className="input-group">
-              {/* Input de E-mail com Ícone */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+              {/* Input de E-mail com Ícone e marginBottom exato de 6px */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                 <input 
                   type="email" 
                   placeholder="E-mail cadastrado" 
@@ -148,7 +147,10 @@ export default function Reset() {
                 </span>
               </div>
 
-              <Link to="/" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', display: 'block', textAlign: 'left', marginBottom: '8px' }}>Voltar para o Login</Link>
+              {/* Link posicionado no lado direito com gap máximo de 6px */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                <Link to="/" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', fontSize: '0.85rem' }}>Voltar para o Login</Link>
+              </div>
             </div>
             
             <button className="btn-primary" onClick={handleRecuperar}>ENVIAR NOVA SENHA</button>

@@ -13,7 +13,6 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Tenta forçar a orientação horizontal em dispositivos móveis
     if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
       window.screen.orientation.lock("landscape").catch((err) => {
         console.log("Orientação landscape restrita pelo navegador:", err);
@@ -305,7 +304,7 @@ export default function Login() {
               </div>
 
               {/* Input de Senha */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
                 <input 
                   type={showPassword ? "text" : "password"} 
                   placeholder="Senha" 
@@ -334,7 +333,10 @@ export default function Login() {
                 </button>
               </div>
 
-              <Link to="/reset" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500' }}>Esqueceu a senha?</Link>
+              {/* Link com gap de 6px */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                <Link to="/reset" className="forgot-link" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: '500', fontSize: '0.85rem' }}>Esqueceu a senha?</Link>
+              </div>
             </div>
             
             <button className="btn-primary" onClick={handleLogin}>ACESSAR</button>
