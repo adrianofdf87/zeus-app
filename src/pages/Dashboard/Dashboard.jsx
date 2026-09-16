@@ -274,7 +274,7 @@ export default function Dashboard() {
           
           <div className={`menu-item ${openMenu === "operacao" && sidebarOpen ? "open" : ""}`}>
             <div className="menu-link" style={itemMenuClass} title={!sidebarOpen ? "Operação" : ""} onClick={() => { 
-                if (!sidebarOpen) setSidebarOpen(true); 
+                setSidebarOpen(true); 
                 setOpenMenu(p => p === "operacao" ? "" : "operacao"); 
             }}>
               <Zap />
@@ -298,7 +298,7 @@ export default function Dashboard() {
           
           <div className={`menu-item ${openMenu === "config" && sidebarOpen ? "open" : ""}`}>
             <div className="menu-link" style={itemMenuClass} title={!sidebarOpen ? "Configurações" : ""} onClick={() => { 
-                if (!sidebarOpen) setSidebarOpen(true); 
+                setSidebarOpen(true); 
                 setOpenMenu(p => p === "config" ? "" : "config"); 
             }}>
               <Settings />
