@@ -26,7 +26,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   const [registrosPorPagina, setRegistrosPorPagina] = useState(100);
   const [limparFiltrosTrigger, setLimparFiltrosTrigger] = useState(0); 
   const isInitialMount = useRef(true);
-  
+
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
   const userIdKey = sessaoUsuario.id || sessaoUsuario.email || 'geral';
   const getEl = (id) => document.getElementById(id);
@@ -35,7 +35,47 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     if (!getEl('apoio-import-styles')) {
       const style = document.createElement('style');
       style.id = 'apoio-import-styles';
-      style.innerHTML = `@keyframes lucide-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}.lucide-spin{animation:lucide-spin 2s linear infinite}.swal2-enterprise-modal{border-radius:16px!important;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,.1);padding-bottom:16px!important}.swal2-custom-actions{margin-top:0!important;margin-bottom:10px!important;gap:12px!important}.swal2-export-modal .swal2-cancel,.swal2-import-modal .swal2-cancel{display:none!important;visibility:hidden!important;width:0!important;min-width:0!important;margin:0!important;padding:0!important}.modal-header-pro{background:#f8fafc;padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;text-align:left}.modal-icon-box{background:${corTheme};color:#fff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,85,150,.2);flex-shrink:0}.modal-body-pro{padding:24px 24px 12px;display:flex;flex-direction:column;text-align:left}.import-select-box{margin-bottom:18px;text-align:left}.import-select-box label{font-size:.85rem;font-weight:600;color:#475569;display:block;margin-bottom:6px}.import-select-wrapper{position:relative;width:100%}.import-select-wrapper select{width:100%;padding:11px 40px 11px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:.9rem;font-weight:500;color:#1e293b;outline:0;transition:all .2s ease;background:#fff;cursor:pointer;appearance:none}.import-select-wrapper select:focus{border-color:${corTheme};box-shadow:0 0 0 3px rgba(0,85,150,.12);background:#fff}.import-select-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;display:flex;align-items:center}.dropzone-import{border:1.5px dashed #cbd5e1;border-radius:8px;padding:30px 15px;text-align:center;cursor:pointer;transition:all .2s ease;background:#fff}.dropzone-import.dragover:not(.disabled),.dropzone-import:hover:not(.disabled){background:#f0f9ff;border-color:${corTheme}}.dropzone-import.has-file{background:#f0fdf4;border-color:#16a34a}.dropzone-import.disabled{opacity:.5;pointer-events:none;background:#f8fafc}.dropzone-import p{margin:0;color:#334155;font-size:.95rem;font-weight:500}.dropzone-import span{font-size:.8rem;color:#94a3b8}.apoio-rule-box{margin-top:15px;font-size:.82rem;color:#475569;display:flex;align-items:flex-start;gap:10px;background:#f8fafc;padding:12px 15px;border-radius:8px;border-left:3px solid ${corTheme};text-align:left;line-height:1.4;max-height:120px;overflow-y:auto}.progress-container{width:100%;background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden;margin-top:15px}.progress-bar{width:0;height:100%;background:${corTheme};transition:width .2s ease}.progress-text{font-size:.8rem;color:#64748b;margin-top:6px;font-weight:500;text-align:right}`;
+      style.innerHTML = `
+        @keyframes lucide-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+        .lucide-spin { animation: lucide-spin 2s linear infinite; }
+        
+        @keyframes loadingDots {
+          0% { content: ''; }
+          25% { content: '.'; }
+          50% { content: '..'; }
+          75% { content: '...'; }
+        }
+        .loading-dots::after {
+          display: inline-block;
+          animation: loadingDots 1.5s infinite steps(4, end);
+          content: '';
+          width: 16px;
+          text-align: left;
+        }
+
+        .swal2-enterprise-modal{border-radius:16px!important;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,.1);padding-bottom:16px!important}
+        .swal2-custom-actions{margin-top:0!important;margin-bottom:10px!important;gap:12px!important}
+        .swal2-export-modal .swal2-cancel,.swal2-import-modal .swal2-cancel{display:none!important;visibility:hidden!important;width:0!important;min-width:0!important;margin:0!important;padding:0!important}
+        .modal-header-pro{background:#f8fafc;padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:14px;text-align:left}
+        .modal-icon-box{background:${corTheme};color:#fff;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(0,85,150,.2);flex-shrink:0}
+        .modal-body-pro{padding:24px 24px 12px;display:flex;flex-direction:column;text-align:left}
+        .import-select-box{margin-bottom:18px;text-align:left}
+        .import-select-box label{font-size:.85rem;font-weight:600;color:#475569;display:block;margin-bottom:6px}
+        .import-select-wrapper{position:relative;width:100%}
+        .import-select-wrapper select{width:100%;padding:11px 40px 11px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:.9rem;font-weight:500;color:#1e293b;outline:0;transition:all .2s ease;background:#fff;cursor:pointer;appearance:none}
+        .import-select-wrapper select:focus{border-color:${corTheme};box-shadow:0 0 0 3px rgba(0,85,150,.12);background:#fff}
+        .import-select-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#64748b;display:flex;align-items:center}
+        .dropzone-import{border:1.5px dashed #cbd5e1;border-radius:8px;padding:30px 15px;text-align:center;cursor:pointer;transition:all .2s ease;background:#fff}
+        .dropzone-import.dragover:not(.disabled),.dropzone-import:hover:not(.disabled){background:#f0f9ff;border-color:${corTheme}}
+        .dropzone-import.has-file{background:#f0fdf4;border-color:#16a34a}
+        .dropzone-import.disabled{opacity:.5;pointer-events:none;background:#f8fafc}
+        .dropzone-import p{margin:0;color:#334155;font-size:.95rem;font-weight:500}
+        .dropzone-import span{font-size:.8rem;color:#94a3b8}
+        .apoio-rule-box{margin-top:15px;font-size:.82rem;color:#475569;display:flex;align-items:flex-start;gap:10px;background:#f8fafc;padding:12px 15px;border-radius:8px;border-left:3px solid ${corTheme};text-align:left;line-height:1.4;max-height:120px;overflow-y:auto}
+        .progress-container{width:100%;background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden;margin-top:15px}
+        .progress-bar{width:0;height:100%;background:${corTheme};transition:width .2s ease}
+        .progress-text{font-size:.8rem;color:#64748b;margin-top:6px;font-weight:500;text-align:right}
+      `;
       document.head.appendChild(style);
     }
   }, [corTheme]);
@@ -65,12 +105,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     return Array.isArray(data) ? data : [];
   };
 
-  const aplicarFiltrosNaQuery = (query, estData) => {
-    const termo = busca.trim();
-    if (termo.length >= 3 && estData.length > 0) {
-      const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
-      if (colunasTexto.length > 0) query = query.or(colunasTexto.map(col => `${col}.ilike.%${termo}%`).join(','));
-    }
+  const aplicarFiltrosAuxiliares = (query) => {
     Object.keys(filtrosColunas).forEach(col => {
       const regras = filtrosColunas[col];
       if (regras && regras.length > 0) {
@@ -92,19 +127,72 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const carregarDados = useCallback(async (isBackground = false) => {
-    if (!isBackground) { setLoading(true); setRegistros([]); }
+    setLoading(true);
+    if (!isBackground) { setRegistros([]); }
+
     try {
       let estData = estrutura;
       if (estData.length === 0) {
         estData = await obterEstruturaTabela(tabelaBd);
         setEstrutura(estData);
       }
+
+      const termoBruto = busca.trim();
+      const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
+
+      if (termoBruto.length >= 3 && colunasTexto.length > 0) {
+        const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+
+        if (termos.length > 0) {
+          const tamanhoLote = 15;
+          let todosRegistros = [];
+
+          for (let i = 0; i < termos.length; i += tamanhoLote) {
+            const loteTermos = termos.slice(i, i + tamanhoLote);
+            let subQuery = supabase.from(tabelaBd).select('*', { count: 'exact' });
+
+            const condicoesGerais = [];
+            loteTermos.forEach(t => {
+              colunasTexto.forEach(col => {
+                condicoesGerais.push(`${col}.ilike.%${t}%`);
+              });
+            });
+
+            if (condicoesGerais.length > 0) {
+              subQuery = subQuery.or(condicoesGerais.join(','));
+            }
+
+            subQuery = aplicarFiltrosAuxiliares(subQuery);
+
+            const { data, error } = await subQuery;
+            if (error) throw error;
+
+            if (data) {
+              data.forEach(reg => {
+                if (!todosRegistros.some(r => r.id === reg.id)) {
+                  todosRegistros.push(reg);
+                }
+              });
+            }
+          }
+
+          setTotalBanco(todosRegistros.length);
+          const from = (paginaAtual - 1) * registrosPorPagina;
+          setRegistros(todosRegistros.slice(from, from + registrosPorPagina));
+          setLoading(false);
+          return;
+        }
+      }
+
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = aplicarFiltrosNaQuery(supabase.from(tabelaBd).select('*', { count: 'exact' }), estData);
+      let query = supabase.from(tabelaBd).select('*', { count: 'exact' });
+      query = aplicarFiltrosAuxiliares(query);
+
       const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order('id', { ascending: true });
       if (error) throw error;
-      setRegistros(data || []);
+
       setTotalBanco(count || 0);
+      setRegistros(data || []);
     } catch (err) {
       Swal.fire('Erro', 'Erro ao carregar dados: ' + err.message, 'error');
     } finally {
@@ -526,8 +614,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const temFiltroAtivo = busca.trim().length > 0 || Object.values(filtrosColunas).some(r => Array.isArray(r) && r.length > 0);
   const limparTodosFiltros = () => { setBusca(""); setFiltrosColunas({}); setPaginaAtual(1); setLimparFiltrosTrigger(p => p + 1); };
-  const btnBase = { display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', height:'40px', minWidth:'120px', borderRadius:'8px', fontSize:'0.9rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'500' };
-  const btnIco = { display:'flex', alignItems:'center', justifyContent:'center', width:'40px', height:'40px', borderRadius:'8px', fontSize:'0.9rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'500' };
+
+  const btnBase = { display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', height:'32px', padding:'0 12px', minWidth:'100px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600', boxShadow:'0 1px 2px rgba(0,0,0,0.02)' };
+  const btnIco = { display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600' };
+
   const temSel = linhasSelecionadasIds?.length > 0;
 
   return (
@@ -542,21 +632,40 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px', gap:'12px', flexWrap:'wrap' }}>
         <div style={{ position:'relative', flex:'1', minWidth:'280px' }}>
           <Search size={18} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'#94a3b8' }} />
-          <input type="text" placeholder="Pesquisar em qualquer coluna (mínimo 3 caracteres)..." value={busca} onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} style={{ width:'100%', padding:'10px 12px 10px 38px', height:'40px', borderRadius:'8px', border:'1px solid #cbd5e1', outline:'none', fontSize:'0.9rem', background:'#fff', boxSizing:'border-box' }} />
+          <input 
+            type="text" 
+            placeholder="Pesquisar (separe por vírgula , ponto e vírgula ; ou cole colunas)..." 
+            value={busca} 
+            onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
+            onPaste={e => {
+              e.preventDefault();
+              const pastedText = e.clipboardData.getData('text');
+              const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
+              setBusca(formattedText);
+              setPaginaAtual(1);
+            }}
+            style={{ width:'100%', padding:'0 12px 0 38px', height:'32px', borderRadius:'6px', border:'1px solid #cbd5e1', outline:'none', fontSize:'0.9rem', background:'#fff', boxSizing:'border-box' }} 
+          />
         </div>
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-          {temFiltroAtivo && <button onClick={limparTodosFiltros} style={{ ...btnIco, background:'#fff', border:'1px solid #cbd5e1', color:'#dc2626' }} title="Limpar filtros"><FilterX size={18} /></button>}
-          <button onClick={() => carregarDados(false)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Atualizar"><RefreshCw size={16} className={loading ? "lucide-spin" : ""} /> Atualizar</button>
-          <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={16} /> Exportar</button>
-          <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={16} /> Importar</button>
-          {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={16} /> Copiar PEP's</button>}
-          {permiteCrud && <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={16} /> Novo</button>}
-          {permiteCrud && <button onClick={() => abrirFormRegistroTabela(registroSelecionadoObj)} disabled={!registroSelecionadoId} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155', opacity:registroSelecionadoId ? 1 : 0.4, cursor:registroSelecionadoId ? 'pointer' : 'not-allowed' }}><Edit2 size={16} /> Editar</button>}
-          <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={16} /> Excluir</button>
+          {temFiltroAtivo && <button onClick={limparTodosFiltros} style={{ ...btnIco, background:'#fff', border:'1px solid #cbd5e1', color:'#dc2626' }} title="Limpar filtros"><FilterX size={16} /></button>}
+          <button onClick={() => carregarDados(false)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Atualizar"><RefreshCw size={14} className={loading ? "lucide-spin" : ""} /> Atualizar</button>
+          <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={14} /> Exportar</button>
+          <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
+          {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
+          {permiteCrud && <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>}
+          {permiteCrud && <button onClick={() => abrirFormRegistroTabela(registroSelecionadoObj)} disabled={!registroSelecionadoId} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155', opacity:registroSelecionadoId ? 1 : 0.4, cursor:registroSelecionadoId ? 'pointer' : 'not-allowed' }}><Edit2 size={14} /> Editar</button>}
+          <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={14} /> Excluir</button>
         </div>
       </div>
       <div style={{ flex:1, background:'#ffffff', borderRadius:'12px', border:'1px solid #e2e8f0', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
-        {loading ? <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100%", color:"#64748b", fontWeight:"500" }}>Atualizando dados...</div> : <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas(f); setPaginaAtual(1); }} onFetchColumnOptions={buscarOpcoesColunaBanco} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />}
+        {loading ? (
+          <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100%", color:"#64748b", fontWeight:"500" }}>
+            Atualizando dados<span className="loading-dots"></span>
+          </div>
+        ) : (
+          <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas(f); setPaginaAtual(1); }} onFetchColumnOptions={buscarOpcoesColunaBanco} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />
+        )}
       </div>
     </div>
   );
