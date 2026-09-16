@@ -72,13 +72,15 @@ export default function Reset() {
 
   return (
     <>
-      <main className="main-wrapper" style={{ minHeight: '100vh', minHeight: '100dvh', height: 'auto', overflowY: 'auto', display: 'flex', flexWrap: 'wrap' }}>
-        <section className="side-image" style={{ display: 'none' }}></section>
-        <section className="login-section" style={{ width: '100%', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 15px', boxSizing: 'border-box' }}>
+      <main className="main-wrapper" style={{ minHeight: '100vh', minHeight: '100dvh', height: 'auto', overflowY: 'auto' }}>
+        <section className="side-image">
+          <div className="overlay"></div>
+        </section>
+        <section className="login-section" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 15px', boxSizing: 'border-box' }}>
           <div className="login-container" style={{ width: '100%', maxWidth: '400px', margin: 'auto', boxSizing: 'border-box' }}>
             
             <div className="brand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
                 <div style={{ 
                   background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)', 
                   padding: '10px', 
@@ -86,7 +88,7 @@ export default function Reset() {
                   display: 'flex', 
                   boxShadow: '0 6px 16px rgba(2, 132, 199, 0.3)' 
                 }}>
-                  <Zap size={30} color="white" fill="white" />
+                  <Zap size={32} color="white" fill="white" />
                 </div>
                 <span style={{ 
                   background: 'linear-gradient(to right, #0f172a 0%, #0284c7 100%)',
@@ -96,7 +98,7 @@ export default function Reset() {
                   color: 'transparent',
                   fontWeight: '900', 
                   letterSpacing: '-1.5px', 
-                  fontSize: '38px',
+                  fontSize: '40px',
                   lineHeight: '1',
                   fontFamily: 'Inter, sans-serif'
                 }}>
