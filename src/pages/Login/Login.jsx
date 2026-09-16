@@ -13,7 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Trava a orientação em modo retrato (vertical) em dispositivos móveis compatíveis
+    // Tenta travar a orientação em modo retrato (vertical) em dispositivos móveis compatíveis
     if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
       window.screen.orientation.lock("portrait").catch((err) => {
         console.log("Orientação portrait restrita pelo navegador:", err);
