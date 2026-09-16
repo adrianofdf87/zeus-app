@@ -276,7 +276,7 @@ export default function Login() {
                 margin: '0',
                 textTransform: 'uppercase'
               }}>
-                Obras Elétricas
+                Gestão de Obras Elétricas
               </p>
             </div>
             {/* FIM DA LOGO */}
