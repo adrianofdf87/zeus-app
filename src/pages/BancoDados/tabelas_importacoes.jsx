@@ -90,6 +90,7 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
     atualizarProgressoGlobal(2, "Lendo planilha de Atividades...");
 
     await loadXlsx(atualizarProgressoGlobal);
+    const usuCad = getUsu();
 
     const formatarDataParaBanco = (data) => {
         if (!data) return null;
@@ -240,9 +241,23 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
                         throw new Error(`Erro de banco: ${error.message}`);
                     }
 
+                    // Inserindo os logs correspondentes ao lote inserido
+                    const loteLogs = lote.map(item => ({
+                        id_atividade: item.id,
+                        acao: "CADASTRO",
+                        descricao_acao: "CADASTRO EM MASSA",
+                        usu_cad: usuCad
+                    }));
+
+                    const { error: errLog } = await sb.from("tabe_cad_carteira_log").insert(loteLogs);
+                    if (errLog) {
+                        console.error('Erro ao inserir logs:', errLog);
+                        throw new Error(`Erro ao registrar logs de auditoria: ${errLog.message}`);
+                    }
+
                     inseridos += lote.length;
                     const percentual = 70 + ((inseridos / total) * 30);
-                    atualizarProgressoGlobal(percentual, `Enviando dados finais para o banco (${inseridos}/${total})...`);
+                    atualizarProgressoGlobal(percentual, `Enviando dados finais e logs para o banco (${inseridos}/${total})...`);
                 }
 
                 resolve();
