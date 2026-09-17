@@ -137,6 +137,21 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     return query;
   };
 
+  // Função para identificar IDs disfarçados de datas (ex: 2026-08-0001) e tratá-los como texto/ID
+  const formatarValorExibicao = (val) => {
+    if (!val || typeof val !== 'string') return val || '';
+    // Identifica o padrão Ano-Mês-Sequencial (ex: 2026-08-0001)
+    const padraoIdComTracos = /^\d{4}-\d{2}-\d{4}$/;
+    if (padraoIdComTracos.test(val)) {
+      return val; // Retorna puro como ID, evitando conversão para data
+    }
+    if (val.indexOf('-') > -1 && val.indexOf('T') > -1) {
+      const p = val.split('T')[0].split('-');
+      if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+    }
+    return val;
+  };
+
   const carregarDados = useCallback(async (isBackground = false) => {
     setLoading(true);
     if (!isBackground) { setRegistros([]); }
@@ -273,9 +288,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerText = 'OK'; confirmBtn.style.setProperty('display', 'inline-block', 'important'); }
         if (closeBtn) Object.assign(closeBtn.style, { pointerEvents: 'auto', opacity: '1' });
       } catch (err) { Swal.fire('Erro', 'Erro ao processar: ' + err.message, 'error'); }
-    };
+     };
 
-    Swal.fire({
+     Swal.fire({
         ...swalDefault,
         html: `<div class="modal-header-pro"><div class="modal-icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Central de Cópia</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Opções de Cópia de PEPs</p></div></div><div class="modal-body-pro"><div id="copiarStateSelect"><p style="margin:0 0 10px;font-size:0.9rem;color:#475569;">Escolha o formato desejado para copiar os PEPs:</p></div><div id="copiarStateProgress" style="display:none;padding:10px 0;text-align:center;"><div id="copiarProgressMsg" style="font-size:0.95rem;color:#334155;font-weight:500;">Processando...</div><div style="width:100%;"><div class="progress-container"><div id="copiarProgressBar" class="progress-bar"></div></div><div id="copiarProgressText" class="progress-text">0%</div></div></div></div>`,
         showCancelButton: false, showDenyButton: true, confirmButtonText: "PEP's Nível 3", confirmButtonColor: '#005596', denyButtonText: "PEP's Nível 2", denyButtonColor: '#10b981', reverseButtons: true, allowOutsideClick: false,
@@ -286,15 +301,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         },
         preDeny: async () => { await executarProcessamentoCopia('NIVEL2'); return false; }
     });
-  };
-
-  const formatarDataBrasil = (val) => {
-    if (!val || typeof val !== 'string') return val || '';
-    if (val.indexOf('-') > -1 && val.indexOf('T') > -1) {
-      const p = val.split('T')[0].split('-');
-      if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
-    }
-    return val;
   };
 
   const executarExportacao = async (apenasFiltrados) => {
@@ -340,7 +346,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       const ocultasSalvas = JSON.parse(localStorage.getItem(`tabelas_dados_${tabelaBd}_${userIdKey}_ocultas`)) || [];
       const cols = estData.length > 0 ? estData.filter(c => !c.oculta && !ocultasSalvas.includes(c.nome_coluna)).map(c => c.nome_coluna) : Object.keys(baseExport[0]).filter(c => c !== 'id');
-      const dadosExcel = baseExport.map(linha => cols.reduce((l, c) => { l[c] = formatarDataBrasil(linha[c] ?? ''); return l; }, {}));
+      const dadosExcel = baseExport.map(linha => cols.reduce((l, c) => { l[c] = formatarValorExibicao(linha[c] ?? ''); return l; }, {}));
 
       updateProgress('export', 96, 'Gerando Excel...'); await pausa();
       const ws = window.XLSX.utils.json_to_sheet(dadosExcel), wb = window.XLSX.utils.book_new();
@@ -548,7 +554,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             getEl('apoioProgressBarWrapper').style.display = 'block';
             if (limpar) { 
               if (tabelaBd === 'tabe_cad_carteira') {
+                // Exclusão em cascata atualizada para logs e LTO ao limpar a tabela inteira
                 await supabase.from('tabe_cad_carteira_log').delete().not('id', 'is', null);
+                await supabase.from('tabe_imp_pep_lto').delete().not('id', 'is', null);
               }
               const { error } = await supabase.from(tabelaBd).delete().not('id','is',null); 
               if (error) throw error; 
@@ -635,9 +643,13 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       if (res.isConfirmed || res.isDenied) {
         if (tabelaBd === 'tabe_cad_carteira') {
           if (res.isConfirmed) {
+            // Exclusão em cascata de toda a base para as tabelas relacionadas
             await supabase.from('tabe_cad_carteira_log').delete().not('id', 'is', null);
+            await supabase.from('tabe_imp_pep_lto').delete().not('id', 'is', null);
           } else if (res.isDenied) {
+            // Exclusão em cascata por ID de atividade correspondente na página atual
             await supabase.from('tabe_cad_carteira_log').delete().in('id_atividade', linhasSelecionadasIds);
+            await supabase.from('tabe_imp_pep_lto').delete().in('id_atividade', linhasSelecionadasIds);
           }
         }
 
@@ -652,7 +664,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       });
       if (res.isConfirmed) {
         if (tabelaBd === 'tabe_cad_carteira') {
+          // Exclusão em cascata baseada nos IDs selecionados
           await supabase.from('tabe_cad_carteira_log').delete().in('id_atividade', linhasSelecionadasIds);
+          await supabase.from('tabe_imp_pep_lto').delete().in('id_atividade', linhasSelecionadasIds);
         }
         const { error } = await supabase.from(tabelaBd).delete().in('id', linhasSelecionadasIds);
         if (error) Swal.fire('Erro', error.message, 'error');
