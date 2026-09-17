@@ -199,18 +199,23 @@ export default function Carteira() {
         }
 
         if (colunasTexto.length > 0) {
-          // Ajuste: divide apenas por vírgulas, ponto e vírgula ou quebras de linha, preservando espaços nas frases
-          const termos = termoBruto.split(/[,;\n\r]+/).map(t => t.trim()).filter(t => t.length > 0);
+          // Mantém frases com espaços unidas, dividindo apenas por vírgulas ou ponto e vírgula
+          const termos = termoBruto.split(/[,;]+/).map(t => t.trim()).filter(t => t.length > 0);
+          
           if (termos.length > 0) {
             const condicoesGerais = [];
             termos.forEach(t => {
-              colunasTexto.forEach(col => {
-                const colLower = col.toLowerCase();
-                if (!colLower.includes('data') && !colLower.includes('_at')) {
-                  condicoesGerais.push(`${col}.ilike.%${t}%`);
-                }
-              });
+              const termoLimpo = t.replace(/[(),.]/g, ' ').trim();
+              if (termoLimpo.length > 0) {
+                colunasTexto.forEach(col => {
+                  const colLower = col.toLowerCase();
+                  if (!colLower.includes('data') && !colLower.includes('_at')) {
+                    condicoesGerais.push(`${col}.ilike.%${termoLimpo}%`);
+                  }
+                });
+              }
             });
+
             if (condicoesGerais.length > 0) {
               query = query.or(condicoesGerais.join(','));
             }
@@ -568,7 +573,7 @@ export default function Carteira() {
             </div>
           </div>
 
-          {/* DataTable Avançado */}
+          {/* DataTable Avançado com Loader integrado */}
           <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {loading && listaCarteiraGlobal.length === 0 ? (
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#64748b", fontWeight: "500" }}>
