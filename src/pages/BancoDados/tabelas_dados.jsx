@@ -149,30 +149,21 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
 
       const termoBruto = busca.trim();
-      
+      const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
+
       const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from(tabelaBd).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
 
-      if (termoBruto.length >= 2) {
-        // Exclui estritamente apenas as colunas de data solicitadas e permite todas as outras
-        const colunasExcluidas = ['aviso', 'prazo', 'criado_em'];
-        let colunasTexto = estData
-          .map(c => c.nome_coluna)
-          .filter(col => !colunasExcluidas.includes(col.toLowerCase()));
+      // Correção aplicada: Tratamento de busca por frase completa mantendo os espaços (ex: "SANTA IZABEL")
+      if (termoBruto.length >= 2 && colunasTexto.length > 0) {
+        const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
+        
+        if (termoLimpo.length > 0) {
+          const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
 
-        if (colunasTexto.length === 0) {
-          colunasTexto = ['carteira', 'filial', 'contratante', 'municipio', 'seccional', 'area', 'tipo_custo', 'tipo_atividade', 'prioridade', 'tipo_rastreio', 'pep'];
-        }
-
-        if (colunasTexto.length > 0) {
-          const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
-          
-          if (termoLimpo.length > 0) {
-            const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
-            if (condicoes.length > 0) {
-              query = query.or(condicoes.join(','));
-            }
+          if (condicoes.length > 0) {
+            query = query.or(condicoes.join(','));
           }
         }
       }
@@ -681,7 +672,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px', background:'#ffffff', padding:'8px 14px', borderRadius:'8px', boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
           <div style={{ backgroundColor:corTheme, color:'#fff', width:'32px', height:'32px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 4px rgba(0,85,150,0.2)' }}><Database size={16} /></div>
-          <div><h2 style={{ margin:0, fontSize:'0.95rem', color:'#0f172a', fontWeight:'700', lineHeight:'1.2' }}>{titulo}</h2><p style={{ margin:'1px 0 0', fontSize:'0.72rem', color:#64748b }}>Gerenciamento da tabela: <b>{tabelaBd}</b></p></div>
+          <div><h2 style={{ margin:0, fontSize:'0.95rem', color:'#0f172a', fontWeight:'700', lineHeight:'1.2' }}>{titulo}</h2><p style={{ margin:'1px 0 0', fontSize:'0.72rem', color:'#64748b' }}>Gerenciamento da tabela: <b>{tabelaBd}</b></p></div>
         </div>
         {onClose && <button onClick={onClose} style={{ background:'transparent', border:'none', cursor:'pointer', color:'#64748b', padding:'6px', borderRadius:'50%' }} title="Fechar"><X size={18} /></button>}
       </div>
@@ -690,7 +681,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <Search size={18} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'#94a3b8' }} />
           <input 
             type="text" 
-            placeholder="Pesquisar (ex: DEMANDA DE CLIENTE ou parte do texto)..." 
+            placeholder="Pesquisar geral..." 
             value={busca} 
             onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
             onPaste={e => {
