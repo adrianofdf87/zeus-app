@@ -56,10 +56,10 @@ const getUsu = () => {
     const d = localStorage.getItem("usuario_logado"); 
     if (d) { 
       const p = JSON.parse(d); 
-      return p.email || window.emailUsuario || window.usuarioLogado || p.nome || 'sistema@email.com'; 
+      return p.nome || p.email || window.usuarioLogado || window.emailUsuario || 'Usuário Sistema'; 
     } 
   } catch(e){}
-  return window.emailUsuario || window.usuarioLogado || 'sistema@email.com';
+  return window.usuarioLogado || window.emailUsuario || 'Usuário Sistema';
 };
 const limpaStr = v => v ? String(v).replace(/^"|"$/g, '').trim() : null;
 const parseNum = v => { if (!v && v !== 0) return 0; if (typeof v === 'number') return v; const p = parseFloat(String(v).replace(/\s+/g, '').replace('R$', '').replace(/\./g, '').replace(',', '.')); return isNaN(p) ? 0 : p; };
@@ -247,7 +247,7 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
                         throw new Error(`Erro de banco: ${error.message}`);
                     }
 
-                    // Inserindo os logs correspondentes ao lote inserido usando o e-mail em `usu_cad`
+                    // Inserindo os logs correspondentes ao lote inserido usando o nome em `usu_cad`
                     const loteLogs = lote.map(item => ({
                         id_atividade: item.id,
                         acao: "CADASTRO",

@@ -12,7 +12,7 @@ const svgSalvar = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" s
 const svgHeaderAdd = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
 const svgHeaderEdit = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
 
-export default function TabelasDados({ tabelaBd, titulo, icone = 'database', corTheme = '#005596', permiteCrud = true, onClose }) {
+export default function TabelasDados({ tabelaBd, titulo, icone = 'database', corTheme = '#005596', permitsCrud = true, onClose }) {
   const [registros, setRegistros] = useState([]);
   const [totalBanco, setTotalBanco] = useState(0);
   const [estrutura, setEstrutura] = useState([]);
@@ -30,6 +30,18 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
   const userIdKey = sessaoUsuario.id || sessaoUsuario.email || 'geral';
   const getEl = (id) => document.getElementById(id);
+
+  // Função auxiliar para retornar estritamente o NOME do usuário logado
+  const getNomeUsuarioLogado = () => {
+    try {
+      const d = localStorage.getItem("usuario_logado");
+      if (d) {
+        const p = JSON.parse(d);
+        return p.nome || window.usuarioLogado || window.nomeUsuario || 'Sistema';
+      }
+    } catch(e) {}
+    return window.usuarioLogado || window.nomeUsuario || 'Sistema';
+  };
 
   useEffect(() => {
     if (!getEl('apoio-import-styles')) {
@@ -394,8 +406,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       colsImp = (await obterEstruturaTabela(tabelaBd)).filter(c => !c.oculta && !sysFields.includes(String(c.nome_coluna).toLowerCase()));
     } catch (e) { return Swal.fire('Erro', 'Não foi possível descobrir a estrutura: ' + e.message, 'error'); }
 
-    let optHtml = permiteCrud ? `<option value="PADRAO" selected>Importação Padrão (${titulo || tabelaBd})</option>` : '';
-    if (cfgEspecial) optHtml += `<option value="ESPECIAL" ${!permiteCrud ? 'selected' : ''}>${cfgEspecial.nomeFantasia}</option>`;
+    let optHtml = permitsCrud ? `<option value="PADRAO" selected>Importação Padrão (${titulo || tabelaBd})</option>` : '';
+    if (cfgEspecial) optHtml += `<option value="ESPECIAL" ${!permitsCrud ? 'selected' : ''}>${cfgEspecial.nomeFantasia}</option>`;
 
     Swal.fire({
       ...swalDefault,
@@ -483,7 +495,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     const c = Swal.getCloseButton(); if(c) Object.assign(c.style, {pointerEvents:'none', opacity:'0.4'});
     try {
       if (typeof window.XLSX === 'undefined') { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; document.head.appendChild(s); await new Promise(r => setTimeout(r, 1000)); }
-      const usr = JSON.parse(localStorage.getItem("usuario_logado")) || {}; const nmUsr = usr.email || usr.nome || "Sistema";
+      const nmUsr = getNomeUsuarioLogado();
       const estComp = await obterEstruturaTabela(tabelaBd).catch(()=>[]);
       const colUsr = estComp.find(c => ['usu_cad','usu_cada','usucad','usuario','usuario_cadastro','cadastrado_por'].includes(String(c.nome_coluna).toLowerCase()))?.nome_coluna;
       const reader = new FileReader();
@@ -547,7 +559,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const abrirFormRegistroTabela = async (editandoObj = null) => {
     const editId = editandoObj?.id, editando = Boolean(editId), rowData = editandoObj || {};
-    const nmUsr = (JSON.parse(localStorage.getItem('usuario_logado')) || {}).nome || (JSON.parse(localStorage.getItem('usuario_logado')) || {}).email || 'Sistema';
+    const nmUsr = getNomeUsuarioLogado();
     try {
       const campos = (await obterEstruturaTabela(tabelaBd)).filter(col => !col.oculta);
       if (!campos.length) return Swal.fire('Atenção', 'Sem campos disponíveis.', 'warning');
@@ -662,8 +674,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={14} /> Exportar</button>
           <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
-          {permiteCrud && <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>}
-          {permiteCrud && <button onClick={() => abrirFormRegistroTabela(registroSelecionadoObj)} disabled={!registroSelecionadoId} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155', opacity:registroSelecionadoId ? 1 : 0.4, cursor:registroSelecionadoId ? 'pointer' : 'not-allowed' }}><Edit2 size={14} /> Editar</button>}
+          {permitsCrud && <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>}
+          {permitsCrud && <button onClick={() => abrirFormRegistroTabela(registroSelecionadoObj)} disabled={!registroSelecionadoId} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155', opacity:registroSelecionadoId ? 1 : 0.4, cursor:registroSelecionadoId ? 'pointer' : 'not-allowed' }}><Edit2 size={14} /> Editar</button>}
           <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={14} /> Excluir</button>
         </div>
       </div>
