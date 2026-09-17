@@ -33,8 +33,8 @@ export const configuracoesImportacaoEspecificas = {
     textoDropzone: "Arraste a planilha <b>.csv, .xls</b> ou <b>.xlsx</b> aqui", textoRegra: "A planilha deve conter pelo menos <b>5 colunas</b> estruturadas para LTO em Massa.",
     funcaoProcessadora: processarImportacaoLTOMassa
   },
-  '2 - carteira_atividades': {
-    nomeFantasia: "Importação Avançada de Atividades", tabela: "2 - carteira_atividades", requerSelecaoOpcao: true,
+  'tabe_cad_carteira': {
+    nomeFantasia: "Importação Avançada de Atividades", tabela: "tabe_cad_carteira", requerSelecaoOpcao: true,
     extensoesAceitas: ['csv', 'xls', 'xlsx'], acceptInput: ".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     textoDropzone: "Arraste a planilha <b>.csv, .xls</b> ou <b>.xlsx</b> aqui", textoRegra: "A planilha deve conter a coluna <b>id_rastreio</b> e <b>carteira</b> para o gerenciamento automático de IDs.",
     funcaoProcessadora: processarImportacaoAtividadeMassa
@@ -159,7 +159,7 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
                         atualizarProgressoGlobal(20 + ((loteAtual / totalChunks) * 20), `Validando duplicidades no banco (Lote ${loteAtual}/${totalChunks})...`);
                         
                         const { data: rastreiosNoBanco, error: errBusca } = await sb
-                            .from('2 - carteira_atividades')
+                            .from('tabe_cad_carteira')
                             .select('id_rastreio')
                             .in('id_rastreio', chunk);
 
@@ -201,7 +201,7 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
 
                 for (const [carteira, itens] of Object.entries(agrupadoPorCarteira)) {
                     const { data: registrosCarteira, error: errCarteira } = await sb
-                        .from('2 - carteira_atividades')
+                        .from('tabe_cad_carteira')
                         .select('id')
                         .like('id', `${carteira}-%`);
 
@@ -236,7 +236,7 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
 
                 for (let i = 0; i < total; i += tamanhoLote) {
                     const lote = registrosFinais.slice(i, i + tamanhoLote);
-                    const { error } = await sb.from("2 - carteira_atividades").insert(lote);
+                    const { error } = await sb.from("tabe_cad_carteira").insert(lote);
                     
                     if (error) {
                         console.error('Erro de inserção:', error);
