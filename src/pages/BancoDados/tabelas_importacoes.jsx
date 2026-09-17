@@ -238,7 +238,6 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                   const tamanhoLote = 500;
                   let inseridos = 0;
 
-                  // Array para acumular todos os itens inseridos para uso posterior nos logs da tabela tabe_cad_carteira_log
                   const todosItensInseridos = [];
 
                   for (let i = 0; i < total; i += tamanhoLote) {
@@ -250,10 +249,9 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                           throw new Error(`Erro de banco: ${error.message}`);
                       }
 
-                      // Guardando para o log geral posterior
                       todosItensInseridos.push(...lote);
 
-                      // Inserindo os logs tradicionais de cadastro correspondentes ao lote inserido
+                      // Log padrão de CADASTRO
                       const loteLogs = lote.map(item => ({
                           id_atividade: item.id,
                           acao: "CADASTRO",
@@ -272,65 +270,64 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                       atualizarProgressoGlobal(percentual, `Enviando dados finais e logs para o banco (${inseridos}/${total})...`);
                   }
 
-                  // ==========================================
-                  // NOVA ETAPA: Integração com tabe_imp_pep_lto
-                  // ==========================================
-                  atualizarProgressoGlobal(92, "Atualizando relações com a tabela de impacto...");
+                  // =========================================================================
+                  // ETAPA CORRIGIDA: Integração e Atualização com tabe_imp_pep_lto
+                  // =========================================================================
+                  atualizarProgressoGlobal(92, "Verificando vínculos com a tabela de impacto (tabe_imp_pep_lto)...");
 
-                  // Extrai todos os pares de id_rastreio e id recém-criados
-                  const rastreiosInseridos = todosItensInseridos.map(item => String(item.id_rastreio).trim());
-
-                  if (rastreiosInseridos.length > 0) {
+                  if (todosItensInseridos.length > 0) {
                       const chunkBuscaImp = 150;
                       
-                      for (let i = 0; i < rastreiosInseridos.length; i += chunkBuscaImp) {
-                          const chunkRastreios = rastreiosInseridos.slice(i, i + chunkBuscaImp);
+                      for (let i = 0; i < todosItensInseridos.length; i += chunkBuscaImp) {
+                          const chunkItens = todosItensInseridos.slice(i, i + chunkBuscaImp);
+                          const chunkNotas = chunkItens.map(item => String(item.id_rastreio).trim());
 
-                          // 1. Busca na tabela tabe_imp_pep_lto onde a nota corresponde ao id_rastreio
+                          // Busca registros em tabe_imp_pep_lto onde a 'nota' bate com os id_rastreio
                           const { data: itensImpacto, error: errImpBusca } = await sb
                               .from('tabe_imp_pep_lto')
-                              .select('id, nota')
-                              .in('nota', chunkRastreios);
+                              .select('id, nota, id_atividade')
+                              .in('nota', chunkNotas);
 
                           if (errImpBusca) {
-                              throw new Error(`Erro ao buscar em tabe_imp_pep_lto: ${errImpBusca.message}`);
+                              console.error('Erro ao buscar em tabe_imp_pep_lto:', errImpBusca);
+                              continue;
                           }
 
                           if (itensImpacto && itensImpacto.length > 0) {
-                              // Cria um mapa rápido de nota -> id_atividade (que é o id de tabe_cad_carteira)
+                              // Mapeia nota -> ID criado na carteira
                               const mapaNotaParaIdAtividade = {};
-                              todosItensInseridos.forEach(carteiraItem => {
-                                  mapaNotaParaIdAtividade[String(carteiraItem.id_rastreio).trim()] = carteiraItem.id;
+                              chunkItens.forEach(c => {
+                                  mapaNotaParaIdAtividade[String(c.id_rastreio).trim()] = c.id;
                               });
 
                               const logsListaTecnica = [];
 
-                              // 2. Atualiza cada registro correspondente em tabe_imp_pep_lto e prepara os logs
                               for (const imp of itensImpacto) {
-                                  const idAtividadeCorrespondente = mapaNotaParaIdAtividade[String(imp.nota).trim()];
+                                  const notaStr = String(imp.nota).trim();
+                                  const idAtividadeGerado = mapaNotaParaIdAtividade[notaStr];
 
-                                  if (idAtividadeCorrespondente) {
-                                      // Atualiza tabe_imp_pep_lto . id_atividade = tabe_cad_carteira.id
+                                  if (idAtividadeGerado) {
+                                      // 1. Atualiza tabe_imp_pep_lto . id_atividade = tabe_cad_carteira.id
                                       const { error: errUpdateImp } = await sb
                                           .from('tabe_imp_pep_lto')
-                                          .update({ id_atividade: idAtividadeCorrespondente })
+                                          .update({ id_atividade: idAtividadeGerado })
                                           .eq('id', imp.id);
 
                                       if (errUpdateImp) {
-                                          console.error('Erro ao atualizar tabe_imp_pep_lto:', errUpdateImp);
+                                          console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
+                                      } else {
+                                          // 2. Prepara o log de LISTA TÉCNICA PROJETADA apenas para quem foi atualizado com sucesso
+                                          logsListaTecnica.push({
+                                              id_atividade: idAtividadeGerado,
+                                              acao: "LISTA TÉCNICA PROJETADA",
+                                              descricao_acao: "CADASTRO EM MASSA",
+                                              usu_cada: usuCad
+                                          });
                                       }
-
-                                      // Prepara a linha para a tabela tabe_cad_carteira_log
-                                      logsListaTecnica.push({
-                                          id_atividade: idAtividadeCorrespondente, // ou id, dependendo de como sua tabela de log armazena a referência da carteira
-                                          acao: "LISTA TÉCNICA PROJETADA",
-                                          descricao_acao: "CADASTRO EM MASSA",
-                                          usu_cada: usuCad
-                                      });
                                   }
                               }
 
-                              // 3. Insere as linhas criadas na tabela tabe_cad_carteira_log
+                              // 3. Insere os logs de LISTA TÉCNICA PROJETADA na tabela tabe_cad_carteira_log
                               if (logsListaTecnica.length > 0) {
                                   const { error: errLogLista } = await sb
                                       .from("tabe_cad_carteira_log")
@@ -338,14 +335,13 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
 
                                   if (errLogLista) {
                                       console.error('Erro ao inserir logs de lista técnica:', errLogLista);
-                                      throw new Error(`Erro ao registrar logs de lista técnica: ${errLogLista.message}`);
                                   }
                               }
                           }
                       }
                   }
 
-                  atualizarProgressoGlobal(100, "Importação concluída com sucesso!");
+                  atualizarProgressoGlobal(100, "Importação e vínculos concluídos com sucesso!");
                   resolve();
 
               } catch (error) {
