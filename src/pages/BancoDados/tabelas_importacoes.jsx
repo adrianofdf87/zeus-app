@@ -252,7 +252,7 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
                         id_atividade: item.id,
                         acao: "CADASTRO",
                         descricao_acao: "CADASTRO EM MASSA",
-                        usu_cad: usuCad
+                        usu_cada: usuCad
                     }));
 
                     const { error: errLog } = await sb.from("tabe_cad_carteira_log").insert(loteLogs);
