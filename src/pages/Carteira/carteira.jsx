@@ -191,26 +191,28 @@ export default function Carteira() {
 
       const termo = busca.trim();
 
-      // Filtragem estricta e agressiva para excluir datas, IDs, coordenadas e numéricos da busca textual
+      // Somente colunas textuais: evita enviar ilike para campos date/numeric do PostgreSQL
+      const amostraBusca = await supabase.from("tabe_cad_carteira").select("*").limit(1);
+      const registroAmostra = amostraBusca.data?.[0] || {};
+      const ehData = valor => typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}(T|\s|$)/.test(valor.trim());
       const colunasTexto = colunasTabela.filter(col => {
         const colLower = col.toLowerCase();
         const termosProibidos = [
-          'data', 'dt', 'id', 'valor', 'preco', 'custo', 'qtd', 
-          'quantidade', 'numero', 'num', 'ano', 'mes', 'dia', 
+          'data', 'dt', 'id', 'valor', 'preco', 'custo', 'qtd',
+          'quantidade', 'numero', 'num', 'ano', 'mes', 'dia',
           'hora', 'lat', 'lng', 'latitude', 'longitude', 'cep',
           'poste', 'trafo', 'km', 'cliente', 'servico', 'serviço',
-          'coord', 'prazo', 'criado', 'atualizado'
+          'coord', 'prazo', 'criado', 'atualizado', 'prev', 'conc',
+          'inicio', 'fim', 'venc', 'exec', 'liberacao', 'energizacao'
         ];
-
-        const ehProibida = termosProibidos.some(termoProibido => {
-          if (termoProibido.length <= 3) {
-            const regex = new RegExp(`(^|_)${termoProibido}(_|$)`, 'i');
-            return regex.test(colLower);
-          }
-          return colLower.includes(termoProibido);
-        });
-
-        return !ehProibida;
+        const ehProibida = termosProibidos.some(t => t.length <= 3
+          ? new RegExp(`(^|_)${t}(_|$)`, 'i').test(colLower)
+          : colLower.includes(t));
+        if (ehProibida) return false;
+        const valorAmostra = registroAmostra[col];
+        if (ehData(valorAmostra)) return false;
+        if (valorAmostra !== null && valorAmostra !== undefined && typeof valorAmostra !== 'string') return false;
+        return true;
       });
 
       if (termo.length >= 3 && colunasTexto.length > 0) {
