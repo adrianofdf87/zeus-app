@@ -3,7 +3,7 @@ import {
   Briefcase, Map, CheckCircle, Calendar, Flag, FileText, Package, Wrench, 
   Paperclip, Upload, PlusCircle, Edit3, Trash2, RefreshCw, 
   Download, FilterX, Columns3, ChevronRight, ChevronsLeft, ChevronsRight, 
-  ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown
+  ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, Search
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { supabase } from "../../services/supabase";
@@ -21,11 +21,12 @@ export default function Carteira() {
     sessaoUsuario.role || 
     ''
   ).trim().toLowerCase();
-  
+
   const podeExcluir = perfilUsuario === 'desenvolvedor' || perfilUsuario === 'gerente';
 
   const [abaAtiva, setAbaAtiva] = useState("aba-carteira");
   const [listaCarteiraGlobal, setListaCarteiraGlobal] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [colunasTabela, setColunasTabela] = useState([]);
   const [colunasOcultas, setColunasOcultas] = useState(() => JSON.parse(localStorage.getItem(`colunasOcultas_carteira_${userIdKey}`)) || []);
   const [colunasOrdem, setColunasOrdem] = useState(() => JSON.parse(localStorage.getItem(`colunasOrdem_carteira_${userIdKey}`)) || []);
@@ -37,20 +38,21 @@ export default function Carteira() {
   const [colunaOrdenacao, setColunaOrdenacao] = useState('id');
   const [ordemAscendente, setOrdemAscendente] = useState(false);
   const [filtrosAtivosGlobais, setFiltrosAtivosGlobais] = useState({});
-  
+  const [busca, setBusca] = useState("");
+
   const [colunaAtualSendoFiltrada, setColunaAtualSendoFiltrada] = useState('');
   const [termoBuscaFiltro, setTermoBuscaFiltro] = useState('');
   const [opcoesDeFiltroAtual, setOpcoesDeFiltroAtual] = useState([]);
   const [popupFiltroAberto, setPopupFiltroAberto] = useState(false);
   const [popupColunasAberto, setPopupColunasAberto] = useState(false);
-  
+
   const [totais, setTotais] = useState({
     equipes: 0, referencia: 0, servicos: 0, percentual: 0,
     ticketMedio: 0, qtdObras: 0, poste: 0, kmmt: 0, kmbt: 0, trafo: 0, clientes: 0
   });
 
   const [idsSelecionados, setIdsSelecionados] = useState([]);
-  
+
   const abasScrollRef = useRef(null);
   const [temOverflowAbas, setTemOverflowAbas] = useState(false);
   const [podeRolarAbasEsq, setPodeRolarAbasEsq] = useState(false);
@@ -64,7 +66,7 @@ export default function Carteira() {
   useEffect(() => {
     carregarCarteira();
     calcularTotalReferencia();
-  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais]);
+  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais, busca]);
 
   useEffect(() => {
     const handleClickFora = (e) => {
@@ -128,11 +130,11 @@ export default function Carteira() {
 
   const formatarDataBrasil = (valor, coluna = '') => {
     const colLower = coluna.toLowerCase();
-    
+
     if (colLower === 'id' || colLower.includes('id_') || colLower.includes('_id') || colLower.includes('rastreio') || colLower.includes('nota')) {
         return (valor === null || valor === undefined || valor === '##NULL##' || String(valor).trim() === '') ? 'N/A' : String(valor).trim();
     }
-    
+
     if (valor === null || valor === undefined || valor === '##NULL##' || valor === 'PLACEHOLDER' || String(valor).trim() === '') {
         return 'N/A';
     }
@@ -143,7 +145,7 @@ export default function Carteira() {
     }
 
     const strVal = String(valor).trim();
-    
+
     if (/^\d{4}-\d{2}-\d{2}(T|\s|$)/.test(strVal)) {
         const dataObj = new Date(strVal);
         if (!isNaN(dataObj.getTime())) {
@@ -155,7 +157,7 @@ export default function Carteira() {
     return strVal;
   };
 
-  const aplicarFiltrosNaQuery = (queryObj, ignorarColuna = null) => {
+  const aplicarFiltrosAuxiliares = (queryObj, ignorarColuna = null) => {
     Object.keys(filtrosAtivosGlobais).forEach(col => {
         if (ignorarColuna && col === ignorarColuna) return;
         const filtros = filtrosAtivosGlobais[col];
@@ -175,20 +177,92 @@ export default function Carteira() {
     return queryObj;
   };
 
-  const mudarAba = (abaId) => {
-    const abasComRestricao = ['aba-materiais', 'aba-servicos', 'aba-lto', 'aba-anexos', 'aba-viabilidade', 'aba-encerramento', 'aba-programacao'];
-    if (abasComRestricao.includes(abaId) && idsSelecionados.length !== 1) {
-        Swal.fire({ icon: "warning", title: "Atenção", text: "Por favor, selecione uma atividade na carteira antes de acessar esta aba.", confirmButtonColor: "#005596" });
-        return;
-    }
-    setAbaAtiva(abaId);
-  };
-
   const carregarCarteira = async () => {
+    setLoading(true);
     try {
+      if (colunasTabela.length === 0) {
+        const { data: sampleData } = await supabase.from("tabe_cad_carteira").select("*").limit(1);
+        if (sampleData && sampleData.length > 0) {
+          const todasColunas = Object.keys(sampleData[0]);
+          let colInit = colunasOrdem.length > 0 ? colunasOrdem.filter(c => todasColunas.includes(c) && !colunasOcultas.includes(c)) : todasColunas.filter(c => !colunasOcultas.includes(c));
+          setColunasTabela(colInit);
+        }
+      }
+
+      const termo = busca.trim();
+
+      // Filtragem estricta e agressiva para excluir datas, IDs, coordenadas e numéricos da busca textual
+      const colunasTexto = colunasTabela.filter(col => {
+        const colLower = col.toLowerCase();
+        const termosProibidos = [
+          'data', 'dt', 'id', 'valor', 'preco', 'custo', 'qtd', 
+          'quantidade', 'numero', 'num', 'ano', 'mes', 'dia', 
+          'hora', 'lat', 'lng', 'latitude', 'longitude', 'cep',
+          'poste', 'trafo', 'km', 'cliente', 'servico', 'serviço',
+          'coord', 'prazo', 'criado', 'atualizado'
+        ];
+
+        const ehProibida = termosProibidos.some(termoProibido => {
+          if (termoProibido.length <= 3) {
+            const regex = new RegExp(`(^|_)${termoProibido}(_|$)`, 'i');
+            return regex.test(colLower);
+          }
+          return colLower.includes(termoProibido);
+        });
+
+        return !ehProibida;
+      });
+
+      if (termo.length >= 3 && colunasTexto.length > 0) {
+        const termos = termo.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+
+        if (termos.length > 0) {
+          const tamanhoLote = 15;
+          let todosRegistros = [];
+
+          for (let i = 0; i < termos.length; i += tamanhoLote) {
+            const loteTermos = termos.slice(i, i + tamanhoLote);
+            let subQuery = supabase.from("tabe_cad_carteira").select("*", { count: 'exact' });
+
+            const condicoesGerais = [];
+            loteTermos.forEach(t => {
+              colunasTexto.forEach(col => {
+                // Sintaxe limpa padrão do PostgREST sem cast direto na string de árvore lógica
+                condicoesGerais.push(`${col}.ilike.%${t}%`);
+              });
+            });
+
+            if (condicoesGerais.length > 0) {
+              subQuery = subQuery.or(condicoesGerais.join(','));
+            }
+
+            subQuery = aplicarFiltrosAuxiliares(subQuery);
+
+            const { data, error } = await subQuery;
+            if (error) throw error;
+
+            if (data) {
+              data.forEach(reg => {
+                if (!todosRegistros.some(r => r.id === reg.id)) {
+                  todosRegistros.push(reg);
+                }
+              });
+            }
+          }
+
+          setTotalRegistros(todosRegistros.length);
+          const from = (paginaAtual - 1) * registrosPorPagina;
+          const registrosPagina = todosRegistros.slice(from, from + registrosPorPagina);
+          setListaCarteiraGlobal(registrosPagina);
+          calcularTotais(registrosPagina);
+          setLoading(false);
+          return;
+        }
+      }
+
       const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from("tabe_cad_carteira").select("*", { count: 'exact' });
-      query = aplicarFiltrosNaQuery(query);
+      query = aplicarFiltrosAuxiliares(query);
 
       const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order(colunaOrdenacao, { ascending: ordemAscendente });
       if (error) throw error;
@@ -197,14 +271,10 @@ export default function Carteira() {
       const registros = data || [];
       setListaCarteiraGlobal(registros);
       calcularTotais(registros);
-
-      if (registros.length > 0 && colunasTabela.length === 0) {
-          let todasColunas = Object.keys(registros[0]);
-          let colInit = colunasOrdem.length > 0 ? colunasOrdem.filter(c => todasColunas.includes(c) && !colunasOcultas.includes(c)) : todasColunas.filter(c => !colunasOcultas.includes(c));
-          setColunasTabela(colInit);
-      }
     } catch (err) {
       Swal.fire("Erro", "Falha ao carregar a carteira de atividades: " + err.message, "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -356,7 +426,7 @@ export default function Carteira() {
 
   return (
     <div translate="no" style={{ padding: '0 15px 10px 15px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden', background: '#f8fafc' }}>
-      
+
       <style>{`
         .custom-scroll::-webkit-scrollbar { height: 0px; display: none; }
         .custom-scroll { scrollbar-width: none; }
@@ -364,6 +434,20 @@ export default function Carteira() {
         .tabela-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .tabela-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .tabela-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        @keyframes loadingDots {
+          0% { content: ''; }
+          25% { content: '.'; }
+          50% { content: '..'; }
+          75% { content: '...'; }
+        }
+        .loading-dots::after {
+          display: inline-block;
+          animation: loadingDots 1.5s infinite steps(4, end);
+          content: '';
+          width: 16px;
+          text-align: left;
+        }
       `}</style>
 
       {/* Abas de Navegação Superior */}
@@ -377,7 +461,7 @@ export default function Carteira() {
             {abasFixas.map(tab => {
               const Icon = tab.icon;
               return (
-                <button key={tab.id} onClick={() => mudarAba(tab.id)} style={getTabStyle(abaAtiva === tab.id, false)}>
+                <button key={tab.id} onClick={() => setAbaAtiva(tab.id)} style={getTabStyle(abaAtiva === tab.id, false)}>
                   <Icon size={14} /> {tab.label}
                 </button>
               );
@@ -388,7 +472,7 @@ export default function Carteira() {
             {abasMoveis.map(tab => {
               const Icon = tab.icon;
               return (
-                <button key={tab.id} onClick={() => mudarAba(tab.id)} style={getTabStyle(abaAtiva === tab.id, tab.locked)}>
+                <button key={tab.id} onClick={() => setAbaAtiva(tab.id)} style={getTabStyle(abaAtiva === tab.id, tab.locked)}>
                   <Icon size={14} /> {tab.label}
                 </button>
               );
@@ -403,20 +487,50 @@ export default function Carteira() {
 
       {abaAtiva === 'aba-carteira' ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '12px', overflow: 'hidden' }}>
-          
-          {/* Barra de Ações */}
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>            
-            <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
-            <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
-            
-            {podeExcluir && (
-              <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
-            )}
 
-            <button style={btnStyle} onClick={carregarCarteira}><RefreshCw size={14} /> Atualizar</button>
-            <button style={btnStyle}><Upload size={14} /> Importar</button> 
-            <button style={btnStyle}><Download size={14} /> Exportar</button>
-            {Object.keys(filtrosAtivosGlobais).length > 0 && (<button style={{ ...btnStyle, color: '#0284c7' }} onClick={() => setFiltrosAtivosGlobais({})}><FilterX size={14} /> Limpar Filtros</button>)}
+          {/* Barra de Pesquisa e Ações */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '280px' }}>
+              <div style={{ position: 'relative', flex: '1' }}>
+                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar (separe por vírgula , ponto e vírgula ; ou cole colunas)..." 
+                  value={busca} 
+                  onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
+                  onPaste={e => {
+                    e.preventDefault();
+                    const pastedText = e.clipboardData.getData('text');
+                    const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
+                    setBusca(formattedText);
+                    setPaginaAtual(1);
+                  }} 
+                  style={{ width: '100%', padding: '0 12px 0 38px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff', boxSizing: 'border-box' }} 
+                />
+              </div>
+              {(Object.keys(filtrosAtivosGlobais).length > 0 || busca.trim().length > 0) && (
+                <button 
+                  onClick={() => { setFiltrosAtivosGlobais({}); setBusca(""); setPaginaAtual(1); }} 
+                  style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', color: '#dc2626', flexShrink: 0 }}
+                  title="Limpar Filtros"
+                >
+                  <FilterX size={16} />
+                </button>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>       
+              <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
+              <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
+
+              {podeExcluir && (
+                <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
+              )}
+
+              <button style={btnStyle} onClick={carregarCarteira}><RefreshCw size={14} /> Atualizar</button>
+              <button style={btnStyle}><Upload size={14} /> Importar</button> 
+              <button style={btnStyle}><Download size={14} /> Exportar</button>
+            </div>
           </div>
 
           {/* Cards de KPIs */}
@@ -484,78 +598,84 @@ export default function Carteira() {
 
           {/* Estrutura da Tabela baseada no padrão DataTable */}
           <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <div className="tabela-scroll" style={{ width: '100%', flex: 1, overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9', position: 'sticky', top: 0, zIndex: 10 }}>
-                    <th style={{ width: '40px', textAlign: 'center', padding: '10px 8px', borderBottom: '2px solid #cbd5e1' }}>
-                      <button onClick={() => setPopupColunasAberto(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><Columns3 size={14} /></button>
-                    </th>
-                    {colunasTabela.map(coluna => {
-                      const nomeFormatado = colunasApelidos[coluna] || (coluna.charAt(0).toUpperCase() + coluna.slice(1).replace(/_/g, ' '));
-                      const estaOrdenada = colunaOrdenacao === coluna;
-                      return  (
-                        <th key={coluna} style={{ padding: '10px 12px', borderBottom: '2px solid #cbd5e1', color: '#1e293b', fontWeight: '600' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                            <span 
-                              onClick={() => handleOrdenar(coluna)} 
-                              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}
-                            >
-                              {nomeFormatado}
-                              {estaOrdenada ? (
-                                ordemAscendente ? <ArrowUp size={13} color="#0284c7" /> : <ArrowDown size={13} color="#0284c7" />
-                              ) : (
-                                <ArrowUpDown size={12} color="#94a3b8" />
-                              )}
-                            </span>
-                            <button onClick={(e) => abrirFiltroColuna(coluna, e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-                              <ChevronRight size={13} />
-                            </button>
-                          </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {listaCarteiraGlobal.length === 0 ? (
-                    <tr><td colSpan={colunasTabela.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Nenhum registro encontrado.</td></tr>
-                  ) : (
-                    listaCarteiraGlobal.map((item, index) => {
-                      const estaSelecionado = idsSelecionados.includes(String(item.id));
-                      return (
-                        <tr 
-                          key={item.id} 
-                          style={{ 
-                            borderBottom: '1px solid #f1f5f9', 
-                            backgroundColor: estaSelecionado ? '#eff6ff' : index % 2 === 0 ? '#ffffff' : '#fcfcfc',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                        >
-                          <td style={{ textAlign: 'center', padding: '8px' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={estaSelecionado}
-                              onChange={(e) => setIdsSelecionados(e.target.checked ? [String(item.id)] : [])} 
-                            />
-                          </td>
-                          {colunasTabela.map(coluna => {
-                            const valor = formatarDataBrasil(item[coluna], coluna);
-                            return <td key={coluna} style={{ padding: '8px 12px', color: '#334151' }}>{valor}</td>;
-                          })}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            <div className="tabela-scroll" style={{ width: '100%', flex: 1, overflow: 'auto', position: 'relative' }}>
+              {loading ? (
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", width: "100%", color: "#64748b", fontWeight: "600", fontSize: "0.95rem", background: "#ffffff" }}>
+                  Atualizando dados<span className="loading-dots"></span>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', position: 'sticky', top: 0, zIndex: 10 }}>
+                      <th style={{ width: '40px', textAlign: 'center', padding: '10px 8px', borderBottom: '2px solid #cbd5e1' }}>
+                        <button onClick={() => setPopupColunasAberto(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><Columns3 size={14} /></button>
+                      </th>
+                      {colunasTabela.map(coluna => {
+                        const nomeFormatado = colunasApelidos[coluna] || (coluna.charAt(0).toUpperCase() + coluna.slice(1).replace(/_/g, ' '));
+                        const estaOrdenada = colunaOrdenacao === coluna;
+                        return  (
+                          <th key={coluna} style={{ padding: '10px 12px', borderBottom: '2px solid #cbd5e1', color: '#1e293b', fontWeight: '600' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                              <span 
+                                onClick={() => handleOrdenar(coluna)} 
+                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}
+                              >
+                                {nomeFormatado}
+                                {estaOrdenada ? (
+                                  ordemAscendente ? <ArrowUp size={13} color="#0284c7" /> : <ArrowDown size={13} color="#0284c7" />
+                                ) : (
+                                  <ArrowUpDown size={12} color="#94a3b8" />
+                                )}
+                              </span>
+                              <button onClick={(e) => abrirFiltroColuna(coluna, e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                <ChevronRight size={13} />
+                              </button>
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listaCarteiraGlobal.length === 0 ? (
+                      <tr><td colSpan={colunasTabela.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Nenhum registro encontrado.</td></tr>
+                    ) : (
+                      listaCarteiraGlobal.map((item, index) => {
+                        const estaSelecionado = idsSelecionados.includes(String(item.id));
+                        return (
+                          <tr 
+                            key={item.id} 
+                            style={{ 
+                              borderBottom: '1px solid #f1f5f9', 
+                              backgroundColor: estaSelecionado ? '#eff6ff' : index % 2 === 0 ? '#ffffff' : '#fcfcfc',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                          >
+                            <td style={{ textAlign: 'center', padding: '8px' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={estaSelecionado}
+                                onChange={(e) => setIdsSelecionados(e.target.checked ? [String(item.id)] : [])} 
+                              />
+                            </td>
+                            {colunasTabela.map(coluna => {
+                              const valor = formatarDataBrasil(item[coluna], coluna);
+                              return <td key={coluna} style={{ padding: '8px 12px', color: '#334151' }}>{valor}</td>;
+                            })}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {/* Rodapé e Paginação do DataTable */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderTop: '1px solid #cbd5e1', fontSize: '0.78rem', color: '#64748b', flexShrink: 0 }}>
               <span>Mostrando <strong>{listaCarteiraGlobal.length}</strong> de <strong>{totalRegistros}</strong> registros</span>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <select value={registrosPorPagina} onChange={e => setRegistrosPorPagina(Number(e.target.value))} style={{ height: '28px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', padding: '0 6px' }}>
+                <select value={registrosPorPagina} onChange={e => { setRegistrosPorPagina(Number(e.target.value)); setPaginaAtual(1); }} style={{ height: '28px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', padding: '0 6px' }}>
                   <option value="100">100 registros</option>
                   <option value="500">500 registros</option>
                   <option value="1000">1000 registros</option>
@@ -587,7 +707,8 @@ const btnStyle = {
   background: '#fff',
   color: '#334151',
   border: '1px solid #cbd5e1',
-  padding: '6px 12px',
+  height: '32px',
+  padding: '0 12px',
   minWidth: '100px',
   borderRadius: '6px',
   fontSize: '0.8rem',
@@ -597,6 +718,7 @@ const btnStyle = {
   justifyContent: 'center',
   gap: '6px',
   cursor: 'pointer',
+  boxSizing: 'border-box',
   boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
 };
 
