@@ -455,7 +455,7 @@ export default function Carteira() {
           {/* Barra de Pesquisa Geral e Ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: '1', minWidth: '280px' }}>
-              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input 
                 type="text" 
                 placeholder="Pesquisar geral (separe por vírgula, ponto e vírgula ou cole colunas)..." 
@@ -468,7 +468,7 @@ export default function Carteira() {
                   setBusca(formattedText);
                   setPaginaAtual(1);
                 }}
-                style={{ width: '100%', padding: '0 12px 0 38px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
+                style={{ width: '100%', padding: '0 12px 0 36px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
               />
             </div>
 
@@ -657,7 +657,8 @@ const btnStyle = {
   background: '#fff',
   color: '#334151',
   border: '1px solid #cbd5e1',
-  padding: '6px 12px',
+  height: '32px',
+  padding: '0 12px',
   minWidth: '100px',
   borderRadius: '6px',
   fontSize: '0.8rem',
@@ -667,6 +668,7 @@ const btnStyle = {
   justifyContent: 'center',
   gap: '6px',
   cursor: 'pointer',
+  boxSizing: 'border-box',
   boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
 };
 
