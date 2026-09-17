@@ -54,7 +54,13 @@ export default function Dashboard() {
     const validarSessao = async () => {
       try {
         const dadosL = localStorage.getItem("usuario_logado"), idL = localStorage.getItem("id_sessao");
-        if (!dadosL || !idL) throw new Error("Faltam dados de autenticação.");
+        
+        // Redireciona direto para o login sem disparar alerta se faltarem dados de autenticação
+        if (!dadosL || !idL) {
+          navigate("/", { replace: true });
+          return;
+        }
+
         const userObj = JSON.parse(dadosL);
 
         const { data: usr, error } = await supabase.from("tabi_cad_usuarios").select("id_sessao, situacao, nome, \"Perfil\"").eq("id", userObj.id).single();
