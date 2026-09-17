@@ -31,7 +31,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   const userIdKey = sessaoUsuario.id || sessaoUsuario.email || 'geral';
   const getEl = (id) => document.getElementById(id);
 
-  // Função auxiliar para retornar estritamente o NOME do usuário logado
   const getNomeUsuarioLogado = () => {
     try {
       const d = localStorage.getItem("usuario_logado");
@@ -489,6 +488,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     catch (err) { return endProc(btn, err.message, false); }
   };
 
+  // Processador Dinâmico atualizado para evitar duplicidades checando registros existentes na base
   const procDinamica = async (limpar, file, colsImp, btn) => {
     getEl('apoioStateConfirm').style.display = 'none'; getEl('apoioStateProgress').style.display = 'flex'; getEl('apoioProgressMsg').innerText = "Lendo arquivo...";
     if (btn) { btn.style.display = 'none'; btn.disabled = true; }
@@ -498,6 +498,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       const nmUsr = getNomeUsuarioLogado();
       const estComp = await obterEstruturaTabela(tabelaBd).catch(()=>[]);
       const colUsr = estComp.find(c => ['usu_cad','usu_cada','usucad','usuario','usuario_cadastro','cadastrado_por'].includes(String(c.nome_coluna).toLowerCase()))?.nome_coluna;
+      
+      // Identifica uma coluna candidata a chave única (ex: id_rastreio, codigo, pep, nota, etc., ou a primeira coluna)
+      const colChaveUnica = estComp.find(c => ['id_rastreio', 'codigo', 'pep', 'nota', 'id'].includes(String(c.nome_coluna).toLowerCase()))?.nome_coluna || colsImp[0]?.nome_coluna;
+
       const reader = new FileReader();
       await new Promise((res, rej) => {
         reader.onload = async e => {
@@ -507,7 +511,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             while (rows.length > 0 && rows[rows.length - 1].join("").trim() === "") rows.pop();
             if (rows.length < 2) throw new Error("Planilha vazia ou só cabeçalho.");
             if (rows[0].length !== colsImp.length) throw new Error(`Incompatibilidade: Arquivo tem ${rows[0].length} colunas, tabela espera ${colsImp.length}.`);
-            getEl('apoioProgressMsg').innerText = "Validando tipos...";
+            
+            getEl('apoioProgressMsg').innerText = "Validando tipos e duplicidades...";
             const limpa = v => v != null ? String(v).replace(/^"|"$/g, '').trim() : null;
             const fmtDt = (v, tp) => {
               if(!v) return null; const t = String(tp||'').toLowerCase();
@@ -524,6 +529,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
               if (t.match(/bool/)) return ['true','false','1','0','sim','nao','yes','no'].includes(String(v).toLowerCase());
               return true;
             };
+
             const rowsIns = [];
             for (let i = 1; i < rows.length; i++) {
               let obj = {};
@@ -535,16 +541,60 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
                 } else val = null;
                 obj[cNm] = val;
               }
-              if (colUsr) obj[colUsr] = nmUsr; rowsIns.push(obj);
+              if (colUsr) obj[colUsr] = nmUsr; 
+              rowsIns.push(obj);
             }
+
             if (!rowsIns.length) throw new Error("Nenhum dado válido.");
+
+            // Se não optou por limpar a base, buscamos os registros existentes para evitar duplicidade na coluna chave única
+            let itensParaInserir = rowsIns;
+            if (!limpar && colChaveUnica) {
+              const chavesPlanilha = rowsIns.map(r => r[colChaveUnica]).filter(val => val != null && String(val).trim() !== '');
+              if (chavesPlanilha.length > 0) {
+                const uniqueChaves = Array.from(new Set(chavesPlanilha));
+                const chavesExistentes = new Set();
+                const chunkBusca = 150;
+
+                for (let i = 0; i < uniqueChaves.length; i += chunkBusca) {
+                  const chunk = uniqueChaves.slice(i, i + chunkBusca);
+                  const { data: dadosBanco, error: errBusca } = await supabase
+                    .from(tabelaBd)
+                    .select(colChaveUnica)
+                    .in(colChaveUnica, chunk);
+
+                  if (errBusca) throw new Error(`Erro ao validar duplicidades: ${errBusca.message}`);
+                  (dadosBanco || []).forEach(d => chavesExistentes.add(String(d[colChaveUnica]).trim()));
+                }
+
+                // Filtra apenas os registros cuja chave ainda não existe no banco
+                itensParaInserir = rowsIns.filter(item => {
+                  const valChave = item[colChaveUnica];
+                  if (valChave == null || String(valChave).trim() === '') return true;
+                  return !chavesExistentes.has(String(valChave).trim());
+                });
+              }
+            }
+
+            if (itensParaInserir.length === 0) {
+              throw new Error("Não há registros novos para importar. Todos os itens da planilha já existem no banco.");
+            }
+
             getEl('apoioProgressBarWrapper').style.display = 'block';
-            if (limpar) { getEl('apoioProgressMsg').innerText = "Limpando base..."; const { error } = await supabase.from(tabelaBd).delete().not('id','is',null); if (error) throw error; }
+            if (limpar) { 
+              getEl('apoioProgressMsg').innerText = "Limpando base..."; 
+              const { error } = await supabase.from(tabelaBd).delete().not('id','is',null); 
+              if (error) throw error; 
+            }
+
             getEl('apoioProgressMsg').innerText = "Gravando novos dados...";
-            let ins = 0; const tot = rowsIns.length;
+            let ins = 0; const tot = itensParaInserir.length;
             for (let i = 0; i < tot; i += 500) {
-              const lote = rowsIns.slice(i, i + 500); const { error } = await supabase.from(tabelaBd).insert(lote); if (error) throw error;
-              ins += lote.length; const pct = Math.round((ins/tot)*100);
+              const lote = itensParaInserir.slice(i, i + 500); 
+              const { error } = await supabase.from(tabelaBd).insert(lote); 
+              if (error) throw error;
+              ins += lote.length; 
+              const pct = Math.round((ins/tot)*100);
               if (getEl('importProgressBar')) getEl('importProgressBar').style.width = `${pct}%`;
               if (getEl('importProgressText')) getEl('importProgressText').innerText = `${pct}% (${ins}/${tot})`;
             }
