@@ -194,24 +194,33 @@ export default function Carteira() {
           .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
           .map(c => c.nome_coluna);
 
+        // Se não houver estrutura carregada, usa as principais colunas visíveis da tabela
         if (colunasTexto.length === 0) {
-          colunasTexto = ['id_rastreio', 'pep', 'descricao', 'municipio', 'regional'];
+          colunasTexto = ['aviso', 'carteira', 'filial', 'contratante', 'municipio', 'seccional', 'area', 'tipo_custo', 'tipo_atividade', 'prioridade', 'tipo_rastreio', 'pep'];
         }
 
         if (colunasTexto.length > 0) {
-          // Mantém o texto inteiro com espaços (ex: "DEMANDA DE CLIENTE" ou "DEMANDA") intacto para busca exata de trecho
-          const termoLimpo = termoBruto.replace(/[(),]/g, ' ').trim();
+          // Limpa caracteres problemáticos para o PostgREST mas mantém espaços e letras/números
+          const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
           
           if (termoLimpo.length > 0) {
+            // Separa por vírgula ou ponto e vírgula se houver múltiplos termos, senão usa o termo completo com espaços
+            const termos = termoBruto.includes(',') || termoBruto.includes(';') 
+              ? termoBruto.split(/[,;]+/).map(t => t.trim()).filter(Boolean)
+              : [termoLimpo];
+
             const condicoesGerais = [];
-            colunasTexto.forEach(col => {
-              const colLower = col.toLowerCase();
-              if (!colLower.includes('data') && !colLower.includes('_at')) {
-                condicoesGerais.push(`${col}.ilike.%${termoLimpo}%`);
-              }
+            termos.forEach(t => {
+              colunasTexto.forEach(col => {
+                const colLower = col.toLowerCase();
+                if (!colLower.includes('data') && !colLower.includes('_at') && !colLower.includes('id')) {
+                  condicoesGerais.push(`${col}.ilike.%${t}%`);
+                }
+              });
             });
 
             if (condicoesGerais.length > 0) {
+              // Aplicando o filtro OR de forma segura no Supabase
               query = query.or(condicoesGerais.join(','));
             }
           }
@@ -468,7 +477,7 @@ export default function Carteira() {
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input 
                 type="text" 
-                placeholder="Pesquisar geral (digite o texto com espaços ou parte dele)..." 
+                placeholder="Pesquisar geral (ex: DEMANDA DE CLIENTE)..." 
                 value={busca} 
                 onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
                 onPaste={e => {
