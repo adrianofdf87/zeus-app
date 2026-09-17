@@ -474,7 +474,20 @@ export default function Carteira() {
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {(Object.keys(filtrosAtivosGlobais).length > 0 || busca.trim().length > 0) && (
-                <button style={{ ...btnStyle, color: '#dc2626' }} onClick={() => { setFiltrosAtivosGlobais({}); setBusca(''); }}><FilterX size={14} /></button>
+                <button 
+                  style={{ 
+                    ...btnStyle, 
+                    color: '#dc2626', 
+                    minWidth: '32px', 
+                    width: '32px', 
+                    padding: '0', 
+                    justifyContent: 'center' 
+                  }} 
+                  title="Limpar filtros e busca"
+                  onClick={() => { setFiltrosAtivosGlobais({}); setBusca(''); }}
+                >
+                  <FilterX size={14} />
+                </button>
               )}         
               <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
               <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
