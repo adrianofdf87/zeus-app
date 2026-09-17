@@ -271,7 +271,7 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                   }
 
                   // =========================================================================
-                  // ETAPA CORRIGIDA E ROBUSTA: Vínculo e Log de Lista Técnica Projetada
+                  // ETAPA COM CONTROLE DE LOG ÚNICO POR ATIVIDADE
                   // =========================================================================
                   atualizarProgressoGlobal(88, "Verificando vínculos com a tabela de impacto (tabe_imp_pep_lto)...");
 
@@ -286,6 +286,9 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
 
                       const todasAsNotas = Object.keys(mapaRastreioParaIdAtividade);
                       const chunkImpSize = 400;
+                      
+                      // Set para garantir que cada id_atividade receba apenas UM log de "LISTA TÉCNICA PROJETADA"
+                      const idsLogCriado = new Set();
 
                       for (let i = 0; i < todasAsNotas.length; i += chunkImpSize) {
                           const chunkNotas = todasAsNotas.slice(i, i + chunkImpSize);
@@ -295,14 +298,12 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                               `Sincronizando tabela de impacto (${i + 1}/${todasAsNotas.length})...`
                           );
 
-                          // Busca em lote considerando variações de string e números inteiros
                           const { data: itensImpacto, error: errImpBusca } = await sb
                               .from('tabe_imp_pep_lto')
                               .select('id, nota, id_atividade')
                               .or(`nota.in.(${chunkNotas.join(',')}),nota.in.(${chunkNotas.map(n => Number(n)).filter(n => !isNaN(n)).join(',')})`);
 
                           if (errImpBusca) {
-                              // Fallback seguro caso o operador .or() falhe em algum ambiente específico
                               const { data: itensImpactoAlt, error: errImpAlt } = await sb
                                   .from('tabe_imp_pep_lto')
                                   .select('id, nota, id_atividade')
@@ -324,20 +325,23 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                                   const idAtividadeGerado = mapaRastreioParaIdAtividade[notaStr];
 
                                   if (idAtividadeGerado) {
-                                      // Atualiza a tabela tabe_imp_pep_lto com o id_atividade correto
+                                      // 1. Atualiza TODOS os registros correspondentes em tabe_imp_pep_lto (sejam 1 ou 100)
                                       const { error: errUpdateImp } = await sb
                                           .from('tabe_imp_pep_lto')
                                           .update({ id_atividade: idAtividadeGerado })
                                           .eq('id', imp.id);
 
                                       if (!errUpdateImp) {
-                                          // Adiciona na lista para criar o log de LISTA TÉCNICA PROJETADA
-                                          logsListaTecnica.push({
-                                              id_atividade: idAtividadeGerado,
-                                              acao: "LISTA TÉCNICA PROJETADA",
-                                              descricao_acao: "CADASTRO EM MASSA",
-                                              usu_cada: usuCad
-                                          });
+                                          // 2. Garante que o log de LISTA TÉCNICA PROJETADA seja adicionado apenas uma vez por id_atividade
+                                          if (!idsLogCriado.has(idAtividadeGerado)) {
+                                              idsLogCriado.add(idAtividadeGerado);
+                                              logsListaTecnica.push({
+                                                  id_atividade: idAtividadeGerado,
+                                                  acao: "LISTA TÉCNICA PROJETADA",
+                                                  descricao_acao: "CADASTRO EM MASSA",
+                                                  usu_cada: usuCad
+                                              });
+                                          }
                                       } else {
                                           console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
                                       }
@@ -346,7 +350,7 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
 
                               await Promise.all(promessasUpdate);
 
-                              // Insere os logs de LISTA TÉCNICA PROJETADA em lote na tabela de logs
+                              // Insere os logs únicos em lote
                               if (logsListaTecnica.length > 0) {
                                   const { error: errLogLista } = await sb
                                       .from("tabe_cad_carteira_log")
