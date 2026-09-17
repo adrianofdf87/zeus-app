@@ -191,7 +191,6 @@ export default function Carteira() {
 
       const termo = busca.trim();
 
-      // Blindagem definitiva contra erro de operador com datas/números
       const colunasTexto = colunasTabela.filter(col => {
         const colLower = col.toLowerCase();
         const termosProibidos = [
@@ -226,7 +225,7 @@ export default function Carteira() {
             const condicoesGerais = [];
             loteTermos.forEach(t => {
               colunasTexto.forEach(col => {
-                condicoesGerais.push(`${col}.ilike.%${t}%`);
+                condicoesGerais.push(`${col}::text.ilike.%${t}%`);
               });
             });
 
@@ -459,7 +458,7 @@ export default function Carteira() {
             {abasFixas.map(tab => {
               const Icon = tab.icon;
               return (
-                <button key={tab.id} onClick={() => mudarAba(tab.id)} style={getTabStyle(abaAtiva === tab.id, false)}>
+                <button key={tab.id} onClick={() => setAbaAtiva(tab.id)} style={getTabStyle(abaAtiva === tab.id, false)}>
                   <Icon size={14} /> {tab.label}
                 </button>
               );
@@ -470,7 +469,7 @@ export default function Carteira() {
             {abasMoveis.map(tab => {
               const Icon = tab.icon;
               return (
-                <button key={tab.id} onClick={() => mudarAba(tab.id)} style={getTabStyle(abaAtiva === tab.id, tab.locked)}>
+                <button key={tab.id} onClick={() => setAbaAtiva(tab.id)} style={getTabStyle(abaAtiva === tab.id, tab.locked)}>
                   <Icon size={14} /> {tab.label}
                 </button>
               );
