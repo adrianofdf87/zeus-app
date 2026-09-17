@@ -399,7 +399,29 @@ async function processarImportacaoPEPLocal(limpar, file, sb, update) {
     for (let i = 1; i < rows.length; i++) {
       const c = rows[i]; while(c.length < 19) c.push("");
       const p = formatPep(limpaStr(c[3])); if(!p || (acao === 'APENAS_NOVAS' && pepsB.has(p))) continue;
-      inserir.push({ nota: limpaStr(c[0]), pasta: limpaStr(c[1]), descricao: limpaStr(c[2]), pep: p, visita: limpaStr(c[4]), ordem: limpaStr(c[5]), valor_obra: parseNum(c[6]), qtd_prevista_postes: parseIntNum(c[7]), previsao_entrega: limpaStr(c[8]), parceiro: limpaStr(c[9]), tipo_fiscalizacao: limpaStr(c[10]), tipo_projeto: limpaStr(c[11]), contrato: limpaStr(c[12]), empresa: limpaStr(c[13]), regional: limpaStr(c[14]), municipio: limpaStr(c[15]), latitude: parseCoord(c[16]), longitude: parseCoord(c[17]), zona: limpaStr(c[18]), usu_cada: usuCad });
+      
+      inserir.push({ 
+        nota: limpaStr(c[0]), 
+        pasta: limpaStr(c[1]), 
+        descricao: limpaStr(c[2]), 
+        pep: p, 
+        visita: limpaStr(c[4]), 
+        ordem: limpaStr(c[5]), 
+        valor_obra: parseNum(c[6]), 
+        qtd_prevista_postes: parseIntNum(c[7]), 
+        previsao_entrega: limpaStr(c[8]), 
+        parceiro: limpaStr(c[9]), 
+        tipo_fiscalizacao: limpaStr(c[10]), 
+        tipo_projeto: limpaStr(c[11]), 
+        contrato: limpaStr(c[12]), 
+        empresa: limpaStr(c[13]), 
+        regional: limpaStr(c[14]), 
+        municipio: limpaStr(c[15]).normalize("NFD").replace(/[\u0300-\u036f]/g, ""), // <-- Ajuste aplicado aqui
+        latitude: parseCoord(c[16]), 
+        longitude: parseCoord(c[17]), 
+        zona: limpaStr(c[18]), 
+        usu_cada: usuCad 
+      });
     }
     if (!inserir.length) throw new Error("Nenhum registro para salvar.");
     if (acao === 'SUBSTITUIR' && pepsB.size > 0) {
