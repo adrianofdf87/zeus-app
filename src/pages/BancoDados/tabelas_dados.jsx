@@ -151,55 +151,31 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       const termoBruto = busca.trim();
       const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
 
-      if (termoBruto.length >= 3 && colunasTexto.length > 0) {
-        const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
-
-        if (termos.length > 0) {
-          const tamanhoLote = 15;
-          let todosRegistros = [];
-
-          for (let i = 0; i < termos.length; i += tamanhoLote) {
-            const loteTermos = termos.slice(i, i + tamanhoLote);
-            let subQuery = supabase.from(tabelaBd).select('*', { count: 'exact' });
-
-            const condicoesGerais = [];
-            loteTermos.forEach(t => {
-              colunasTexto.forEach(col => {
-                condicoesGerais.push(`${col}.ilike.%${t}%`);
-              });
-            });
-
-            if (condicoesGerais.length > 0) {
-              subQuery = subQuery.or(condicoesGerais.join(','));
-            }
-
-            subQuery = aplicarFiltrosAuxiliares(subQuery);
-
-            const { data, error } = await subQuery;
-            if (error) throw error;
-
-            if (data) {
-              data.forEach(reg => {
-                if (!todosRegistros.some(r => r.id === reg.id)) {
-                  todosRegistros.push(reg);
-                }
-              });
-            }
-          }
-
-          setTotalBanco(todosRegistros.length);
-          const from = (paginaAtual - 1) * registrosPorPagina;
-          setRegistros(todosRegistros.slice(from, from + registrosPorPagina));
-          setLoading(false);
-          return;
-        }
-      }
-
       const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from(tabelaBd).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
 
-      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order('id', { ascending: true });
+      if (termoBruto.length >= 3 && colunasTexto.length > 0) {
+        const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+
+        if (termos.length > 0) {
+          const condicoesGerais = [];
+          termos.forEach(t => {
+            colunasTexto.forEach(col => {
+              condicoesGerais.push(`${col}.ilike.%${t}%`);
+            });
+          });
+
+          if (condicoesGerais.length > 0) {
+            query = query.or(condicoesGerais.join(','));
+          }
+        }
+      }
+
+      const { data, count, error } = await query
+        .range(from, from + registrosPorPagina - 1)
+        .order('id', { ascending: true });
+
       if (error) throw error;
 
       setTotalBanco(count || 0);
