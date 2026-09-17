@@ -266,26 +266,42 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                       }
 
                       inseridos += lote.length;
-                      const percentual = 70 + ((inseridos / total) * 20);
-                      atualizarProgressoGlobal(percentual, `Enviando dados finais e logs para o banco (${inseridos}/${total})...`);
+                      const percentual = 70 + ((inseridos / total) * 15); // vai até 85%
+                      atualizarProgressoGlobal(percentual, `Salvando registros na carteira (${inseridos}/${total})...`);
                   }
 
                   // =========================================================================
-                  // ETAPA CORRIGIDA: Integração e Atualização com tabe_imp_pep_lto
+                  // ETAPA OTIMIZADA: Vínculo em Massa com tabe_imp_pep_lto
                   // =========================================================================
-                  atualizarProgressoGlobal(92, "Verificando vínculos com a tabela de impacto (tabe_imp_pep_lto)...");
+                  atualizarProgressoGlobal(88, "Buscando correspondências em tabe_imp_pep_lto...");
 
                   if (todosItensInseridos.length > 0) {
-                      const chunkBuscaImp = 150;
-                      
-                      for (let i = 0; i < todosItensInseridos.length; i += chunkBuscaImp) {
-                          const chunkItens = todosItensInseridos.slice(i, i + chunkBuscaImp);
-                          const chunkNotas = chunkItens.map(item => String(item.id_rastreio).trim());
+                      // Cria mapa rápido de id_rastreio -> id_atividade gerado
+                      const mapaRastreioParaIdAtividade = {};
+                      todosItensInseridos.forEach(c => {
+                          if (c.id_rastreio) {
+                              mapaRastreioParaIdAtividade[String(c.id_rastreio).trim()] = c.id;
+                          }
+                      });
 
-                          // Busca registros em tabe_imp_pep_lto onde a 'nota' bate com os id_rastreio
+                      const todasAsNotas = Object.keys(mapaRastreioParaIdAtividade);
+                      
+                      // Processa a busca em blocos grandes de notas (ex: 500 por vez para ser rápido)
+                      const chunkImpSize = 500;
+                      let totalProcessadoImp = 0;
+
+                      for (let i = 0; i < todasAsNotas.length; i += chunkImpSize) {
+                          const chunkNotas = todasAsNotas.slice(i, i + chunkImpSize);
+
+                          atualizarProgressoGlobal(
+                              90 + Math.floor((i / todasAsNotas.length) * 5), 
+                              `Sincronizando tabela de impacto (${i + 1}/${todasAsNotas.length})...`
+                          );
+
+                          // Busca em lote todas as correspondências onde 'nota' está no nosso array de rastreios
                           const { data: itensImpacto, error: errImpBusca } = await sb
                               .from('tabe_imp_pep_lto')
-                              .select('id, nota, id_atividade')
+                              .select('id, nota')
                               .in('nota', chunkNotas);
 
                           if (errImpBusca) {
@@ -294,40 +310,38 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                           }
 
                           if (itensImpacto && itensImpacto.length > 0) {
-                              // Mapeia nota -> ID criado na carteira
-                              const mapaNotaParaIdAtividade = {};
-                              chunkItens.forEach(c => {
-                                  mapaNotaParaIdAtividade[String(c.id_rastreio).trim()] = c.id;
-                              });
-
                               const logsListaTecnica = [];
 
-                              for (const imp of itensImpacto) {
+                              // Executa atualizações paralelas para máxima velocidade
+                              const promessasUpdate = itensImpacto.map(async (imp) => {
                                   const notaStr = String(imp.nota).trim();
-                                  const idAtividadeGerado = mapaNotaParaIdAtividade[notaStr];
+                                  const idAtividadeGerado = mapaRastreioParaIdAtividade[notaStr];
 
                                   if (idAtividadeGerado) {
-                                      // 1. Atualiza tabe_imp_pep_lto . id_atividade = tabe_cad_carteira.id
+                                      // Atualiza a tabela de impacto
                                       const { error: errUpdateImp } = await sb
                                           .from('tabe_imp_pep_lto')
                                           .update({ id_atividade: idAtividadeGerado })
                                           .eq('id', imp.id);
 
-                                      if (errUpdateImp) {
-                                          console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
-                                      } else {
-                                          // 2. Prepara o log de LISTA TÉCNICA PROJETADA apenas para quem foi atualizado com sucesso
+                                      if (!errUpdateImp) {
+                                          // Acumula o log correspondente
                                           logsListaTecnica.push({
                                               id_atividade: idAtividadeGerado,
                                               acao: "LISTA TÉCNICA PROJETADA",
                                               descricao_acao: "CADASTRO EM MASSA",
                                               usu_cada: usuCad
                                           });
+                                      } else {
+                                          console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
                                       }
                                   }
-                              }
+                              });
 
-                              // 3. Insere os logs de LISTA TÉCNICA PROJETADA na tabela tabe_cad_carteira_log
+                              // Aguarda todas as atualizações do lote atual terminarem em paralelo
+                              await Promise.all(promessasUpdate);
+
+                              // Insere os logs de LISTA TÉCNICA PROJETADA em lote no banco
                               if (logsListaTecnica.length > 0) {
                                   const { error: errLogLista } = await sb
                                       .from("tabe_cad_carteira_log")
