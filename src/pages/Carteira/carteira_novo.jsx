@@ -20,6 +20,7 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             <div class="header-icon" style="background-color:${headerBgColor};">${svgIcon}</div>
             <div class="header-text"><h2>${headerTitle}</h2><p>${headerText}</p></div>
         </div>
+        <div id="form-feedback-msg" style="display: none; background-color: #fef2f2; color: #dc2626; border: 1px solid #f87171; padding: 6px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-bottom: 8px; text-align: left;"></div>
         <div id="formNovaAtividade" class="atividade-form-container" translate="no">
             <!-- Linha 1 (3 campos): aviso, filial, contratante -->
             <div class="form-row-3">
@@ -84,7 +85,7 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             .swal2-title{display:none!important}
             .swal2-html-container{margin:0!important;overflow:hidden!important}
             .swal2-popup{padding:16px 20px 12px!important;border-radius:10px!important}
-            .custom-modal-header{background:#f8fafc;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.02)}
+            .custom-modal-header{background:#f8fafc;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.02)}
             .header-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center}
             .header-text{text-align:left}
             .header-text h2{margin:0;font-size:1.05rem;font-weight:700;color:#0f172a}
@@ -103,8 +104,11 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             .form-control{width:100%;height:28px;padding:2px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:.8rem;background:#fff;color:#1e293b;box-sizing:border-box;transition:border-color .15s,box-shadow .15s}
             .form-control:focus{outline:none;border-color:#005696;box-shadow:0 0 0 1px #005696}
             .form-control[readonly],.form-control:disabled{background:#f1f5f9;color:#64748b;cursor:not-allowed}
-            .campo-obrigatorio-erro{border-color:#dc2626!important;box-shadow:0 0 0 1px rgba(220,38,38,.12)!important}
-            .select2-selection.campo-obrigatorio-erro{border-color:#dc2626!important;box-shadow:0 0 0 1px rgba(220,38,38,.12)!important}
+            
+            /* Ajustado para fundo vermelho claro (#fef2f2) */
+            .campo-obrigatorio-erro{background-color:#fef2f2!important;border-color:#dc2626!important;box-shadow:0 0 0 1px rgba(220,38,38,.12)!important}
+            .select2-selection.campo-obrigatorio-erro{background-color:#fef2f2!important;border-color:#dc2626!important;box-shadow:0 0 0 1px rgba(220,38,38,.12)!important}
+            
             .select2-container{width:100%!important;z-index:99999!important}
             .select2-container .select2-selection--single{height:28px!important;border:1px solid #cbd5e1!important;border-radius:4px!important;display:flex;align-items:center}
             .select2-container--default .select2-selection--single .select2-selection__arrow{height:26px!important;top:1px!important}
@@ -161,9 +165,8 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             document.getElementById('btnSalvarModal')?.addEventListener('click', async () => {
                 const validacao = validarCamposObrigatorios();
 
-                // CORREÇÃO: Interrompe a execução se houver campos obrigatórios faltando
                 if (!validacao.valido) {
-                    return;
+                    return; // Interrompe o processo e mantém a modal aberta
                 }
 
                 const dados = coletarDadosFormulario();
@@ -171,21 +174,19 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
                 try {
                     const duplicado = await verificarDuplicidadeRastreio(dados.tipo_rastreio, dados.id_rastreio, idAtividade);
                     if (duplicado) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Atenção',
-                            text: 'Já existe uma atividade com o mesmo Tipo de Rastreio e ID Rastreio.',
-                            confirmButtonColor: '#005696'
-                        });
+                        const msgFeedback = obterElemento('form-feedback-msg');
+                        if (msgFeedback) {
+                            msgFeedback.textContent = 'Já existe uma atividade com o mesmo Tipo de Rastreio e ID Rastreio.';
+                            msgFeedback.style.display = 'block';
+                        }
                         return;
                     }
                 } catch (err) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Erro',
-                        text: err.message,
-                        confirmButtonColor: '#005696'
-                    });
+                    const msgFeedback = obterElemento('form-feedback-msg');
+                    if (msgFeedback) {
+                        msgFeedback.textContent = err.message;
+                        msgFeedback.style.display = 'block';
+                    }
                     return;
                 }
 
@@ -702,6 +703,7 @@ function validarCamposObrigatorios() {
 
     let valido = true;
     let primeiroCampoVazio = null;
+    const msgFeedback = obterElemento('form-feedback-msg');
 
     document.querySelectorAll('#formNovaAtividade .campo-obrigatorio-erro').forEach(el => {
         el.classList.remove('campo-obrigatorio-erro');
@@ -725,16 +727,18 @@ function validarCamposObrigatorios() {
         }
     });
 
-    if (!valido && primeiroCampoVazio) {
-        primeiroCampoVazio.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Alterado para um alerta fixo (sem timer de auto-fechamento) para o usuário conseguir ler e interagir
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campos Obrigatórios',
-            text: 'Por favor, preencha todos os campos obrigatórios destacados em vermelho.',
-            confirmButtonColor: '#005696',
-            confirmButtonText: 'OK'
-        });
+    if (!valido) {
+        if (msgFeedback) {
+            msgFeedback.textContent = 'Preencha todos os campos obrigatórios destacados em vermelho.';
+            msgFeedback.style.display = 'block';
+        }
+        if (primeiroCampoVazio) {
+            primeiroCampoVazio.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else {
+        if (msgFeedback) {
+            msgFeedback.style.display = 'none';
+        }
     }
 
     return { valido };
@@ -745,6 +749,22 @@ function removerErroCampo(campo) {
     campo.classList.remove('campo-obrigatorio-erro');
     if (campo.tagName === 'SELECT' && window.jQuery?.fn?.select2) {
         window.jQuery(campo).next('.select2-container').find('.select2-selection').removeClass('campo-obrigatorio-erro');
+    }
+
+    // Oculta a mensagem de aviso do topo se o formulário estiver totalmente preenchido
+    const camposObrigatorios = [
+        'form_aviso', 'form_filial', 'form_contratante', 'form_municipio', 'form_seccional', 
+        'form_area', 'form_tipo_custo', 'form_tipo_atividade', 'form_prioridade', 'form_tipo_rastreio', 
+        'form_id_rastreio', 'form_descricao_breve', 'form_coord_x', 'form_coord_y', 'form_solicitante', 
+        'form_responsavel_tecnico', 'form_prazo', 'form_prev_faturamento', 'form_status'
+    ];
+    const aindaTemErro = camposObrigatorios.some(id => {
+        const el = obterElemento(id);
+        return !el || !String(el.value ?? '').trim();
+    });
+    if (!aindaTemErro) {
+        const msgFeedback = obterElemento('form-feedback-msg');
+        if (msgFeedback) msgFeedback.style.display = 'none';
     }
 }
 
