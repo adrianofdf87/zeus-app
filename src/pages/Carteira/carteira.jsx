@@ -57,7 +57,6 @@ export default function Carteira() {
   const isInitialMount = useRef(true);
   const getEl = (id) => document.getElementById(id);
 
-  // Injeção de estilos para o loader animado (Boa Prática de tabelas_dados.jsx)
   useEffect(() => {
     if (!getEl('carteira-import-styles')) {
       const style = document.createElement('style');
@@ -170,7 +169,6 @@ export default function Carteira() {
     return query;
   };
 
-  // Lógica de busca geral padronizada com tratamento de loading estabilizado
   const carregarCarteira = useCallback(async (isBackground = false) => {
     setLoading(true);
     if (!isBackground) {
@@ -201,7 +199,8 @@ export default function Carteira() {
         }
 
         if (colunasTexto.length > 0) {
-          const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+          // Ajuste: divide apenas por vírgulas, ponto e vírgula ou quebras de linha, preservando espaços nas frases
+          const termos = termoBruto.split(/[,;\n\r]+/).map(t => t.trim()).filter(t => t.length > 0);
           if (termos.length > 0) {
             const condicoesGerais = [];
             termos.forEach(t => {
@@ -569,7 +568,7 @@ export default function Carteira() {
             </div>
           </div>
 
-          {/* DataTable Avançado com Loader integrado e limpo de bugs */}
+          {/* DataTable Avançado */}
           <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {loading && listaCarteiraGlobal.length === 0 ? (
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#64748b", fontWeight: "500" }}>
