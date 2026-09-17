@@ -89,10 +89,7 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
 async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizarProgressoGlobal) {
     atualizarProgressoGlobal(2, "Lendo planilha de Atividades...");
 
-    if (typeof XLSX === 'undefined') {
-        await new Promise(r => setTimeout(r, 1000));
-        if (typeof XLSX === 'undefined') throw new Error("Aguarde a biblioteca terminar de carregar.");
-    }
+    await loadXlsx(atualizarProgressoGlobal);
 
     const formatarDataParaBanco = (data) => {
         if (!data) return null;
