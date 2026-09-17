@@ -238,10 +238,7 @@ export default function Carteira() {
       }
 
       const from = (paginaAtual - 1) * registrosPorPagina;
-      const { data, count, error } = await query
-        .range(from, from + registrosPorPagina - 1)
-        .order(colunaOrdenacao, { ascending: ordemAscendente });
-
+      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order(colunaOrdenacao, { ascending: ordemAscendente });
       if (error) throw error;
 
       setTotalRegistros(count || 0);
