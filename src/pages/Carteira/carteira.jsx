@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Briefcase, Map, CheckCircle, Calendar, Flag, FileText, Package, Wrench, 
   Paperclip, Upload, PlusCircle, Edit3, Trash2, RefreshCw, 
-  Download, FilterX, Columns3, ChevronRight, ChevronsLeft, ChevronsRight, 
-  ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown
+  Download, FilterX, ChevronRight, ChevronLeft, Search
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { supabase } from "../../services/supabase";
 import { abrirModalAtividade } from "./carteira_novo";
+import DataTable from "./DataTable"; // Importando o modelo DataTable criado
 
 export default function Carteira() {
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
@@ -24,9 +24,17 @@ export default function Carteira() {
   
   const podeExcluir = perfilUsuario === 'desenvolvedor' || perfilUsuario === 'gerente';
 
+  const obterMesAtualFormatado = () => {
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, '0');
+    return `${ano}-${mes}`;
+  };
+
   const [abaAtiva, setAbaAtiva] = useState("aba-carteira");
   const [listaCarteiraGlobal, setListaCarteiraGlobal] = useState([]);
   const [colunasTabela, setColunasTabela] = useState([]);
+  const [estruturaTabela, setEstruturaTabela] = useState([]);
   const [colunasOcultas, setColunasOcultas] = useState(() => JSON.parse(localStorage.getItem(`colunasOcultas_carteira_${userIdKey}`)) || []);
   const [colunasOrdem, setColunasOrdem] = useState(() => JSON.parse(localStorage.getItem(`colunasOrdem_carteira_${userIdKey}`)) || []);
   const [colunasApelidos, setColunasApelidos] = useState(() => JSON.parse(localStorage.getItem(`colunasApelidos_carteira_${userIdKey}`)) || {});
@@ -37,12 +45,10 @@ export default function Carteira() {
   const [colunaOrdenacao, setColunaOrdenacao] = useState('id');
   const [ordemAscendente, setOrdemAscendente] = useState(false);
   const [filtrosAtivosGlobais, setFiltrosAtivosGlobais] = useState({});
+  const [busca, setBusca] = useState("");
   
-  const [colunaAtualSendoFiltrada, setColunaAtualSendoFiltrada] = useState('');
-  const [termoBuscaFiltro, setTermoBuscaFiltro] = useState('');
-  const [opcoesDeFiltroAtual, setOpcoesDeFiltroAtual] = useState([]);
-  const [popupFiltroAberto, setPopupFiltroAberto] = useState(false);
-  const [popupColunasAberto, setPopupColunasAberto] = useState(false);
+  const [carteiraSelecionada, setCarteiraSelecionada] = useState(obterMesAtualFormatado());
+  const [opcoesCarteira, setOpcoesCarteira] = useState([]);
   
   const [totais, setTotais] = useState({
     equipes: 0, referencia: 0, servicos: 0, percentual: 0,
@@ -62,20 +68,44 @@ export default function Carteira() {
   const [podeRolarKpisDir, setPodeRolarKpisDir] = useState(false);
 
   useEffect(() => {
-    carregarCarteira();
-    calcularTotalReferencia();
-  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais]);
+    carregarEstrutura();
+    carregarOpcoesCarteira();
+  }, []);
 
   useEffect(() => {
-    const handleClickFora = (e) => {
-      if (!e.target.closest('.excel-filter-popup') && !e.target.closest('.excel-filter-btn')) {
-        setPopupFiltroAberto(false);
-        setPopupColunasAberto(false);
+    carregarCarteira();
+    calcularTotalReferencia();
+  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais, busca, carteiraSelecionada]);
+
+  const carregarEstrutura = async () => {
+    try {
+      const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: 'tabe_cad_carteira' });
+      if (!error && Array.isArray(data)) {
+        setEstruturaTabela(data);
       }
-    };
-    document.addEventListener('click', handleClickFora);
-    return () => document.removeEventListener('click', handleClickFora);
-  }, []);
+    } catch (e) {
+      console.error("Erro ao carregar estrutura:", e);
+    }
+  };
+
+  const carregarOpcoesCarteira = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tabe_cad_carteira")
+        .select("carteira")
+        .not("carteira", "is", null);
+
+      if (!error && data) {
+        const unicas = [...new Set(data.map(item => item.carteira))]
+          .filter(Boolean)
+          .sort()
+          .reverse();
+        setOpcoesCarteira(unicas);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar opções de carteira:", err);
+    }
+  };
 
   const verificarScrollAbas = () => {
     const el = abasScrollRef.current;
@@ -155,9 +185,12 @@ export default function Carteira() {
     return strVal;
   };
 
-  const aplicarFiltrosNaQuery = (queryObj, ignorarColuna = null) => {
+  const aplicarFiltrosNaQuery = (queryObj) => {
+    if (carteiraSelecionada !== 'todos') {
+      queryObj = queryObj.eq('carteira', carteiraSelecionada);
+    }
+
     Object.keys(filtrosAtivosGlobais).forEach(col => {
-        if (ignorarColuna && col === ignorarColuna) return;
         const filtros = filtrosAtivosGlobais[col];
         if (filtros && filtros.length > 0) {
             const hasNull = filtros.includes("##NULL##");
@@ -186,11 +219,46 @@ export default function Carteira() {
 
   const carregarCarteira = async () => {
     try {
-      const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from("tabe_cad_carteira").select("*", { count: 'exact' });
       query = aplicarFiltrosNaQuery(query);
 
-      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order(colunaOrdenacao, { ascending: ordemAscendente });
+      const termoBruto = busca.trim();
+      if (termoBruto.length >= 3) {
+        let colunasTexto = [];
+        if (estruturaTabela.length > 0) {
+          colunasTexto = estruturaTabela
+            .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
+            .map(c => c.nome_coluna);
+        }
+
+        if (colunasTexto.length === 0 && listaCarteiraGlobal.length > 0) {
+          colunasTexto = Object.keys(listaCarteiraGlobal[0]);
+        }
+
+        if (colunasTexto.length > 0) {
+          const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+          if (termos.length > 0) {
+            const condicoesGerais = [];
+            termos.forEach(t => {
+              colunasTexto.forEach(col => {
+                const colLower = col.toLowerCase();
+                if (!colLower.includes('data') && !colLower.includes('_at')) {
+                  condicoesGerais.push(`${col}.ilike.%${t}%`);
+                }
+              });
+            });
+            if (condicoesGerais.length > 0) {
+              query = query.or(condicoesGerais.join(','));
+            }
+          }
+        }
+      }
+
+      const from = (paginaAtual - 1) * registrosPorPagina;
+      const { data, count, error } = await query
+        .range(from, from + registrosPorPagina - 1)
+        .order(colunaOrdenacao, { ascending: ordemAscendente });
+
       if (error) throw error;
 
       setTotalRegistros(count || 0);
@@ -202,6 +270,10 @@ export default function Carteira() {
           let todasColunas = Object.keys(registros[0]);
           let colInit = colunasOrdem.length > 0 ? colunasOrdem.filter(c => todasColunas.includes(c) && !colunasOcultas.includes(c)) : todasColunas.filter(c => !colunasOcultas.includes(c));
           setColunasTabela(colInit);
+      } else if (registros.length > 0 && colunasTabela.length > 0) {
+          // Atualiza colunas aplicando as ocultas
+          let todasColunas = Object.keys(registros[0]);
+          setColunasTabela(todasColunas.filter(c => !colunasOcultas.includes(c)));
       }
     } catch (err) {
       Swal.fire("Erro", "Falha ao carregar a carteira de atividades: " + err.message, "error");
@@ -296,14 +368,6 @@ export default function Carteira() {
         }
         setTotais(prev => ({ ...prev, referencia: somaMeta, equipes: setEquipes.size, percentual: somaMeta > 0 ? prev.servicos / somaMeta : 0 }));
     } catch (err) { console.error(err); }
-  };
-
-  const abrirFiltroColuna = (coluna, e) => {
-    e.stopPropagation();
-    setColunaAtualSendoFiltrada(coluna);
-    setTermoBuscaFiltro('');
-    setPopupFiltroAberto(true);
-    setPopupColunasAberto(false);
   };
 
   const rolarAbas = (direcao) => {
@@ -404,19 +468,67 @@ export default function Carteira() {
       {abaAtiva === 'aba-carteira' ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '12px', overflow: 'hidden' }}>
           
-          {/* Barra de Ações */}
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>            
-            <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
-            <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
-            
-            {podeExcluir && (
-              <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
-            )}
+          {/* Barra de Seleção de Carteira, Pesquisa Geral e Ações */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flex: '1', minWidth: '340px' }}>
+              <select 
+                value={carteiraSelecionada}
+                onChange={e => { setCarteiraSelecionada(e.target.value); setPaginaAtual(1); }}
+                style={{ height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', padding: '0 8px', fontWeight: '600', color: '#334151' }}
+              >
+                <option value="todos">Todas as Carteiras</option>
+                {opcoesCarteira.map((cart) => (
+                  <option key={cart} value={cart}>{cart}</option>
+                ))}
+              </select>
 
-            <button style={btnStyle} onClick={carregarCarteira}><RefreshCw size={14} /> Atualizar</button>
-            <button style={btnStyle}><Upload size={14} /> Importar</button> 
-            <button style={btnStyle}><Download size={14} /> Exportar</button>
-            {Object.keys(filtrosAtivosGlobais).length > 0 && (<button style={{ ...btnStyle, color: '#0284c7' }} onClick={() => setFiltrosAtivosGlobais({})}><FilterX size={14} /> Limpar Filtros</button>)}
+              <div style={{ position: 'relative', flex: '1' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar geral (separe por vírgula, ponto e vírgula ou cole colunas)..." 
+                  value={busca} 
+                  onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
+                  onPaste={e => {
+                    e.preventDefault();
+                    const pastedText = e.clipboardData.getData('text');
+                    const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
+                    setBusca(formattedText);
+                    setPaginaAtual(1);
+                  }}
+                  style={{ width: '100%', padding: '0 12px 0 36px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {(Object.keys(filtrosAtivosGlobais).length > 0 || busca.trim().length > 0 || carteiraSelecionada !== 'todos') && (
+                <button 
+                  style={{ 
+                    ...btnStyle, 
+                    color: '#dc2626', 
+                    minWidth: '32px', 
+                    width: '32px', 
+                    padding: '0',   
+                    justifyContent: 'center' 
+                  }} 
+                  title="Limpar filtros e busca"
+                  onClick={() => { setFiltrosAtivosGlobais({}); setBusca(''); setCarteiraSelecionada('todos'); }}
+                >
+                  <FilterX size={14} />
+                </button>
+              )}       
+              <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
+              <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
+              
+              {podeExcluir && (
+                <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
+              )}
+
+              <button style={btnStyle} onClick={carregarCarteira}><RefreshCw size={14} /> Atualizar</button>
+              <button style={btnStyle}><Upload size={14} /> Importar</button> 
+              <button style={btnStyle}><Download size={14} /> Exportar</button>
+            </div>
           </div>
 
           {/* Cards de KPIs */}
@@ -482,94 +594,44 @@ export default function Carteira() {
             </div>
           </div>
 
-          {/* Estrutura da Tabela baseada no padrão DataTable */}
-          <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <div className="tabela-scroll" style={{ width: '100%', flex: 1, overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9', position: 'sticky', top: 0, zIndex: 10 }}>
-                    <th style={{ width: '40px', textAlign: 'center', padding: '10px 8px', borderBottom: '2px solid #cbd5e1' }}>
-                      <button onClick={() => setPopupColunasAberto(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><Columns3 size={14} /></button>
-                    </th>
-                    {colunasTabela.map(coluna => {
-                      const nomeFormatado = colunasApelidos[coluna] || (coluna.charAt(0).toUpperCase() + coluna.slice(1).replace(/_/g, ' '));
-                      const estaOrdenada = colunaOrdenacao === coluna;
-                      return  (
-                        <th key={coluna} style={{ padding: '10px 12px', borderBottom: '2px solid #cbd5e1', color: '#1e293b', fontWeight: '600' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                            <span 
-                              onClick={() => handleOrdenar(coluna)} 
-                              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}
-                            >
-                              {nomeFormatado}
-                              {estaOrdenada ? (
-                                ordemAscendente ? <ArrowUp size={13} color="#0284c7" /> : <ArrowDown size={13} color="#0284c7" />
-                              ) : (
-                                <ArrowUpDown size={12} color="#94a3b8" />
-                              )}
-                            </span>
-                            <button onClick={(e) => abrirFiltroColuna(coluna, e)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
-                              <ChevronRight size={13} />
-                            </button>
-                          </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {listaCarteiraGlobal.length === 0 ? (
-                    <tr><td colSpan={colunasTabela.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Nenhum registro encontrado.</td></tr>
-                  ) : (
-                    listaCarteiraGlobal.map((item, index) => {
-                      const estaSelecionado = idsSelecionados.includes(String(item.id));
-                      return (
-                        <tr 
-                          key={item.id} 
-                          style={{ 
-                            borderBottom: '1px solid #f1f5f9', 
-                            backgroundColor: estaSelecionado ? '#eff6ff' : index % 2 === 0 ? '#ffffff' : '#fcfcfc',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                        >
-                          <td style={{ textAlign: 'center', padding: '8px' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={estaSelecionado}
-                              onChange={(e) => setIdsSelecionados(e.target.checked ? [String(item.id)] : [])} 
-                            />
-                          </td>
-                          {colunasTabela.map(coluna => {
-                            const valor = formatarDataBrasil(item[coluna], coluna);
-                            return <td key={coluna} style={{ padding: '8px 12px', color: '#334151' }}>{valor}</td>;
-                          })}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Rodapé e Paginação do DataTable */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderTop: '1px solid #cbd5e1', fontSize: '0.78rem', color: '#64748b', flexShrink: 0 }}>
-              <span>Mostrando <strong>{listaCarteiraGlobal.length}</strong> de <strong>{totalRegistros}</strong> registros</span>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <select value={registrosPorPagina} onChange={e => setRegistrosPorPagina(Number(e.target.value))} style={{ height: '28px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', padding: '0 6px' }}>
-                  <option value="100">100 registros</option>
-                  <option value="500">500 registros</option>
-                  <option value="1000">1000 registros</option>
-                </select>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <button onClick={() => setPaginaAtual(1)} disabled={paginaAtual <= 1} style={pageBtnStyle}><ChevronsLeft size={13} /></button>
-                  <button onClick={() => setPaginaAtual(p => Math.max(p - 1, 1))} disabled={paginaAtual <= 1} style={pageBtnStyle}><ChevronLeft size={13} /></button>
-                  <span style={{ padding: '0 6px' }}>Pág {paginaAtual} de {Math.ceil(totalRegistros / registrosPorPagina) || 1}</span>
-                  <button onClick={() => setPaginaAtual(p => p + 1)} disabled={paginaAtual >= Math.ceil(totalRegistros / registrosPorPagina)} style={pageBtnStyle}><ChevronRight size={13} /></button>
-                  <button onClick={() => setPaginaAtual(Math.ceil(totalRegistros / registrosPorPagina) || 1)} disabled={paginaAtual >= Math.ceil(totalRegistros / registrosPorPagina)} style={pageBtnStyle}><ChevronsRight size={13} /></button>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Utilizando o DataTable refatorado */}
+          <DataTable 
+            colunasTabela={colunasTabela}
+            colunasApelidos={colunasApelidos}
+            colunaOrdenacao={colunaOrdenacao}
+            ordemAscendente={ordemAscendente}
+            onOrdenar={handleOrdenar}
+            dados={listaCarteiraGlobal}
+            idsSelecionados={idsSelecionados}
+            onSelecionarIds={setIdsSelecionados}
+            totalRegistros={totalRegistros}
+            paginaAtual={paginaAtual}
+            mudarPagina={setPaginaAtual}
+            registrosPorPagina={registrosPorPagina}
+            mudarRegistrosPorPagina={setRegistrosPorPagina}
+            formatarValorCelular={formatarDataBrasil}
+            estruturaTabela={estruturaTabela}
+            colunasOcultas={colunasOcultas}
+            onSalvarColunasOcultas={(novasOcultas) => {
+              setColunasOcultas(novasOcultas);
+              localStorage.setItem(`colunasOcultas_carteira_${userIdKey}`, JSON.stringify(novasOcultas));
+            }}
+            filtrosAtivosGlobais={filtrosAtivosGlobais}
+            onAplicarFiltroColuna={(col, vals) => {
+              setFiltrosAtivosGlobais(prev => {
+                const copia = { ...prev };
+                if (vals === null || vals.length === 0) {
+                  delete copia[col];
+                } else {
+                  copia[col] = vals;
+                }
+                return copia;
+              });
+              setPaginaAtual(1);
+            }}
+            supabaseClient={supabase}
+            tabelaNome="tabe_cad_carteira"
+          />
         </div>
       ) : (
         <div style={{ background: '#fff', borderRadius: '8px', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
@@ -587,7 +649,8 @@ const btnStyle = {
   background: '#fff',
   color: '#334151',
   border: '1px solid #cbd5e1',
-  padding: '6px 12px',
+  height: '32px',
+  padding: '0 12px',
   minWidth: '100px',
   borderRadius: '6px',
   fontSize: '0.8rem',
@@ -597,19 +660,8 @@ const btnStyle = {
   justifyContent: 'center',
   gap: '6px',
   cursor: 'pointer',
+  boxSizing: 'border-box',
   boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-};
-
-const pageBtnStyle = {
-  width: '26px',
-  height: '26px',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  border: '1px solid #cbd5e1',
-  borderRadius: '4px',
-  background: '#fff',
-  cursor: 'pointer'
 };
 
 const minimalScrollBtnStyle = {
@@ -623,6 +675,6 @@ const minimalScrollBtnStyle = {
   justifyContent: 'center',
   cursor: 'pointer',
   color: '#475569',
-  flexShrink: 0,
+  flexShrink: '0',
   boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
 };
