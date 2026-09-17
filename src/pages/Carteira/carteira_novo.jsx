@@ -21,25 +21,25 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             <div class="header-text"><h2>${headerTitle}</h2><p>${headerText}</p></div>
         </div>
         <div id="formNovaAtividade" class="atividade-form-container" translate="no">
-            <!-- Linha 1 (3 campos) -->
+            <!-- Linha 1 (3 campos): aviso, filial, contratante -->
             <div class="form-row-3">
                 <div class="form-group"><label>Aviso (Data) <span class="req">*</span></label><input type="date" id="form_aviso" class="form-control" ${isEdit ? 'readonly' : ''}></div>
                 <div class="form-group"><label>Filial <span class="req">*</span></label><select id="form_filial" class="form-control select2-init" ${isEdit ? 'disabled' : ''}></select></div>
                 <div class="form-group"><label>Contratante <span class="req">*</span></label><select id="form_contratante" class="form-control select2-init" ${isEdit ? 'disabled' : ''}></select></div>
             </div>
 
-            <!-- Linha 2 (3 campos) -->
+            <!-- Linha 2 (3 campos): tipo de custo, tipo de rastreio, Id rastreio -->
             <div class="form-row-3">
-                <div class="form-group"><label>Área (Processo) <span class="req">*</span></label><select id="form_area" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>Tipo de Custo <span class="req">*</span></label><select id="form_tipo_custo" class="form-control select2-init"><option value="">Selecione...</option><option value="INVESTIMENTO">INVESTIMENTO</option><option value="CUSTEIO">CUSTEIO</option></select></div>
-                <div class="form-group"><label>Tipo de Atividade <span class="req">*</span></label><select id="form_tipo_atividade" class="form-control select2-init"></select></div>
-            </div>
-
-            <!-- Linha 3 (3 campos) -->
-            <div class="form-row-3">
-                <div class="form-group"><label>Prioridade <span class="req">*</span></label><select id="form_prioridade" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>Tipo de Rastreio <span class="req">*</span></label><select id="form_tipo_rastreio" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>ID Rastreio <span class="req">*</span></label><input type="text" id="form_id_rastreio" class="form-control"></div>
+            </div>
+
+            <!-- Linha 3 (3 campos): area, tipo atividade, prioridade -->
+            <div class="form-row-3">
+                <div class="form-group"><label>Área (Processo) <span class="req">*</span></label><select id="form_area" class="form-control select2-init"></select></div>
+                <div class="form-group"><label>Tipo de Atividade <span class="req">*</span></label><select id="form_tipo_atividade" class="form-control select2-init"></select></div>
+                <div class="form-group"><label>Prioridade <span class="req">*</span></label><select id="form_prioridade" class="form-control select2-init"></select></div>
             </div>
 
             <!-- Linha 4 (Proporção 1 para 2) -->
@@ -529,7 +529,6 @@ async function gerarProximoIdAtividade() {
 
     (data || []).forEach(registro => {
         const valorId = String(registro.id || '');
-        // Extrai os últimos dígitos numéricos correspondentes ao sequencial
         const parteSeq = valorId.replace(prefixo, '');
         const numero = parseInt(parteSeq, 10);
         if (Number.isFinite(numero) && numero > maior) {
@@ -884,7 +883,6 @@ async function salvarAtividade(dadosFormulario, idAtividade, callbackSucesso) {
             }
         }
 
-        // Chamada da verificação e atualização na tabela tabe_imp_pep_lto
         if (dadosFormulario.id_rastreio) {
             await vincularListaTecnicaPepLto(idGeradoOuExistente, dadosFormulario.id_rastreio, usuCad);
         }
