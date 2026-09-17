@@ -189,7 +189,7 @@ export default function Carteira() {
       query = aplicarFiltrosAuxiliares(query);
 
       const termoBruto = busca.trim();
-      if (termoBruto.length >= 3) {
+      if (termoBruto.length >= 2) {
         let colunasTexto = estData
           .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
           .map(c => c.nome_coluna);
@@ -199,20 +199,15 @@ export default function Carteira() {
         }
 
         if (colunasTexto.length > 0) {
-          // Mantém frases com espaços unidas, dividindo apenas por vírgulas ou ponto e vírgula
-          const termos = termoBruto.split(/[,;]+/).map(t => t.trim()).filter(t => t.length > 0);
+          // Mantém o texto inteiro com espaços (ex: "DEMANDA DE CLIENTE" ou "DEMANDA") intacto para busca exata de trecho
+          const termoLimpo = termoBruto.replace(/[(),]/g, ' ').trim();
           
-          if (termos.length > 0) {
+          if (termoLimpo.length > 0) {
             const condicoesGerais = [];
-            termos.forEach(t => {
-              const termoLimpo = t.replace(/[(),.]/g, ' ').trim();
-              if (termoLimpo.length > 0) {
-                colunasTexto.forEach(col => {
-                  const colLower = col.toLowerCase();
-                  if (!colLower.includes('data') && !colLower.includes('_at')) {
-                    condicoesGerais.push(`${col}.ilike.%${termoLimpo}%`);
-                  }
-                });
+            colunasTexto.forEach(col => {
+              const colLower = col.toLowerCase();
+              if (!colLower.includes('data') && !colLower.includes('_at')) {
+                condicoesGerais.push(`${col}.ilike.%${termoLimpo}%`);
               }
             });
 
@@ -473,14 +468,13 @@ export default function Carteira() {
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input 
                 type="text" 
-                placeholder="Pesquisar geral (separe por vírgula, ponto e vírgula ou cole colunas)..." 
+                placeholder="Pesquisar geral (digite o texto com espaços ou parte dele)..." 
                 value={busca} 
                 onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
                 onPaste={e => {
                   e.preventDefault();
                   const pastedText = e.clipboardData.getData('text');
-                  const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
-                  setBusca(formattedText);
+                  setBusca(pastedText.trim());
                   setPaginaAtual(1);
                 }}
                 style={{ width: '100%', padding: '0 12px 0 36px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
