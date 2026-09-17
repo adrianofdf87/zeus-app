@@ -32,6 +32,12 @@ export const configuracoesImportacaoEspecificas = {
     extensoesAceitas: ['csv', 'xls', 'xlsx'], acceptInput: ".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     textoDropzone: "Arraste a planilha <b>.csv, .xls</b> ou <b>.xlsx</b> aqui", textoRegra: "A planilha deve conter pelo menos <b>5 colunas</b> estruturadas para LTO em Massa.",
     funcaoProcessadora: processarImportacaoLTOMassa
+  },
+  '2 - carteira_atividades': {
+    nomeFantasia: "Importação Avançada de Atividades", tabela: "2 - carteira_atividades", requerSelecaoOpcao: true,
+    extensoesAceitas: ['csv', 'xls', 'xlsx'], acceptInput: ".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    textoDropzone: "Arraste a planilha <b>.csv, .xls</b> ou <b>.xlsx</b> aqui", textoRegra: "A planilha deve conter a coluna <b>id_rastreio</b> e <b>carteira</b> para o gerenciamento automático de IDs.",
+    funcaoProcessadora: processarImportacaoAtividadeMassa
   }
 };
 
@@ -78,6 +84,180 @@ const readRows = (file, opt) => new Promise((res, rej) => {
 });
 const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConfirmButton(); if(b) Object.assign(b.style, {opacity:"0.4", cursor:"not-allowed", backgroundColor:"#94a3b8"}), b.disabled = true; } };
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
+
+// PROCESSADOR DE IMPORTAÇÃO DE ATIVIDADES EM MASSA
+async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizarProgressoGlobal) {
+    atualizarProgressoGlobal(2, "Lendo planilha de Atividades...");
+
+    if (typeof XLSX === 'undefined') {
+        await new Promise(r => setTimeout(r, 1000));
+        if (typeof XLSX === 'undefined') throw new Error("Aguarde a biblioteca terminar de carregar.");
+    }
+
+    const formatarDataParaBanco = (data) => {
+        if (!data) return null;
+        if (data instanceof Date) return data.toISOString().split('T')[0];
+        if (typeof data === 'string') {
+            const partes = data.split('/');
+            if (partes.length === 3) return `${partes[2]}-${partes[1]}-${partes[0]}`;
+            return data; 
+        }
+        if (typeof data === 'number') {
+            const date = new Date(Math.round((data - 25569) * 86400 * 1000));
+            return date.toISOString().split('T')[0];
+        }
+        return null;
+    };
+
+    const formatarCarteiraTexto = (valor) => {
+        if (!valor) return null;
+        if (valor instanceof Date) {
+            const ano = valor.getUTCFullYear();
+            const mes = String(valor.getUTCMonth() + 1).padStart(2, '0');
+            return `${ano}-${mes}`;
+        }
+        if (typeof valor === 'number') {
+            const date = new Date(Math.round((valor - 25569) * 86400 * 1000));
+            const ano = date.getUTCFullYear();
+            const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
+            return `${ano}-${mes}`;
+        }
+        return String(valor).trim();
+    };
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = async (e) => {
+            try {
+                atualizarProgressoGlobal(10, "Mapeando arquivo Excel...");
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                
+                const dadosImportacao = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+
+                if (!dadosImportacao || dadosImportacao.length === 0) {
+                    throw new Error("A planilha está vazia.");
+                }
+
+                const idsRastreioPlanilha = dadosImportacao
+                    .map(item => item.id_rastreio)
+                    .filter(id => id !== null && id !== undefined && String(id).trim() !== '');
+
+                let setRastreiosExistentes = new Set();
+                
+                if (idsRastreioPlanilha.length > 0) {
+                    const arrIds = Array.from(new Set(idsRastreioPlanilha));
+                    const chunkBusca = 150;
+                    const totalChunks = Math.max(1, Math.ceil(arrIds.length / chunkBusca));
+
+                    for (let i = 0; i < arrIds.length; i += chunkBusca) {
+                        const chunk = arrIds.slice(i, i + chunkBusca);
+                        const loteAtual = Math.floor(i / chunkBusca) + 1;
+                        
+                        atualizarProgressoGlobal(20 + ((loteAtual / totalChunks) * 20), `Validando duplicidades no banco (Lote ${loteAtual}/${totalChunks})...`);
+                        
+                        const { data: rastreiosNoBanco, error: errBusca } = await sb
+                            .from('2 - carteira_atividades')
+                            .select('id_rastreio')
+                            .in('id_rastreio', chunk);
+
+                        if (errBusca) throw new Error('Erro ao checar rastreios no banco: ' + errBusca.message);
+                        
+                        (rastreiosNoBanco || []).forEach(r => setRastreiosExistentes.add(String(r.id_rastreio).trim()));
+                    }
+                }
+
+                atualizarProgressoGlobal(45, "Filtrando atividades novas...");
+
+                const dadosParaInserir = dadosImportacao.filter(item => {
+                    const idRastreioAtual = item.id_rastreio ? String(item.id_rastreio).trim() : null;
+                    if (!idRastreioAtual) return false; 
+                    return !setRastreiosExistentes.has(idRastreioAtual);
+                });
+
+                if (dadosParaInserir.length === 0) {
+                    throw new Error("Não há atividades novas. Todas já estão registradas no banco ou não possuem a coluna 'id_rastreio'.");
+                }
+
+                atualizarProgressoGlobal(55, "Gerando novos IDs baseados na carteira...");
+
+                const agrupadoPorCarteira = {};
+                for (const item of dadosParaInserir) {
+                    const carteiraTexto = formatarCarteiraTexto(item.carteira);
+                    item.carteira = carteiraTexto;
+
+                    if (!carteiraTexto) {
+                        throw new Error(`A atividade com rastreio ${item.id_rastreio} está sem a coluna 'carteira'.`);
+                    }
+                    if (!agrupadoPorCarteira[carteiraTexto]) {
+                        agrupadoPorCarteira[carteiraTexto] = [];
+                    }
+                    agrupadoPorCarteira[carteiraTexto].push(item);
+                }
+
+                const registrosFinais = [];
+
+                for (const [carteira, itens] of Object.entries(agrupadoPorCarteira)) {
+                    const { data: registrosCarteira, error: errCarteira } = await sb
+                        .from('2 - carteira_atividades')
+                        .select('id')
+                        .like('id', `${carteira}-%`);
+
+                    if (errCarteira) throw new Error(`Erro ao buscar numeração da carteira ${carteira}: ` + errCarteira.message);
+
+                    let maiorNumero = 0;
+                    (registrosCarteira || []).forEach(registro => {
+                        const partes = String(registro.id || '').split('-');
+                        if (partes.length >= 3) {
+                            const numero = parseInt(partes[partes.length - 1], 10);
+                            if (Number.isFinite(numero) && numero > maiorNumero) {
+                                maiorNumero = numero;
+                            }
+                        }
+                    });
+
+                    itens.forEach(item => {
+                        maiorNumero++;
+                        item.id = `${carteira}-${String(maiorNumero).padStart(4, '0')}`;
+                        
+                        if (item.aviso) item.aviso = formatarDataParaBanco(item.aviso);
+                        if (item.prazo) item.prazo = formatarDataParaBanco(item.prazo);
+                        if (!item.status) item.status = 'CADASTRADO';
+                        
+                        registrosFinais.push(item);
+                    });
+                }
+
+                const total = registrosFinais.length;
+                const tamanhoLote = 500;
+                let inseridos = 0;
+
+                for (let i = 0; i < total; i += tamanhoLote) {
+                    const lote = registrosFinais.slice(i, i + tamanhoLote);
+                    const { error } = await sb.from("2 - carteira_atividades").insert(lote);
+                    
+                    if (error) {
+                        console.error('Erro de inserção:', error);
+                        throw new Error(`Erro de banco: ${error.message}`);
+                    }
+
+                    inseridos += lote.length;
+                    const percentual = 70 + ((inseridos / total) * 30);
+                    atualizarProgressoGlobal(percentual, `Enviando dados finais para o banco (${inseridos}/${total})...`);
+                }
+
+                resolve();
+
+            } catch (error) {
+                reject(error);
+            }
+        };
+
+        reader.readAsArrayBuffer(file);
+    });
+}
 
 // PROCESSADOR DE IMPORTAÇÃO LTO EM MASSA
 async function processarImportacaoLTOMassa(limpar, file, sb, update) {
