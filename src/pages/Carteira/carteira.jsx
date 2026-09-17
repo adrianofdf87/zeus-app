@@ -27,6 +27,7 @@ export default function Carteira() {
   const [abaAtiva, setAbaAtiva] = useState("aba-carteira");
   const [listaCarteiraGlobal, setListaCarteiraGlobal] = useState([]);
   const [colunasTabela, setColunasTabela] = useState([]);
+  const [estruturaTabela, setEstruturaTabela] = useState([]);
   const [colunasOcultas, setColunasOcultas] = useState(() => JSON.parse(localStorage.getItem(`colunasOcultas_carteira_${userIdKey}`)) || []);
   const [colunasOrdem, setColunasOrdem] = useState(() => JSON.parse(localStorage.getItem(`colunasOrdem_carteira_${userIdKey}`)) || []);
   const [colunasApelidos, setColunasApelidos] = useState(() => JSON.parse(localStorage.getItem(`colunasApelidos_carteira_${userIdKey}`)) || {});
@@ -62,6 +63,10 @@ export default function Carteira() {
   const [podeRolarKpisDir, setPodeRolarKpisDir] = useState(false);
 
   useEffect(() => {
+    carregarEstrutura();
+  }, []);
+
+  useEffect(() => {
     carregarCarteira();
     calcularTotalReferencia();
   }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais, busca]);
@@ -76,6 +81,17 @@ export default function Carteira() {
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
+
+  const carregarEstrutura = async () => {
+    try {
+      const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: 'tabe_cad_carteira' });
+      if (!error && Array.isArray(data)) {
+        setEstruturaTabela(data);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar estrutura:", e);
+    }
+  };
 
   const verificarScrollAbas = () => {
     const el = abasScrollRef.current;
@@ -189,25 +205,29 @@ export default function Carteira() {
       let query = supabase.from("tabe_cad_carteira").select("*", { count: 'exact' });
       query = aplicarFiltrosNaQuery(query);
 
-      // Tratamento da Pesquisa Geral semelhante ao táticas/tabelas_dados
       const termoBruto = busca.trim();
       if (termoBruto.length >= 3) {
-        // Busca a estrutura da tabela se ainda não tiver colunas definidas
-        let colunasTexto = colunasTabela;
-        if (colunasTexto.length === 0) {
-          const { data: sample } = await supabase.from("tabe_cad_carteira").select("*").limit(1);
-          if (sample && sample.length > 0) {
-            colunasTexto = Object.keys(sample[0]);
-          }
+        let colunasTexto = [];
+        if (estruturaTabela.length > 0) {
+          colunasTexto = estruturaTabela
+            .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
+            .map(c => c.nome_coluna);
         }
-        
+
+        if (colunasTexto.length === 0 && listaCarteiraGlobal.length > 0) {
+          colunasTexto = Object.keys(listaCarteiraGlobal[0]);
+        }
+
         if (colunasTexto.length > 0) {
           const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
           if (termos.length > 0) {
             const condicoesGerais = [];
             termos.forEach(t => {
               colunasTexto.forEach(col => {
-                condicoesGerais.push(`${col}.ilike.%${t}%`);
+                const colLower = col.toLowerCase();
+                if (!colLower.includes('data') && !colLower.includes('_at')) {
+                  condicoesGerais.push(`${col}.ilike.%${t}%`);
+                }
               });
             });
             if (condicoesGerais.length > 0) {
@@ -432,7 +452,7 @@ export default function Carteira() {
       {abaAtiva === 'aba-carteira' ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '12px', overflow: 'hidden' }}>
           
-          {/* Barra de Ações e Pesquisa Geral */}
+          {/* Barra de Pesquisa Geral e Ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: '1', minWidth: '280px' }}>
               <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -452,7 +472,7 @@ export default function Carteira() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>         
               <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
               <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
               
