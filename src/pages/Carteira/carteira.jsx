@@ -464,7 +464,7 @@ export default function Carteira() {
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input 
                 type="text" 
-                placeholder="Pesquisar geral (ex: DEMANDA DE CLIENTE)..." 
+                placeholder="Pesquisar geral..." 
                 value={busca} 
                 onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
                 onPaste={e => {

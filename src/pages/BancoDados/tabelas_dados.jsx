@@ -149,25 +149,30 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
 
       const termoBruto = busca.trim();
-      const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
-
+      
       const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from(tabelaBd).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
 
-      if (termoBruto.length >= 3 && colunasTexto.length > 0) {
-        const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
+      if (termoBruto.length >= 2) {
+        // Exclui estritamente apenas as colunas de data solicitadas e permite todas as outras
+        const colunasExcluidas = ['aviso', 'prazo', 'criado_em'];
+        let colunasTexto = estData
+          .map(c => c.nome_coluna)
+          .filter(col => !colunasExcluidas.includes(col.toLowerCase()));
 
-        if (termos.length > 0) {
-          const condicoesGerais = [];
-          termos.forEach(t => {
-            colunasTexto.forEach(col => {
-              condicoesGerais.push(`${col}.ilike.%${t}%`);
-            });
-          });
+        if (colunasTexto.length === 0) {
+          colunasTexto = ['carteira', 'filial', 'contratante', 'municipio', 'seccional', 'area', 'tipo_custo', 'tipo_atividade', 'prioridade', 'tipo_rastreio', 'pep'];
+        }
 
-          if (condicoesGerais.length > 0) {
-            query = query.or(condicoesGerais.join(','));
+        if (colunasTexto.length > 0) {
+          const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
+          
+          if (termoLimpo.length > 0) {
+            const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
+            if (condicoes.length > 0) {
+              query = query.or(condicoes.join(','));
+            }
           }
         }
       }
@@ -497,7 +502,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             const valTp = (v, tp) => {
               if (v == null || v === '') return true; const t = String(tp||'').toLowerCase();
               if (t.match(/int|numeric|decimal|float/)) return !isNaN(Number(String(v).replace(',','.')));
-              if (t.match(/date|time/)) return (v instanceof Date && !isNaN(v.getTime())) || /^\d{4}-\d{2}-\d{4}/.test(v) || !isNaN(Date.parse(v)) || /^\d{2}\/\d{2}\/\d{4}$/.test(v) || /^\d{4}-\d{2}-\d{2}$/.test(v);
+              if (t.match(/date|time/)) return (v instanceof Date && !isNaN(v.getTime())) || /^\d{4}-\d{2}-\d{4}/.test(v) || !isNaN(Date.parse(v)) || /^\d{2}\/\d{2}\/\d{4}$/.test(v) \vert{}\vert{} /^\d{4}-\d{2}-\d{2}$/.test(v);
               if (t.match(/bool/)) return ['true','false','1','0','sim','nao','yes','no'].includes(String(v).toLowerCase());
               return true;
             };
@@ -603,7 +608,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         ...swalDefault, width: vis.length > 8 ? '980px' : '480px',
         html: `${hdd}<div class="modal-header-pro"><div class="modal-icon-box" style="background-color:${editando ? '#0284c7' : '#10b981'};">${editando ? svgHeaderEdit : svgHeaderAdd}</div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">${editando ? 'Editar Registro' : 'Adicionar Novo'}</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">${editando ? 'Altere os dados.' : 'Preencha os campos.'}</p></div></div><div class="modal-body-pro"><div class="swal-form-container" style="display:grid;grid-template-columns:repeat(${vis.length > 8 ? 3 : 1},1fr);gap:10px;text-align:left;">${vis.map(col => {
           let val = rowData[col.nome_coluna] ?? '';
-          if (col.nome_coluna.toLowerCase() === 'filial' && usaFilial) return `<div class="swal-form-group" style="display:flex;flexDirection:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><select class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"><option value="">Selecione...</option>${filiais.map(f => `<option value="${f}" ${val === f ? 'selected' : ''}>${f}</option>`).join('')}</select></div>`;
+          if (col.nome_coluna.toLowerCase() === 'filial' && usaFilial) return `<div class="swal-form-group" style="display:flex;flexDirection:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><select class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100\%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"><option value="">Selecione...</option>${filiais.map(f => `<option value="${f}" ${val === f ? 'selected' : ''}>${f}</option>`).join('')}</select></div>`;
           return `<div class="swal-form-group" style="display:flex;flexDirection:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><input class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" type="${['smallint','integer','numeric'].includes(col.tipo) ? 'number' : 'text'}" value="${val}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;box-sizing:border-box;"></div>`;
         }).join('')}</div></div>`,
         confirmButtonText: `${svgSalvar} Salvar`, confirmButtonColor: corTheme,
@@ -676,7 +681,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px', background:'#ffffff', padding:'8px 14px', borderRadius:'8px', boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
           <div style={{ backgroundColor:corTheme, color:'#fff', width:'32px', height:'32px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 4px rgba(0,85,150,0.2)' }}><Database size={16} /></div>
-          <div><h2 style={{ margin:0, fontSize:'0.95rem', color:'#0f172a', fontWeight:'700', lineHeight:'1.2' }}>{titulo}</h2><p style={{ margin:'1px 0 0', fontSize:'0.72rem', color:'#64748b' }}>Gerenciamento da tabela: <b>{tabelaBd}</b></p></div>
+          <div><h2 style={{ margin:0, fontSize:'0.95rem', color:'#0f172a', fontWeight:'700', lineHeight:'1.2' }}>{titulo}</h2><p style={{ margin:'1px 0 0', fontSize:'0.72rem', color:#64748b }}>Gerenciamento da tabela: <b>{tabelaBd}</b></p></div>
         </div>
         {onClose && <button onClick={onClose} style={{ background:'transparent', border:'none', cursor:'pointer', color:'#64748b', padding:'6px', borderRadius:'50%' }} title="Fechar"><X size={18} /></button>}
       </div>
@@ -685,14 +690,13 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <Search size={18} style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', color:'#94a3b8' }} />
           <input 
             type="text" 
-            placeholder="Pesquisar (separe por vírgula , ponto e vírgula ; ou cole colunas)..." 
+            placeholder="Pesquisar (ex: DEMANDA DE CLIENTE ou parte do texto)..." 
             value={busca} 
             onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
             onPaste={e => {
               e.preventDefault();
               const pastedText = e.clipboardData.getData('text');
-              const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
-              setBusca(formattedText);
+              setBusca(pastedText.trim());
               setPaginaAtual(1);
             }}
             style={{ width:'100%', padding:'0 12px 0 38px', height:'32px', borderRadius:'6px', border:'1px solid #cbd5e1', outline:'none', fontSize:'0.9rem', background:'#fff', boxSizing:'border-box' }} 
