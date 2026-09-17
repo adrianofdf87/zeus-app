@@ -488,7 +488,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     catch (err) { return endProc(btn, err.message, false); }
   };
 
-  // Processador Dinâmico atualizado para evitar duplicidades checando registros existentes na base
   const procDinamica = async (limpar, file, colsImp, btn) => {
     getEl('apoioStateConfirm').style.display = 'none'; getEl('apoioStateProgress').style.display = 'flex'; getEl('apoioProgressMsg').innerText = "Lendo arquivo...";
     if (btn) { btn.style.display = 'none'; btn.disabled = true; }
@@ -498,8 +497,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       const nmUsr = getNomeUsuarioLogado();
       const estComp = await obterEstruturaTabela(tabelaBd).catch(()=>[]);
       const colUsr = estComp.find(c => ['usu_cad','usu_cada','usucad','usuario','usuario_cadastro','cadastrado_por'].includes(String(c.nome_coluna).toLowerCase()))?.nome_coluna;
-      
-      // Identifica uma coluna candidata a chave única (ex: id_rastreio, codigo, pep, nota, etc., ou a primeira coluna)
       const colChaveUnica = estComp.find(c => ['id_rastreio', 'codigo', 'pep', 'nota', 'id'].includes(String(c.nome_coluna).toLowerCase()))?.nome_coluna || colsImp[0]?.nome_coluna;
 
       const reader = new FileReader();
@@ -511,7 +508,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             while (rows.length > 0 && rows[rows.length - 1].join("").trim() === "") rows.pop();
             if (rows.length < 2) throw new Error("Planilha vazia ou só cabeçalho.");
             if (rows[0].length !== colsImp.length) throw new Error(`Incompatibilidade: Arquivo tem ${rows[0].length} colunas, tabela espera ${colsImp.length}.`);
-            
             getEl('apoioProgressMsg').innerText = "Validando tipos e duplicidades...";
             const limpa = v => v != null ? String(v).replace(/^"|"$/g, '').trim() : null;
             const fmtDt = (v, tp) => {
@@ -529,7 +525,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
               if (t.match(/bool/)) return ['true','false','1','0','sim','nao','yes','no'].includes(String(v).toLowerCase());
               return true;
             };
-
             const rowsIns = [];
             for (let i = 1; i < rows.length; i++) {
               let obj = {};
@@ -541,13 +536,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
                 } else val = null;
                 obj[cNm] = val;
               }
-              if (colUsr) obj[colUsr] = nmUsr; 
-              rowsIns.push(obj);
+              if (colUsr) obj[colUsr] = nmUsr; rowsIns.push(obj);
             }
-
             if (!rowsIns.length) throw new Error("Nenhum dado válido.");
 
-            // Se não optou por limpar a base, buscamos os registros existentes para evitar duplicidade na coluna chave única
             let itensParaInserir = rowsIns;
             if (!limpar && colChaveUnica) {
               const chavesPlanilha = rowsIns.map(r => r[colChaveUnica]).filter(val => val != null && String(val).trim() !== '');
@@ -567,7 +559,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
                   (dadosBanco || []).forEach(d => chavesExistentes.add(String(d[colChaveUnica]).trim()));
                 }
 
-                // Filtra apenas os registros cuja chave ainda não existe no banco
                 itensParaInserir = rowsIns.filter(item => {
                   const valChave = item[colChaveUnica];
                   if (valChave == null || String(valChave).trim() === '') return true;
@@ -582,7 +573,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
             getEl('apoioProgressBarWrapper').style.display = 'block';
             if (limpar) { 
-              getEl('apoioProgressMsg').innerText = "Limpando base..."; 
+              if (tabelaBd === 'tabe_cad_carteira') {
+                await supabase.from('tabe_cad_carteira_log').delete().not('id', 'is', null);
+              }
               const { error } = await supabase.from(tabelaBd).delete().not('id','is',null); 
               if (error) throw error; 
             }
@@ -666,6 +659,14 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         html: `<div class="modal-header-pro"><div class="modal-icon-box" style="background-color:#dc2626;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Excluir Registros</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Qual o tipo de exclusão deseja realizar?</p></div></div><div class="modal-body-pro"><p style="margin:0;color:#475569;font-size:0.9rem;">Escolha o escopo da exclusão abaixo:</p></div>`
       });
       if (res.isConfirmed || res.isDenied) {
+        if (tabelaBd === 'tabe_cad_carteira') {
+          if (res.isConfirmed) {
+            await supabase.from('tabe_cad_carteira_log').delete().not('id', 'is', null);
+          } else if (res.isDenied) {
+            await supabase.from('tabe_cad_carteira_log').delete().in('id_atividade', linhasSelecionadasIds);
+          }
+        }
+
         const { error } = res.isConfirmed ? await supabase.from(tabelaBd).delete().not('id','is',null) : await supabase.from(tabelaBd).delete().in('id', linhasSelecionadasIds);
         if (error) Swal.fire('Erro', error.message, 'error');
         else { Swal.fire('Sucesso', res.isConfirmed ? 'Tabela limpa.' : 'Excluídos com sucesso.', 'success'); setLinhasSelecionadasIds([]); setRegistroSelecionadoId(null); setRegistroSelecionadoObj(null); carregarDados(false); }
@@ -676,6 +677,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         html: `<div class="modal-header-pro"><div class="modal-icon-box" style="background-color:#dc2626;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Excluir Selecionados</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Confirmação de exclusão</p></div></div><div class="modal-body-pro"><p style="margin:0;color:#475569;font-size:0.9rem;">Essa ação apagará <b>${linhasSelecionadasIds.length}</b> linha(s) selecionada(s).</p></div>`
       });
       if (res.isConfirmed) {
+        if (tabelaBd === 'tabe_cad_carteira') {
+          await supabase.from('tabe_cad_carteira_log').delete().in('id_atividade', linhasSelecionadasIds);
+        }
         const { error } = await supabase.from(tabelaBd).delete().in('id', linhasSelecionadasIds);
         if (error) Swal.fire('Erro', error.message, 'error');
         else { Swal.fire('Sucesso', 'Excluídos com sucesso.', 'success'); setLinhasSelecionadasIds([]); setRegistroSelecionadoId(null); setRegistroSelecionadoObj(null); carregarDados(false); }
