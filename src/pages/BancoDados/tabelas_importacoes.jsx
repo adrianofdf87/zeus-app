@@ -92,190 +92,270 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // PROCESSADOR DE IMPORTAÇÃO DE ATIVIDADES EM MASSA
-async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizarProgressoGlobal) {
-    atualizarProgressoGlobal(2, "Lendo planilha de Atividades...");
+  async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizarProgressoGlobal) {
+      atualizarProgressoGlobal(2, "Lendo planilha de Atividades...");
 
-    await loadXlsx(atualizarProgressoGlobal);
-    const usuCad = getUsu();
+      await loadXlsx(atualizarProgressoGlobal);
+      const usuCad = getUsu();
 
-    const formatarDataParaBanco = (data) => {
-        if (!data) return null;
-        if (data instanceof Date) return data.toISOString().split('T')[0];
-        if (typeof data === 'string') {
-            const partes = data.split('/');
-            if (partes.length === 3) return `${partes[2]}-${partes[1]}-${partes[0]}`;
-            return data; 
-        }
-        if (typeof data === 'number') {
-            const date = new Date(Math.round((data - 25569) * 86400 * 1000));
-            return date.toISOString().split('T')[0];
-        }
-        return null;
-    };
+      const formatarDataParaBanco = (data) => {
+          if (!data) return null;
+          if (data instanceof Date) return data.toISOString().split('T')[0];
+          if (typeof data === 'string') {
+              const partes = data.split('/');
+              if (partes.length === 3) return `${partes[2]}-${partes[1]}-${partes[0]}`;
+              return data; 
+          }
+          if (typeof data === 'number') {
+              const date = new Date(Math.round((data - 25569) * 86400 * 1000));
+              return date.toISOString().split('T')[0];
+          }
+          return null;
+      };
 
-    const formatarCarteiraTexto = (valor) => {
-        if (!valor) return null;
-        if (valor instanceof Date) {
-            const ano = valor.getUTCFullYear();
-            const mes = String(valor.getUTCMonth() + 1).padStart(2, '0');
-            return `${ano}-${mes}`;
-        }
-        if (typeof valor === 'number') {
-            const date = new Date(Math.round((valor - 25569) * 86400 * 1000));
-            const ano = date.getUTCFullYear();
-            const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
-            return `${ano}-${mes}`;
-        }
-        return String(valor).trim();
-    };
+      const formatarCarteiraTexto = (valor) => {
+          if (!valor) return null;
+          if (valor instanceof Date) {
+              const ano = valor.getUTCFullYear();
+              const mes = String(valor.getUTCMonth() + 1).padStart(2, '0');
+              return `${ano}-${mes}`;
+          }
+          if (typeof valor === 'number') {
+              const date = new Date(Math.round((valor - 25569) * 86400 * 1000));
+              const ano = date.getUTCFullYear();
+              const mes = String(date.getUTCMonth() + 1).padStart(2, '0');
+              return `${ano}-${mes}`;
+          }
+          return String(valor).trim();
+      };
 
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = async (e) => {
-            try {
-                atualizarProgressoGlobal(10, "Mapeando arquivo Excel...");
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                const dadosImportacao = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          
+          reader.onload = async (e) => {
+              try {
+                  atualizarProgressoGlobal(10, "Mapeando arquivo Excel...");
+                  const data = new Uint8Array(e.target.result);
+                  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                  
+                  const dadosImportacao = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
-                if (!dadosImportacao || dadosImportacao.length === 0) {
-                    throw new Error("A planilha está vazia.");
-                }
+                  if (!dadosImportacao || dadosImportacao.length === 0) {
+                      throw new Error("A planilha está vazia.");
+                  }
 
-                const idsRastreioPlanilha = dadosImportacao
-                    .map(item => item.id_rastreio)
-                    .filter(id => id !== null && id !== undefined && String(id).trim() !== '');
+                  const idsRastreioPlanilha = dadosImportacao
+                      .map(item => item.id_rastreio)
+                      .filter(id => id !== null && id !== undefined && String(id).trim() !== '');
 
-                let setRastreiosExistentes = new Set();
-                
-                if (idsRastreioPlanilha.length > 0) {
-                    const arrIds = Array.from(new Set(idsRastreioPlanilha));
-                    const chunkBusca = 150;
-                    const totalChunks = Math.max(1, Math.ceil(arrIds.length / chunkBusca));
+                  let setRastreiosExistentes = new Set();
+                  
+                  if (idsRastreioPlanilha.length > 0) {
+                      const arrIds = Array.from(new Set(idsRastreioPlanilha));
+                      const chunkBusca = 150;
+                      const totalChunks = Math.max(1, Math.ceil(arrIds.length / chunkBusca));
 
-                    for (let i = 0; i < arrIds.length; i += chunkBusca) {
-                        const chunk = arrIds.slice(i, i + chunkBusca);
-                        const loteAtual = Math.floor(i / chunkBusca) + 1;
-                        
-                        atualizarProgressoGlobal(20 + ((loteAtual / totalChunks) * 20), `Validando duplicidades no banco (Lote ${loteAtual}/${totalChunks})...`);
-                        
-                        const { data: rastreiosNoBanco, error: errBusca } = await sb
-                            .from('tabe_cad_carteira')
-                            .select('id_rastreio')
-                            .in('id_rastreio', chunk);
+                      for (let i = 0; i < arrIds.length; i += chunkBusca) {
+                          const chunk = arrIds.slice(i, i + chunkBusca);
+                          const loteAtual = Math.floor(i / chunkBusca) + 1;
+                          
+                          atualizarProgressoGlobal(20 + ((loteAtual / totalChunks) * 20), `Validando duplicidades no banco (Lote ${loteAtual}/${totalChunks})...`);
+                          
+                          const { data: rastreiosNoBanco, error: errBusca } = await sb
+                              .from('tabe_cad_carteira')
+                              .select('id_rastreio')
+                              .in('id_rastreio', chunk);
 
-                        if (errBusca) throw new Error('Erro ao checar rastreios no banco: ' + errBusca.message);
-                        
-                        (rastreiosNoBanco || []).forEach(r => setRastreiosExistentes.add(String(r.id_rastreio).trim()));
-                    }
-                }
+                          if (errBusca) throw new Error('Erro ao checar rastreios no banco: ' + errBusca.message);
+                          
+                          (rastreiosNoBanco || []).forEach(r => setRastreiosExistentes.add(String(r.id_rastreio).trim()));
+                      }
+                  }
 
-                atualizarProgressoGlobal(45, "Filtrando atividades novas...");
+                  atualizarProgressoGlobal(45, "Filtrando atividades novas...");
 
-                const dadosParaInserir = dadosImportacao.filter(item => {
-                    const idRastreioAtual = item.id_rastreio ? String(item.id_rastreio).trim() : null;
-                    if (!idRastreioAtual) return false; 
-                    return !setRastreiosExistentes.has(idRastreioAtual);
-                });
+                  const dadosParaInserir = dadosImportacao.filter(item => {
+                      const idRastreioAtual = item.id_rastreio ? String(item.id_rastreio).trim() : null;
+                      if (!idRastreioAtual) return false; 
+                      return !setRastreiosExistentes.has(idRastreioAtual);
+                  });
 
-                if (dadosParaInserir.length === 0) {
-                    throw new Error("Não há atividades novas. Todas já estão registradas no banco ou não possuem a coluna 'id_rastreio'.");
-                }
+                  if (dadosParaInserir.length === 0) {
+                      throw new Error("Não há atividades novas. Todas já estão registradas no banco ou não possuem a coluna 'id_rastreio'.");
+                  }
 
-                atualizarProgressoGlobal(55, "Gerando novos IDs baseados na carteira...");
+                  atualizarProgressoGlobal(55, "Gerando novos IDs baseados na carteira...");
 
-                const agrupadoPorCarteira = {};
-                for (const item of dadosParaInserir) {
-                    const carteiraTexto = formatarCarteiraTexto(item.carteira);
-                    item.carteira = carteiraTexto;
+                  const agrupadoPorCarteira = {};
+                  for (const item of dadosParaInserir) {
+                      const carteiraTexto = formatarCarteiraTexto(item.carteira);
+                      item.carteira = carteiraTexto;
 
-                    if (!carteiraTexto) {
-                        throw new Error(`A atividade com rastreio ${item.id_rastreio} está sem a coluna 'carteira'.`);
-                    }
-                    if (!agrupadoPorCarteira[carteiraTexto]) {
-                        agrupadoPorCarteira[carteiraTexto] = [];
-                    }
-                    agrupadoPorCarteira[carteiraTexto].push(item);
-                }
+                      if (!carteiraTexto) {
+                          throw new Error(`A atividade com rastreio ${item.id_rastreio} está sem a coluna 'carteira'.`);
+                      }
+                      if (!agrupadoPorCarteira[carteiraTexto]) {
+                          agrupadoPorCarteira[carteiraTexto] = [];
+                      }
+                      agrupadoPorCarteira[carteiraTexto].push(item);
+                  }
 
-                const registrosFinais = [];
+                  const registrosFinais = [];
 
-                for (const [carteira, itens] of Object.entries(agrupadoPorCarteira)) {
-                    const { data: registrosCarteira, error: errCarteira } = await sb
-                        .from('tabe_cad_carteira')
-                        .select('id')
-                        .like('id', `${carteira}-%`);
+                  for (const [carteira, itens] of Object.entries(agrupadoPorCarteira)) {
+                      const { data: registrosCarteira, error: errCarteira } = await sb
+                          .from('tabe_cad_carteira')
+                          .select('id')
+                          .like('id', `${carteira}-%`);
 
-                    if (errCarteira) throw new Error(`Erro ao buscar numeração da carteira ${carteira}: ` + errCarteira.message);
+                      if (errCarteira) throw new Error(`Erro ao buscar numeração da carteira ${carteira}: ` + errCarteira.message);
 
-                    let maiorNumero = 0;
-                    (registrosCarteira || []).forEach(registro => {
-                        const partes = String(registro.id || '').split('-');
-                        if (partes.length >= 3) {
-                            const numero = parseInt(partes[partes.length - 1], 10);
-                            if (Number.isFinite(numero) && numero > maiorNumero) {
-                                maiorNumero = numero;
-                            }
-                        }
-                    });
+                      let maiorNumero = 0;
+                      (registrosCarteira || []).forEach(registro => {
+                          const partes = String(registro.id || '').split('-');
+                          if (partes.length >= 3) {
+                              const numero = parseInt(partes[partes.length - 1], 10);
+                              if (Number.isFinite(numero) && numero > maiorNumero) {
+                                  maiorNumero = numero;
+                              }
+                          }
+                      });
 
-                    itens.forEach(item => {
-                        maiorNumero++;
-                        item.id = `${carteira}-${String(maiorNumero).padStart(4, '0')}`;
-                        
-                        if (item.aviso) item.aviso = formatarDataParaBanco(item.aviso);
-                        if (item.prazo) item.prazo = formatarDataParaBanco(item.prazo);
-                        if (!item.status) item.status = 'CADASTRADO';
-                        
-                        registrosFinais.push(item);
-                    });
-                }
+                      itens.forEach(item => {
+                          maiorNumero++;
+                          item.id = `${carteira}-${String(maiorNumero).padStart(4, '0')}`;
+                          
+                          if (item.aviso) item.aviso = formatarDataParaBanco(item.aviso);
+                          if (item.prazo) item.prazo = formatarDataParaBanco(item.prazo);
+                          if (!item.status) item.status = 'CADASTRADO';
+                          
+                          registrosFinais.push(item);
+                      });
+                  }
 
-                const total = registrosFinais.length;
-                const tamanhoLote = 500;
-                let inseridos = 0;
+                  const total = registrosFinais.length;
+                  const tamanhoLote = 500;
+                  let inseridos = 0;
 
-                for (let i = 0; i < total; i += tamanhoLote) {
-                    const lote = registrosFinais.slice(i, i + tamanhoLote);
-                    const { error } = await sb.from("tabe_cad_carteira").insert(lote);
-                    
-                    if (error) {
-                        console.error('Erro de inserção:', error);
-                        throw new Error(`Erro de banco: ${error.message}`);
-                    }
+                  // Array para acumular todos os itens inseridos para uso posterior nos logs da tabela tabe_cad_carteira_log
+                  const todosItensInseridos = [];
 
-                    // Inserindo os logs correspondentes ao lote inserido usando o nome em `usu_cad`
-                    const loteLogs = lote.map(item => ({
-                        id_atividade: item.id,
-                        acao: "CADASTRO",
-                        descricao_acao: "CADASTRO EM MASSA",
-                        usu_cada: usuCad
-                    }));
+                  for (let i = 0; i < total; i += tamanhoLote) {
+                      const lote = registrosFinais.slice(i, i + tamanhoLote);
+                      const { error } = await sb.from("tabe_cad_carteira").insert(lote);
+                      
+                      if (error) {
+                          console.error('Erro de inserção:', error);
+                          throw new Error(`Erro de banco: ${error.message}`);
+                      }
 
-                    const { error: errLog } = await sb.from("tabe_cad_carteira_log").insert(loteLogs);
-                    if (errLog) {
-                        console.error('Erro ao inserir logs:', errLog);
-                        throw new Error(`Erro ao registrar logs de auditoria: ${errLog.message}`);
-                    }
+                      // Guardando para o log geral posterior
+                      todosItensInseridos.push(...lote);
 
-                    inseridos += lote.length;
-                    const percentual = 70 + ((inseridos / total) * 30);
-                    atualizarProgressoGlobal(percentual, `Enviando dados finais e logs para o banco (${inseridos}/${total})...`);
-                }
+                      // Inserindo os logs tradicionais de cadastro correspondentes ao lote inserido
+                      const loteLogs = lote.map(item => ({
+                          id_atividade: item.id,
+                          acao: "CADASTRO",
+                          descricao_acao: "CADASTRO EM MASSA",
+                          usu_cada: usuCad
+                      }));
 
-                resolve();
+                      const { error: errLog } = await sb.from("tabe_cad_carteira_log").insert(loteLogs);
+                      if (errLog) {
+                          console.error('Erro ao inserir logs:', errLog);
+                          throw new Error(`Erro ao registrar logs de auditoria: ${errLog.message}`);
+                      }
 
-            } catch (error) {
-                reject(error);
-            }
-        };
+                      inseridos += lote.length;
+                      const percentual = 70 + ((inseridos / total) * 20);
+                      atualizarProgressoGlobal(percentual, `Enviando dados finais e logs para o banco (${inseridos}/${total})...`);
+                  }
 
-        reader.readAsArrayBuffer(file);
-    });
-}
+                  // ==========================================
+                  // NOVA ETAPA: Integração com tabe_imp_pep_lto
+                  // ==========================================
+                  atualizarProgressoGlobal(92, "Atualizando relações com a tabela de impacto...");
+
+                  // Extrai todos os pares de id_rastreio e id recém-criados
+                  const rastreiosInseridos = todosItensInseridos.map(item => String(item.id_rastreio).trim());
+
+                  if (rastreiosInseridos.length > 0) {
+                      const chunkBuscaImp = 150;
+                      
+                      for (let i = 0; i < rastreiosInseridos.length; i += chunkBuscaImp) {
+                          const chunkRastreios = rastreiosInseridos.slice(i, i + chunkBuscaImp);
+
+                          // 1. Busca na tabela tabe_imp_pep_lto onde a nota corresponde ao id_rastreio
+                          const { data: itensImpacto, error: errImpBusca } = await sb
+                              .from('tabe_imp_pep_lto')
+                              .select('id, nota')
+                              .in('nota', chunkRastreios);
+
+                          if (errImpBusca) {
+                              throw new Error(`Erro ao buscar em tabe_imp_pep_lto: ${errImpBusca.message}`);
+                          }
+
+                          if (itensImpacto && itensImpacto.length > 0) {
+                              // Cria um mapa rápido de nota -> id_atividade (que é o id de tabe_cad_carteira)
+                              const mapaNotaParaIdAtividade = {};
+                              todosItensInseridos.forEach(carteiraItem => {
+                                  mapaNotaParaIdAtividade[String(carteiraItem.id_rastreio).trim()] = carteiraItem.id;
+                              });
+
+                              const logsListaTecnica = [];
+
+                              // 2. Atualiza cada registro correspondente em tabe_imp_pep_lto e prepara os logs
+                              for (const imp of itensImpacto) {
+                                  const idAtividadeCorrespondente = mapaNotaParaIdAtividade[String(imp.nota).trim()];
+
+                                  if (idAtividadeCorrespondente) {
+                                      // Atualiza tabe_imp_pep_lto . id_atividade = tabe_cad_carteira.id
+                                      const { error: errUpdateImp } = await sb
+                                          .from('tabe_imp_pep_lto')
+                                          .update({ id_atividade: idAtividadeCorrespondente })
+                                          .eq('id', imp.id);
+
+                                      if (errUpdateImp) {
+                                          console.error('Erro ao atualizar tabe_imp_pep_lto:', errUpdateImp);
+                                      }
+
+                                      // Prepara a linha para a tabela tabe_cad_carteira_log
+                                      logsListaTecnica.push({
+                                          id_atividade: idAtividadeCorrespondente, // ou id, dependendo de como sua tabela de log armazena a referência da carteira
+                                          acao: "LISTA TÉCNICA PROJETADA",
+                                          descricao_acao: "CADASTRO EM MASSA",
+                                          usu_cada: usuCad
+                                      });
+                                  }
+                              }
+
+                              // 3. Insere as linhas criadas na tabela tabe_cad_carteira_log
+                              if (logsListaTecnica.length > 0) {
+                                  const { error: errLogLista } = await sb
+                                      .from("tabe_cad_carteira_log")
+                                      .insert(logsListaTecnica);
+
+                                  if (errLogLista) {
+                                      console.error('Erro ao inserir logs de lista técnica:', errLogLista);
+                                      throw new Error(`Erro ao registrar logs de lista técnica: ${errLogLista.message}`);
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  atualizarProgressoGlobal(100, "Importação concluída com sucesso!");
+                  resolve();
+
+              } catch (error) {
+                  reject(error);
+              }
+          };
+
+          reader.readAsArrayBuffer(file);
+      });
+  }
 
 // PROCESSADOR DE IMPORTAÇÃO LTO EM MASSA
 async function processarImportacaoLTOMassa(limpar, file, sb, update) {
