@@ -155,7 +155,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       let query = supabase.from(tabelaBd).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
 
-      // Correção aplicada: Tratamento de busca por frase completa mantendo os espaços (ex: "SANTA IZABEL")
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
         
@@ -290,8 +289,11 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const formatarDataBrasil = (val) => {
-    if (!val || typeof val !== 'string' || /^\d{4}-\d{2}-\d{4}/.test(val)) return val || '';
-    if (/^\d{4}-\d{2}-\d{2}/.test(val)) { const p = val.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+    if (!val || typeof val !== 'string') return val || '';
+    if (val.indexOf('-') > -1 && val.indexOf('T') > -1) {
+      const p = val.split('T')[0].split('-');
+      if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+    }
     return val;
   };
 
@@ -486,14 +488,14 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
               if(!v) return null; const t = String(tp||'').toLowerCase();
               if(!t.includes('date') && !t.includes('time')) return limpa(v);
               if(v instanceof Date) return `${v.getUTCFullYear()}-${String(v.getUTCMonth()+1).padStart(2,'0')}-${String(v.getUTCDate()).padStart(2,'0')}`;
-              let cl = limpa(v); if(/^\d{4}-\d{2}-\d{4}/.test(cl)) return cl;
-              if(cl.includes('/')){ const p = cl.split('/'); if(p.length===3 && p[0].length<=2 && p[1].length<=2 && p[2].length===4) return `${p[2]}-${p[1]}-${p[0]}`; }
+              let cl = limpa(v); if(cl.indexOf('-') > -1) return cl;
+              if(cl.indexOf('/') > -1){ const p = cl.split('/'); if(p.length===3 && p[2].length===4) return `${p[2]}-${p[1]}-${p[0]}`; }
               return cl;
             };
             const valTp = (v, tp) => {
               if (v == null || v === '') return true; const t = String(tp||'').toLowerCase();
               if (t.match(/int|numeric|decimal|float/)) return !isNaN(Number(String(v).replace(',','.')));
-              if (t.match(/date|time/)) return (v instanceof Date && !isNaN(v.getTime())) || /^\d{4}-\d{2}-\d{4}/.test(v) || !isNaN(Date.parse(v)) || /^\d{2}\/\d{2}\/\d{4}$/.test(v) \vert{}\vert{} /^\d{4}-\d{2}-\d{2}$/.test(v);
+              if (t.match(/date|time/)) return (v instanceof Date && !isNaN(v.getTime())) || !isNaN(Date.parse(v)) || String(v).indexOf('/') > -1 || String(v).indexOf('-') > -1;
               if (t.match(/bool/)) return ['true','false','1','0','sim','nao','yes','no'].includes(String(v).toLowerCase());
               return true;
             };
@@ -599,8 +601,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         ...swalDefault, width: vis.length > 8 ? '980px' : '480px',
         html: `${hdd}<div class="modal-header-pro"><div class="modal-icon-box" style="background-color:${editando ? '#0284c7' : '#10b981'};">${editando ? svgHeaderEdit : svgHeaderAdd}</div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">${editando ? 'Editar Registro' : 'Adicionar Novo'}</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">${editando ? 'Altere os dados.' : 'Preencha os campos.'}</p></div></div><div class="modal-body-pro"><div class="swal-form-container" style="display:grid;grid-template-columns:repeat(${vis.length > 8 ? 3 : 1},1fr);gap:10px;text-align:left;">${vis.map(col => {
           let val = rowData[col.nome_coluna] ?? '';
-          if (col.nome_coluna.toLowerCase() === 'filial' && usaFilial) return `<div class="swal-form-group" style="display:flex;flexDirection:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><select class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100\%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"><option value="">Selecione...</option>${filiais.map(f => `<option value="${f}" ${val === f ? 'selected' : ''}>${f}</option>`).join('')}</select></div>`;
-          return `<div class="swal-form-group" style="display:flex;flexDirection:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><input class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" type="${['smallint','integer','numeric'].includes(col.tipo) ? 'number' : 'text'}" value="${val}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;box-sizing:border-box;"></div>`;
+          if (col.nome_coluna.toLowerCase() === 'filial' && usaFilial) return `<div class="swal-form-group" style="display:flex;flex-direction:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><select class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100\%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;"><option value="">Selecione...</option>${filiais.map(f => `<option value="${f}" ${val === f ? 'selected' : ''}>${f}</option>`).join('')}</select></div>`;
+          return `<div class="swal-form-group" style="display:flex;flex-direction:column;gap:4px;"><label style="font-size:0.8rem;font-weight:600;color:#475569;">${col.nome_coluna}</label><input class="swal-form-input input-dinamico" data-col="${col.nome_coluna}" type="${['smallint','integer','numeric'].includes(col.tipo) ? 'number' : 'text'}" value="${val}" ${col.obrigatorio && !col.auto ? 'required' : ''} style="width:100%;height:38px;padding:0 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;box-sizing:border-box;"></div>`;
         }).join('')}</div></div>`,
         confirmButtonText: `${svgSalvar} Salvar`, confirmButtonColor: corTheme,
         preConfirm: () => {
