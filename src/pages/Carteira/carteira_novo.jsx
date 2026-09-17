@@ -159,21 +159,33 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             });
 
             document.getElementById('btnSalvarModal')?.addEventListener('click', async () => {
-                const dados = coletarDadosFormulario();
                 const validacao = validarCamposObrigatorios();
 
+                // CORREÇÃO: Interrompe a execução se houver campos obrigatórios faltando
                 if (!validacao.valido) {
                     return;
                 }
 
+                const dados = coletarDadosFormulario();
+
                 try {
                     const duplicado = await verificarDuplicidadeRastreio(dados.tipo_rastreio, dados.id_rastreio, idAtividade);
                     if (duplicado) {
-                        Swal.showValidationMessage('Já existe uma atividade com o mesmo Tipo de Rastreio e ID Rastreio.');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Atenção',
+                            text: 'Já existe uma atividade com o mesmo Tipo de Rastreio e ID Rastreio.',
+                            confirmButtonColor: '#005696'
+                        });
                         return;
                     }
                 } catch (err) {
-                    Swal.showValidationMessage(err.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro',
+                        text: err.message,
+                        confirmButtonColor: '#005696'
+                    });
                     return;
                 }
 
@@ -514,7 +526,7 @@ async function gerarProximoIdAtividade() {
     const agora = new Date();
     const ano = agora.getFullYear();
     const mes = String(agora.getMonth() + 1).padStart(2, '0');
-    const prefixo = `${ano}${mes}`; // Gerado sem hífen (ex: 202609)
+    const prefixo = `${ano}${mes}`;
 
     const { data, error } = await supabase
         .from('tabe_cad_carteira')
@@ -715,13 +727,13 @@ function validarCamposObrigatorios() {
 
     if (!valido && primeiroCampoVazio) {
         primeiroCampoVazio.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Alterado para um alerta fixo (sem timer de auto-fechamento) para o usuário conseguir ler e interagir
         Swal.fire({
-            toast: true,
-            position: 'top-end',
             icon: 'warning',
-            title: 'Preencha os campos obrigatórios destacados em vermelho.',
-            showConfirmButton: false,
-            timer: 3000
+            title: 'Campos Obrigatórios',
+            text: 'Por favor, preencha todos os campos obrigatórios destacados em vermelho.',
+            confirmButtonColor: '#005696',
+            confirmButtonText: 'OK'
         });
     }
 
