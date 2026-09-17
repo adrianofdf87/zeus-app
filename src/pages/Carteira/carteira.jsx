@@ -24,6 +24,14 @@ export default function Carteira() {
   
   const podeExcluir = perfilUsuario === 'desenvolvedor' || perfilUsuario === 'gerente';
 
+  // Obter o mês atual no formato "YYYY-MM" (ex: "2026-09")
+  const obterMesAtualFormatado = () => {
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, '0');
+    return `${ano}-${mes}`;
+  };
+
   const [abaAtiva, setAbaAtiva] = useState("aba-carteira");
   const [listaCarteiraGlobal, setListaCarteiraGlobal] = useState([]);
   const [colunasTabela, setColunasTabela] = useState([]);
@@ -39,6 +47,10 @@ export default function Carteira() {
   const [ordemAscendente, setOrdemAscendente] = useState(false);
   const [filtrosAtivosGlobais, setFiltrosAtivosGlobais] = useState({});
   const [busca, setBusca] = useState("");
+  
+  // Novo estado para a carteira selecionada, iniciando com o mês atual
+  const [carteiraSelecionada, setCarteiraSelecionada] = useState(obterMesAtualFormatado());
+  const [opcoesCarteira, setOpcoesCarteira] = useState([]);
   
   const [colunaAtualSendoFiltrada, setColunaAtualSendoFiltrada] = useState('');
   const [termoBuscaFiltro, setTermoBuscaFiltro] = useState('');
@@ -64,12 +76,13 @@ export default function Carteira() {
 
   useEffect(() => {
     carregarEstrutura();
+    carregarOpcoesCarteira();
   }, []);
 
   useEffect(() => {
     carregarCarteira();
     calcularTotalReferencia();
-  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais, busca]);
+  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais, busca, carteiraSelecionada]);
 
   useEffect(() => {
     const handleClickFora = (e) => {
@@ -90,6 +103,25 @@ export default function Carteira() {
       }
     } catch (e) {
       console.error("Erro ao carregar estrutura:", e);
+    }
+  };
+
+  const carregarOpcoesCarteira = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tabe_cad_carteira")
+        .select("carteira")
+        .not("carteira", "is", null);
+
+      if (!error && data) {
+        const unicas = [...new Set(data.map(item => item.carteira))]
+          .filter(Boolean)
+          .sort()
+          .reverse();
+        setOpcoesCarteira(unicas);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar opções de carteira:", err);
     }
   };
 
@@ -172,6 +204,11 @@ export default function Carteira() {
   };
 
   const aplicarFiltrosNaQuery = (queryObj, ignorarColuna = null) => {
+    // Aplicar o filtro do select de carteira, caso não seja "todos"
+    if (carteiraSelecionada !== 'todos') {
+      queryObj = queryObj.eq('carteira', carteiraSelecionada);
+    }
+
     Object.keys(filtrosAtivosGlobais).forEach(col => {
         if (ignorarColuna && col === ignorarColuna) return;
         const filtros = filtrosAtivosGlobais[col];
@@ -238,7 +275,10 @@ export default function Carteira() {
       }
 
       const from = (paginaAtual - 1) * registrosPorPagina;
-      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order(colunaOrdenacao, { ascending: ordemAscendente });
+      const { data, count, error } = await query
+        .range(from, from + registrosPorPagina - 1)
+        .order(colunaOrdenacao, { ascending: ordemAscendente });
+
       if (error) throw error;
 
       setTotalRegistros(count || 0);
@@ -452,43 +492,58 @@ export default function Carteira() {
       {abaAtiva === 'aba-carteira' ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '12px', overflow: 'hidden' }}>
           
-          {/* Barra de Pesquisa Geral e Ações */}
+          {/* Barra de Seleção de Carteira, Pesquisa Geral e Ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: '1', minWidth: '280px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-              <input 
-                type="text" 
-                placeholder="Pesquisar geral (separe por vírgula, ponto e vírgula ou cole colunas)..." 
-                value={busca} 
-                onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
-                onPaste={e => {
-                  e.preventDefault();
-                  const pastedText = e.clipboardData.getData('text');
-                  const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
-                  setBusca(formattedText);
-                  setPaginaAtual(1);
-                }}
-                style={{ width: '100%', padding: '0 12px 0 36px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
-              />
+            <div style={{ display: 'flex', gap: '8px', flex: '1', minWidth: '340px' }}>
+              {/* Select de Carteira */}
+              <select 
+                value={carteiraSelecionada}
+                onChange={e => { setCarteiraSelecionada(e.target.value); setPaginaAtual(1); }}
+                style={{ height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', padding: '0 8px', fontWeight: '600', color: '#334151' }}
+              >
+                <option value="todos">Todas as Carteiras</option>
+                {opcoesCarteira.map((cart) => (
+                  <option key={cart} value={cart}>{cart}</option>
+                ))}
+              </select>
+
+              {/* Input de Pesquisa Geral */}
+              <div style={{ position: 'relative', flex: '1' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar geral (separe por vírgula, ponto e vírgula ou cole colunas)..." 
+                  value={busca} 
+                  onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
+                  onPaste={e => {
+                    e.preventDefault();
+                    const pastedText = e.clipboardData.getData('text');
+                    const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
+                    setBusca(formattedText);
+                    setPaginaAtual(1);
+                  }}
+                  style={{ width: '100%', padding: '0 12px 0 36px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
+                />
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {(Object.keys(filtrosAtivosGlobais).length > 0 || busca.trim().length > 0) && (
+              {(Object.keys(filtrosAtivosGlobais).length > 0 || busca.trim().length > 0 || carteiraSelecionada !== 'todos') && (
                 <button 
                   style={{ 
                     ...btnStyle, 
                     color: '#dc2626', 
                     minWidth: '32px', 
                     width: '32px', 
-                    padding: '0', 
+                    padding: '0',   
                     justifyContent: 'center' 
                   }} 
                   title="Limpar filtros e busca"
-                  onClick={() => { setFiltrosAtivosGlobais({}); setBusca(''); }}
+                  onClick={() => { setFiltrosAtivosGlobais({}); setBusca(''); setCarteiraSelecionada('todos'); }}
                 >
                   <FilterX size={14} />
                 </button>
-              )}         
+              )}        
               <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
               <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
               
