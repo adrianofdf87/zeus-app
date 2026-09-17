@@ -190,24 +190,22 @@ export default function Carteira() {
 
       const termoBruto = busca.trim();
       if (termoBruto.length >= 2) {
+        // Pega todas as colunas da tabela e exclui estritamente apenas as três de data solicitadas
+        const colunasExcluidas = ['aviso', 'prazo', 'criado_em'];
         let colunasTexto = estData
-          .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
-          .map(c => c.nome_coluna);
+          .map(c => c.nome_coluna)
+          .filter(col => !colunasExcluidas.includes(col.toLowerCase()));
 
+        // Fallback seguro caso a estrutura venha vazia
         if (colunasTexto.length === 0) {
-          colunasTexto = ['aviso', 'carteira', 'filial', 'contratante', 'municipio', 'seccional', 'area', 'tipo_custo', 'tipo_atividade', 'prioridade', 'tipo_rastreio', 'pep'];
+          colunasTexto = ['carteira', 'filial', 'contratante', 'municipio', 'seccional', 'area', 'tipo_custo', 'tipo_atividade', 'prioridade', 'tipo_rastreio', 'pep'];
         }
 
         if (colunasTexto.length > 0) {
           const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
           
           if (termoLimpo.length > 0) {
-            const condicoes = colunasTexto
-              .filter(col => {
-                const colLower = col.toLowerCase();
-                return !colLower.includes('data') && !colLower.includes('_at') && !colLower.includes('id');
-              })
-              .map(col => `${col}.ilike.%${termoLimpo}%`);
+            const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
 
             if (condicoes.length > 0) {
               query = query.or(condicoes.join(','));
