@@ -192,6 +192,20 @@ export default function Carteira() {
       const termo = busca.trim();
       const colunasTexto = colunasTabela.filter(col => {
         const sample = listaCarteiraGlobal[0]?.[col];
+        const colLower = col.toLowerCase();
+        
+        if (
+          colLower.includes('data') || 
+          colLower.includes('dt_') || 
+          colLower.includes('_dt') || 
+          colLower === 'id' || 
+          colLower.includes('_id') || 
+          colLower.includes('valor') || 
+          colLower.includes('qtd')
+        ) {
+          return false;
+        }
+
         return typeof sample === 'string' || sample === undefined;
       });
 
@@ -485,7 +499,7 @@ export default function Carteira() {
                     const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
                     setBusca(formattedText);
                     setPaginaAtual(1);
-                  }}
+                  }} 
                   style={{ width: '100%', padding: '0 12px 0 38px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff', boxSizing: 'border-box' }} 
                 />
               </div>
@@ -500,7 +514,7 @@ export default function Carteira() {
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>        
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>       
               <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
               <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
 
