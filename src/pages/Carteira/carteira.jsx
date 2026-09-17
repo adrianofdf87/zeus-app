@@ -468,7 +468,7 @@ export default function Carteira() {
                   setBusca(formattedText);
                   setPaginaAtual(1);
                 }}
-                style={{ width: '100%', padding: '0 12px 0 38px', height: '34px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
+                style={{ width: '100%', padding: '0 12px 0 38px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
               />
             </div>
 
