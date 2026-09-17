@@ -266,68 +266,87 @@ const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Pro
                       }
 
                       inseridos += lote.length;
-                      const percentual = 70 + ((inseridos / total) * 20);
-                      atualizarProgressoGlobal(percentual, `Enviando dados finais e logs para o banco (${inseridos}/${total})...`);
+                      const percentual = 70 + ((inseridos / total) * 15);
+                      atualizarProgressoGlobal(percentual, `Salvando registros na carteira (${inseridos}/${total})...`);
                   }
 
                   // =========================================================================
-                  // ETAPA CORRIGIDA: Integração e Atualização com tabe_imp_pep_lto
+                  // ETAPA CORRIGIDA E ROBUSTA: Vínculo e Log de Lista Técnica Projetada
                   // =========================================================================
-                  atualizarProgressoGlobal(92, "Verificando vínculos com a tabela de impacto (tabe_imp_pep_lto)...");
+                  atualizarProgressoGlobal(88, "Verificando vínculos com a tabela de impacto (tabe_imp_pep_lto)...");
 
                   if (todosItensInseridos.length > 0) {
-                      const chunkBuscaImp = 150;
-                      
-                      for (let i = 0; i < todosItensInseridos.length; i += chunkBuscaImp) {
-                          const chunkItens = todosItensInseridos.slice(i, i + chunkBuscaImp);
-                          const chunkNotas = chunkItens.map(item => String(item.id_rastreio).trim());
+                      const mapaRastreioParaIdAtividade = {};
+                      todosItensInseridos.forEach(c => {
+                          if (c.id_rastreio !== null && c.id_rastreio !== undefined) {
+                              const chaveLimpa = String(c.id_rastreio).trim().replace(/\.0$/, '');
+                              mapaRastreioParaIdAtividade[chaveLimpa] = c.id;
+                          }
+                      });
 
-                          // Busca registros em tabe_imp_pep_lto onde a 'nota' bate com os id_rastreio
+                      const todasAsNotas = Object.keys(mapaRastreioParaIdAtividade);
+                      const chunkImpSize = 400;
+
+                      for (let i = 0; i < todasAsNotas.length; i += chunkImpSize) {
+                          const chunkNotas = todasAsNotas.slice(i, i + chunkImpSize);
+
+                          atualizarProgressoGlobal(
+                              90 + Math.floor((i / todasAsNotas.length) * 8), 
+                              `Sincronizando tabela de impacto (${i + 1}/${todasAsNotas.length})...`
+                          );
+
+                          // Busca em lote considerando variações de string e números inteiros
                           const { data: itensImpacto, error: errImpBusca } = await sb
                               .from('tabe_imp_pep_lto')
                               .select('id, nota, id_atividade')
-                              .in('nota', chunkNotas);
+                              .or(`nota.in.(${chunkNotas.join(',')}),nota.in.(${chunkNotas.map(n => Number(n)).filter(n => !isNaN(n)).join(',')})`);
 
                           if (errImpBusca) {
-                              console.error('Erro ao buscar em tabe_imp_pep_lto:', errImpBusca);
-                              continue;
+                              // Fallback seguro caso o operador .or() falhe em algum ambiente específico
+                              const { data: itensImpactoAlt, error: errImpAlt } = await sb
+                                  .from('tabe_imp_pep_lto')
+                                  .select('id, nota, id_atividade')
+                                  .in('nota', chunkNotas);
+                              
+                              if (errImpAlt) {
+                                  console.error('Erro ao buscar em tabe_imp_pep_lto:', errImpAlt);
+                                  continue;
+                              }
+                              if (itensImpactoAlt) itensImpacto.push(...itensImpactoAlt);
                           }
 
                           if (itensImpacto && itensImpacto.length > 0) {
-                              // Mapeia nota -> ID criado na carteira
-                              const mapaNotaParaIdAtividade = {};
-                              chunkItens.forEach(c => {
-                                  mapaNotaParaIdAtividade[String(c.id_rastreio).trim()] = c.id;
-                              });
-
                               const logsListaTecnica = [];
 
-                              for (const imp of itensImpacto) {
-                                  const notaStr = String(imp.nota).trim();
-                                  const idAtividadeGerado = mapaNotaParaIdAtividade[notaStr];
+                              const promessasUpdate = itensImpacto.map(async (imp) => {
+                                  if (imp.nota === null || imp.nota === undefined) return;
+                                  const notaStr = String(imp.nota).trim().replace(/\.0$/, '');
+                                  const idAtividadeGerado = mapaRastreioParaIdAtividade[notaStr];
 
                                   if (idAtividadeGerado) {
-                                      // 1. Atualiza tabe_imp_pep_lto . id_atividade = tabe_cad_carteira.id
+                                      // Atualiza a tabela tabe_imp_pep_lto com o id_atividade correto
                                       const { error: errUpdateImp } = await sb
                                           .from('tabe_imp_pep_lto')
                                           .update({ id_atividade: idAtividadeGerado })
                                           .eq('id', imp.id);
 
-                                      if (errUpdateImp) {
-                                          console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
-                                      } else {
-                                          // 2. Prepara o log de LISTA TÉCNICA PROJETADA apenas para quem foi atualizado com sucesso
+                                      if (!errUpdateImp) {
+                                          // Adiciona na lista para criar o log de LISTA TÉCNICA PROJETADA
                                           logsListaTecnica.push({
                                               id_atividade: idAtividadeGerado,
                                               acao: "LISTA TÉCNICA PROJETADA",
                                               descricao_acao: "CADASTRO EM MASSA",
                                               usu_cada: usuCad
                                           });
+                                      } else {
+                                          console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
                                       }
                                   }
-                              }
+                              });
 
-                              // 3. Insere os logs de LISTA TÉCNICA PROJETADA na tabela tabe_cad_carteira_log
+                              await Promise.all(promessasUpdate);
+
+                              // Insere os logs de LISTA TÉCNICA PROJETADA em lote na tabela de logs
                               if (logsListaTecnica.length > 0) {
                                   const { error: errLogLista } = await sb
                                       .from("tabe_cad_carteira_log")
