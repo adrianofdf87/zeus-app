@@ -27,8 +27,8 @@ export default function Carteira() {
   const [abaAtiva, setAbaAtiva] = useState("aba-carteira");
   const [listaCarteiraGlobal, setListaCarteiraGlobal] = useState([]);
   const [estruturaTabela, setEstruturaTabela] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Estados compatíveis com o DataTable, busca e paginação avançada
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [registrosPorPagina, setRegistrosPorPagina] = useState(100);
   const [totalRegistros, setTotalRegistros] = useState(0);
@@ -55,12 +55,37 @@ export default function Carteira() {
   const [podeRolarKpisDir, setPodeRolarKpisDir] = useState(false);
 
   const isInitialMount = useRef(true);
+  const getEl = (id) => document.getElementById(id);
 
+  // Injeção de estilos para o loader animado (Boa Prática de tabelas_dados.jsx)
   useEffect(() => {
-    carregarEstrutura();
+    if (!getEl('carteira-import-styles')) {
+      const style = document.createElement('style');
+      style.id = 'carteira-import-styles';
+      style.innerHTML = `
+        @keyframes lucide-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+        .lucide-spin { animation: lucide-spin 2s linear infinite; }
+        
+        @keyframes loadingDots {
+          0% { content: ''; }
+          25% { content: '.'; }
+          50% { content: '..'; }
+          75% { content: '...'; }
+        }
+        .loading-dots::after {
+          display: inline-block;
+          animation: loadingDots 1.5s infinite steps(4, end);
+          content: '';
+          width: 16px;
+          text-align: left;
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }, []);
 
   useEffect(() => {
+    carregarEstrutura();
     calcularTotalReferencia();
   }, []);
 
@@ -145,12 +170,21 @@ export default function Carteira() {
     return query;
   };
 
+  // Lógica de busca geral padronizada com tratamento de loading estabilizado
   const carregarCarteira = useCallback(async (isBackground = false) => {
+    setLoading(true);
+    if (!isBackground) {
+      setListaCarteiraGlobal([]);
+    }
+
     try {
       let estData = estruturaTabela;
       if (estData.length === 0) {
         const { data: estRes } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: 'tabe_cad_carteira' });
-        if (Array.isArray(estRes)) estData = estRes;
+        if (Array.isArray(estRes)) {
+          estData = estRes;
+          setEstruturaTabela(estRes);
+        }
       }
 
       let query = supabase.from("tabe_cad_carteira").select("*", { count: 'exact' });
@@ -162,8 +196,8 @@ export default function Carteira() {
           .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
           .map(c => c.nome_coluna);
 
-        if (colunasTexto.length === 0 && listaCarteiraGlobal.length > 0) {
-          colunasTexto = Object.keys(listaCarteiraGlobal[0]);
+        if (colunasTexto.length === 0) {
+          colunasTexto = ['id_rastreio', 'pep', 'descricao', 'municipio', 'regional'];
         }
 
         if (colunasTexto.length > 0) {
@@ -198,8 +232,10 @@ export default function Carteira() {
       calcularTotais(registros);
     } catch (err) {
       Swal.fire("Erro", "Falha ao carregar a carteira de atividades: " + err.message, "error");
+    } finally {
+      setLoading(false);
     }
-  }, [paginaAtual, registrosPorPagina, filtrosColunas, busca, estruturaTabela, listaCarteiraGlobal]);
+  }, [paginaAtual, registrosPorPagina, filtrosColunas, busca, estruturaTabela]);
 
   useEffect(() => {
     const isBg = !isInitialMount.current;
@@ -464,7 +500,7 @@ export default function Carteira() {
                 <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
               )}
 
-              <button style={btnStyle} onClick={() => carregarCarteira(false)}><RefreshCw size={14} /> Atualizar</button>
+              <button style={btnStyle} onClick={() => carregarCarteira(false)}><RefreshCw size={14} className={loading ? "lucide-spin" : ""} /> Atualizar</button>
               <button style={btnStyle}><Upload size={14} /> Importar</button> 
               <button style={btnStyle}><Download size={14} /> Exportar</button>
             </div>
@@ -533,21 +569,27 @@ export default function Carteira() {
             </div>
           </div>
 
-          {/* Integração do DataTable Avançado (com colunas customizáveis, filtros por coluna, ordenação e paginação) */}
+          {/* DataTable Avançado com Loader integrado e limpo de bugs */}
           <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <DataTable 
-              key={limparFiltrosTrigger}
-              data={listaCarteiraGlobal} 
-              totalBanco={totalRegistros} 
-              paginaAtual={paginaAtual} 
-              registrosPorPagina={registrosPorPagina} 
-              onPageChange={setPaginaAtual} 
-              onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} 
-              onFilterChange={f => { setFiltrosColunas(f); setPaginaAtual(1); }} 
-              onFetchColumnOptions={buscarOpcoesColunaBanco} 
-              tableId={`carteira_${userIdKey}`} 
-              onSelectionChange={handleSelectionChange} 
-            />
+            {loading && listaCarteiraGlobal.length === 0 ? (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#64748b", fontWeight: "500" }}>
+                Atualizando dados<span className="loading-dots"></span>
+              </div>
+            ) : (
+              <DataTable 
+                key={limparFiltrosTrigger}
+                data={listaCarteiraGlobal} 
+                totalBanco={totalRegistros} 
+                paginaAtual={paginaAtual} 
+                registrosPorPagina={registrosPorPagina} 
+                onPageChange={setPaginaAtual} 
+                onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} 
+                onFilterChange={f => { setFiltrosColunas(f); setPaginaAtual(1); }} 
+                onFetchColumnOptions={buscarOpcoesColunaBanco} 
+                tableId={`carteira_${userIdKey}`} 
+                onSelectionChange={handleSelectionChange} 
+              />
+            )}
           </div>
         </div>
       ) : (
