@@ -190,23 +190,26 @@ export default function Carteira() {
       }
 
       const termo = busca.trim();
-      const colunasTexto = colunasTabela.filter(col => {
-        const sample = listaCarteiraGlobal[0]?.[col];
-        const colLower = col.toLowerCase();
-        
-        if (
-          colLower.includes('data') || 
-          colLower.includes('dt_') || 
-          colLower.includes('_dt') || 
-          colLower === 'id' || 
-          colLower.includes('_id') || 
-          colLower.includes('valor') || 
-          colLower.includes('qtd')
-        ) {
-          return false;
-        }
 
-        return typeof sample === 'string' || sample === undefined;
+      // Blindagem definitiva contra erro de operador com datas/números
+      const colunasTexto = colunasTabela.filter(col => {
+        const colLower = col.toLowerCase();
+        const termosProibidos = [
+          'data', 'dt', 'id', 'valor', 'preco', 'custo', 'qtd', 
+          'quantidade', 'numero', 'num', 'ano', 'mes', 'dia', 
+          'hora', 'lat', 'lng', 'latitude', 'longitude', 'cep',
+          'poste', 'trafo', 'km', 'cliente', 'servico', 'serviço'
+        ];
+
+        const ehProibida = termosProibidos.some(termoProibido => {
+          if (termoProibido.length <= 3) {
+            const regex = new RegExp(`(^|_)${termoProibido}(_|$)`, 'i');
+            return regex.test(colLower);
+          }
+          return colLower.includes(termoProibido);
+        });
+
+        return !ehProibida;
       });
 
       if (termo.length >= 3 && colunasTexto.length > 0) {
