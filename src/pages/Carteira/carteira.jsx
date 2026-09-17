@@ -3,7 +3,7 @@ import {
   Briefcase, Map, CheckCircle, Calendar, Flag, FileText, Package, Wrench, 
   Paperclip, Upload, PlusCircle, Edit3, Trash2, RefreshCw, 
   Download, FilterX, Columns3, ChevronRight, ChevronsLeft, ChevronsRight, 
-  ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, Search
+  ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { supabase } from "../../services/supabase";
@@ -27,7 +27,6 @@ export default function Carteira() {
   const [abaAtiva, setAbaAtiva] = useState("aba-carteira");
   const [listaCarteiraGlobal, setListaCarteiraGlobal] = useState([]);
   const [colunasTabela, setColunasTabela] = useState([]);
-  const [estruturaTabela, setEstruturaTabela] = useState([]);
   const [colunasOcultas, setColunasOcultas] = useState(() => JSON.parse(localStorage.getItem(`colunasOcultas_carteira_${userIdKey}`)) || []);
   const [colunasOrdem, setColunasOrdem] = useState(() => JSON.parse(localStorage.getItem(`colunasOrdem_carteira_${userIdKey}`)) || []);
   const [colunasApelidos, setColunasApelidos] = useState(() => JSON.parse(localStorage.getItem(`colunasApelidos_carteira_${userIdKey}`)) || {});
@@ -38,10 +37,10 @@ export default function Carteira() {
   const [colunaOrdenacao, setColunaOrdenacao] = useState('id');
   const [ordemAscendente, setOrdemAscendente] = useState(false);
   const [filtrosAtivosGlobais, setFiltrosAtivosGlobais] = useState({});
-  const [busca, setBusca] = useState("");
   
   const [colunaAtualSendoFiltrada, setColunaAtualSendoFiltrada] = useState('');
   const [termoBuscaFiltro, setTermoBuscaFiltro] = useState('');
+  const [opcoesDeFiltroAtual, setOpcoesDeFiltroAtual] = useState([]);
   const [popupFiltroAberto, setPopupFiltroAberto] = useState(false);
   const [popupColunasAberto, setPopupColunasAberto] = useState(false);
   
@@ -63,13 +62,9 @@ export default function Carteira() {
   const [podeRolarKpisDir, setPodeRolarKpisDir] = useState(false);
 
   useEffect(() => {
-    carregarEstrutura();
-  }, []);
-
-  useEffect(() => {
     carregarCarteira();
     calcularTotalReferencia();
-  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais, busca]);
+  }, [paginaAtual, registrosPorPagina, colunaOrdenacao, ordemAscendente, filtrosAtivosGlobais]);
 
   useEffect(() => {
     const handleClickFora = (e) => {
@@ -81,17 +76,6 @@ export default function Carteira() {
     document.addEventListener('click', handleClickFora);
     return () => document.removeEventListener('click', handleClickFora);
   }, []);
-
-  const carregarEstrutura = async () => {
-    try {
-      const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: 'tabe_cad_carteira' });
-      if (!error && Array.isArray(data)) {
-        setEstruturaTabela(data);
-      }
-    } catch (e) {
-      console.error("Erro ao carregar estrutura:", e);
-    }
-  };
 
   const verificarScrollAbas = () => {
     const el = abasScrollRef.current;
@@ -202,42 +186,10 @@ export default function Carteira() {
 
   const carregarCarteira = async () => {
     try {
+      const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from("tabe_cad_carteira").select("*", { count: 'exact' });
       query = aplicarFiltrosNaQuery(query);
 
-      const termoBruto = busca.trim();
-      if (termoBruto.length >= 3) {
-        let colunasTexto = [];
-        if (estruturaTabela.length > 0) {
-          colunasTexto = estruturaTabela
-            .filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/))
-            .map(c => c.nome_coluna);
-        }
-
-        if (colunasTexto.length === 0 && listaCarteiraGlobal.length > 0) {
-          colunasTexto = Object.keys(listaCarteiraGlobal[0]);
-        }
-
-        if (colunasTexto.length > 0) {
-          const termos = termoBruto.split(/[,;\n\r\s]+/).map(t => t.trim()).filter(t => t.length > 0);
-          if (termos.length > 0) {
-            const condicoesGerais = [];
-            termos.forEach(t => {
-              colunasTexto.forEach(col => {
-                const colLower = col.toLowerCase();
-                if (!colLower.includes('data') && !colLower.includes('_at')) {
-                  condicoesGerais.push(`${col}.ilike.%${t}%`);
-                }
-              });
-            });
-            if (condicoesGerais.length > 0) {
-              query = query.or(condicoesGerais.join(','));
-            }
-          }
-        }
-      }
-
-      const from = (paginaAtual - 1) * registrosPorPagina;
       const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order(colunaOrdenacao, { ascending: ordemAscendente });
       if (error) throw error;
 
@@ -452,54 +404,19 @@ export default function Carteira() {
       {abaAtiva === 'aba-carteira' ? (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '12px', overflow: 'hidden' }}>
           
-          {/* Barra de Pesquisa Geral e Ações */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: '1', minWidth: '280px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-              <input 
-                type="text" 
-                placeholder="Pesquisar geral (separe por vírgula, ponto e vírgula ou cole colunas)..." 
-                value={busca} 
-                onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
-                onPaste={e => {
-                  e.preventDefault();
-                  const pastedText = e.clipboardData.getData('text');
-                  const formattedText = pastedText.split(/[\r\n]+/).map(t => t.trim()).filter(Boolean).join(', ');
-                  setBusca(formattedText);
-                  setPaginaAtual(1);
-                }}
-                style={{ width: '100%', padding: '0 12px 0 36px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
-              />
-            </div>
+          {/* Barra de Ações */}
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>            
+            <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
+            <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
+            
+            {podeExcluir && (
+              <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
+            )}
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {(Object.keys(filtrosAtivosGlobais).length > 0 || busca.trim().length > 0) && (
-                <button 
-                  style={{ 
-                    ...btnStyle, 
-                    color: '#dc2626', 
-                    minWidth: '32px', 
-                    width: '32px', 
-                    padding: '0',   
-                    justifyContent: 'center' 
-                  }} 
-                  title="Limpar filtros e busca"
-                  onClick={() => { setFiltrosAtivosGlobais({}); setBusca(''); }}
-                >
-                  <FilterX size={14} />
-                </button>
-              )}         
-              <button style={btnStyle} onClick={() => abrirModalAtividade(null, carregarCarteira)}><PlusCircle size={14} /> Novo</button>
-              <button style={{ ...btnStyle, opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleEditarAtividade}><Edit3 size={14} /> Editar</button>
-              
-              {podeExcluir && (
-                <button style={{ ...btnStyle, color: '#dc2626', borderColor: '#fca5a5', opacity: idsSelecionados.length !== 1 ? 0.4 : 1 }} disabled={idsSelecionados.length !== 1} onClick={handleExcluirAtividade}><Trash2 size={14} /> Excluir</button>
-              )}
-
-              <button style={btnStyle} onClick={carregarCarteira}><RefreshCw size={14} /> Atualizar</button>
-              <button style={btnStyle}><Upload size={14} /> Importar</button> 
-              <button style={btnStyle}><Download size={14} /> Exportar</button>
-            </div>
+            <button style={btnStyle} onClick={carregarCarteira}><RefreshCw size={14} /> Atualizar</button>
+            <button style={btnStyle}><Upload size={14} /> Importar</button> 
+            <button style={btnStyle}><Download size={14} /> Exportar</button>
+            {Object.keys(filtrosAtivosGlobais).length > 0 && (<button style={{ ...btnStyle, color: '#0284c7' }} onClick={() => setFiltrosAtivosGlobais({})}><FilterX size={14} /> Limpar Filtros</button>)}
           </div>
 
           {/* Cards de KPIs */}
@@ -670,8 +587,7 @@ const btnStyle = {
   background: '#fff',
   color: '#334151',
   border: '1px solid #cbd5e1',
-  height: '32px',
-  padding: '0 12px',
+  padding: '6px 12px',
   minWidth: '100px',
   borderRadius: '6px',
   fontSize: '0.8rem',
@@ -681,7 +597,6 @@ const btnStyle = {
   justifyContent: 'center',
   gap: '6px',
   cursor: 'pointer',
-  boxSizing: 'border-box',
   boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
 };
 
