@@ -27,6 +27,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   const [limparFiltrosTrigger, setLimparFiltrosTrigger] = useState(0); 
   const isInitialMount = useRef(true);
 
+  // Mapeia para a view se for tabe_imp_pep, mantendo a tabela original para operações de escrita (CRUD/Importação) se necessário
+  const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
+
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
   const userIdKey = sessaoUsuario.id || sessaoUsuario.email || 'geral';
   const getEl = (id) => document.getElementById(id);
@@ -111,7 +114,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const obterEstruturaTabela = async (tabela) => {
     if (!tabela) throw new Error('Nome da tabela não informado.');
-    const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: tabela });
+    // Se for tabe_imp_pep, busca a estrutura baseada na tabela real para manter compatibilidade de inserts/updates
+    const tabelaAlvoEstrutura = tabela === 'tabe_imp_pep' ? 'tabe_imp_pep' : tabela;
+    const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: tabelaAlvoEstrutura });
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   };
@@ -137,13 +142,11 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     return query;
   };
 
-  // Função para identificar IDs disfarçados de datas (ex: 2026-08-0001) e tratá-los como texto/ID
   const formatarValorExibicao = (val) => {
     if (!val || typeof val !== 'string') return val || '';
-    // Identifica o padrão Ano-Mês-Sequencial (ex: 2026-08-0001)
     const padraoIdComTracos = /^\d{4}-\d{2}-\d{4}$/;
     if (padraoIdComTracos.test(val)) {
-      return val; // Retorna puro como ID, evitando conversão para data
+      return val;
     }
     if (val.indexOf('-') > -1 && val.indexOf('T') > -1) {
       const p = val.split('T')[0].split('-');
@@ -167,7 +170,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
 
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaBd).select('*', { count: 'exact' });
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
 
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
@@ -195,7 +198,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     } finally {
       setLoading(false);
     }
-  }, [tabelaBd, paginaAtual, registrosPorPagina, busca, filtrosColunas, estrutura]);
+  }, [tabelaBd, tabelaOuViewQuery, paginaAtual, registrosPorPagina, busca, filtrosColunas, estrutura]);
 
   useEffect(() => {
     const isBg = !isInitialMount.current;
@@ -205,7 +208,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
     try {
-      const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaBd, p_coluna: coluna });
+      // Para buscar os distintos, se for view, podemos usar a RPC apontando para a tabela real ou adaptar se suportado
+      const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'tabe_imp_pep' : tabelaBd;
+      const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
       if (error) throw error;
       return (data || []).reduce((acc, item) => {
         let isNull = item.valor === null || item.valor === undefined || String(item.valor).trim() === "";
@@ -253,16 +258,16 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             lista = registros;
             updateProgress('copiar', 70, 'Formatando dados...');
         } else {
-            updateProgress('copiar', 15, 'Consultando registros no banco de dados...');
+            updateProgress('copiar', 15, 'Consultando registros na view...');
             let inicio = 0, buscar = true;
             while (buscar) {
-                const { data, error } = await supabase.from(tabelaBd).select('pep, regional').range(inicio, inicio + 999).order('id', { ascending: true });
+                const { data, error } = await supabase.from(tabelaOuViewQuery).select('pep, regional').range(inicio, inicio + 999).order('id', { ascending: true });
                 if (error) throw error;
                 if (data && data.length > 0) {
                     lista.push(...data); inicio += data.length;
                     if (data.length < 1000) buscar = false;
                 } else buscar = false;
-                updateProgress('copiar', Math.min(75, 15 + Math.round((inicio / (inicio + 1000)) * 60)), `analisando o banco... (${lista.length})`);
+                updateProgress('copiar', Math.min(75, 15 + Math.round((inicio / (inicio + 1000)) * 60)), `analisando os dados... (${lista.length})`);
             }
         }
         if (!lista.length) return Swal.fire('Vazio', 'Nenhum PEP encontrado.', 'warning');
@@ -291,15 +296,15 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
      };
 
      Swal.fire({
-        ...swalDefault,
-        html: `<div class="modal-header-pro"><div class="modal-icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Central de Cópia</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Opções de Cópia de PEPs</p></div></div><div class="modal-body-pro"><div id="copiarStateSelect"><p style="margin:0 0 10px;font-size:0.9rem;color:#475569;">Escolha o formato desejado para copiar os PEPs:</p></div><div id="copiarStateProgress" style="display:none;padding:10px 0;text-align:center;"><div id="copiarProgressMsg" style="font-size:0.95rem;color:#334155;font-weight:500;">Processando...</div><div style="width:100%;"><div class="progress-container"><div id="copiarProgressBar" class="progress-bar"></div></div><div id="copiarProgressText" class="progress-text">0%</div></div></div></div>`,
-        showCancelButton: false, showDenyButton: true, confirmButtonText: "PEP's Nível 3", confirmButtonColor: '#005596', denyButtonText: "PEP's Nível 2", denyButtonColor: '#10b981', reverseButtons: true, allowOutsideClick: false,
-        preConfirm: async () => {
-          const btn = Swal.getConfirmButton();
-          if (btn && btn.innerText === 'OK') return true;
-          await executarProcessamentoCopia('NIVEL3'); return false;
-        },
-        preDeny: async () => { await executarProcessamentoCopia('NIVEL2'); return false; }
+       ...swalDefault,
+       html: `<div class="modal-header-pro"><div class="modal-icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Central de Cópia</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Opções de Cópia de PEPs</p></div></div><div class="modal-body-pro"><div id="copiarStateSelect"><p style="margin:0 0 10px;font-size:0.9rem;color:#475569;">Escolha o formato desejado para copiar os PEPs:</p></div><div id="copiarStateProgress" style="display:none;padding:10px 0;text-align:center;"><div id="copiarProgressMsg" style="font-size:0.95rem;color:#334155;font-weight:500;">Processando...</div><div style="width:100%;"><div class="progress-container"><div id="copiarProgressBar" class="progress-bar"></div></div><div id="copiarProgressText" class="progress-text">0%</div></div></div></div>`,
+       showCancelButton: false, showDenyButton: true, confirmButtonText: "PEP's Nível 3", confirmButtonColor: '#005596', denyButtonText: "PEP's Nível 2", denyButtonColor: '#10b981', reverseButtons: true, allowOutsideClick: false,
+       preConfirm: async () => {
+         const btn = Swal.getConfirmButton();
+         if (btn && btn.innerText === 'OK') return true;
+         await executarProcessamentoCopia('NIVEL3'); return false;
+       },
+       preDeny: async () => { await executarProcessamentoCopia('NIVEL2'); return false; }
     });
   };
 
@@ -327,12 +332,12 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         updateProgress('export', 35, `Preparando ${baseExport.length.toLocaleString('pt-BR')} registro(s)...`); await pausa();
       } else {
         updateProgress('export', 10, 'Consultando total de registros...');
-        const { count, error: countErr } = await supabase.from(tabelaBd).select('id', { count: 'exact', head: true });
+        const { count, error: countErr } = await supabase.from(tabelaOuViewQuery).select('id', { count: 'exact', head: true });
         if (countErr) throw countErr;
         if (!count) return updateProgress('export', 100, '<span style="color:#d97706;font-weight:600;">Nenhum registro para exportar.</span>');
         let inicio = 0;
         while (inicio < count) {
-          const { data, error } = await supabase.from(tabelaBd).select('*').order('id', { ascending: true }).range(inicio, inicio + 999);
+          const { data, error } = await supabase.from(tabelaOuViewQuery).select('*').order('id', { ascending: true }).range(inicio, inicio + 999);
           if (error) throw error;
           if (!data?.length) break;
           baseExport.push(...data); inicio += data.length;
@@ -554,7 +559,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             getEl('apoioProgressBarWrapper').style.display = 'block';
             if (limpar) { 
               if (tabelaBd === 'tabe_cad_carteira') {
-                // Exclusão em cascata atualizada para logs e LTO ao limpar a tabela inteira
                 await supabase.from('tabe_cad_carteira_log').delete().not('id', 'is', null);
                 await supabase.from('tabe_imp_pep_lto').delete().not('id', 'is', null);
               }
@@ -597,9 +601,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             filiais = [...new Set(data.map(d => d.filial).filter(Boolean))].sort(); 
             usaFilial = true; 
           }
-        } catch {
-          // Ignora caso a tabela de apoio não exista ou ocorra restrição de acesso
-        }
+        } catch {}
       }
 
       const trmUsr = ['usu_cad','usu_cada','usucad','usuario','usuario_cadastro','cadastrado_por'];
@@ -643,11 +645,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       if (res.isConfirmed || res.isDenied) {
         if (tabelaBd === 'tabe_cad_carteira') {
           if (res.isConfirmed) {
-            // Exclusão em cascata de toda a base para as tabelas relacionadas
             await supabase.from('tabe_cad_carteira_log').delete().not('id', 'is', null);
             await supabase.from('tabe_imp_pep_lto').delete().not('id', 'is', null);
           } else if (res.isDenied) {
-            // Exclusão em cascata por ID de atividade correspondente na página atual
             await supabase.from('tabe_cad_carteira_log').delete().in('id_atividade', linhasSelecionadasIds);
             await supabase.from('tabe_imp_pep_lto').delete().in('id_atividade', linhasSelecionadasIds);
           }
@@ -664,7 +664,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       });
       if (res.isConfirmed) {
         if (tabelaBd === 'tabe_cad_carteira') {
-          // Exclusão em cascata baseada nos IDs selecionados
           await supabase.from('tabe_cad_carteira_log').delete().in('id_atividade', linhasSelecionadasIds);
           await supabase.from('tabe_imp_pep_lto').delete().in('id_atividade', linhasSelecionadasIds);
         }
