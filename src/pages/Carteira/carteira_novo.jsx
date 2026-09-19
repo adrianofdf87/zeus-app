@@ -36,17 +36,17 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
                 <div class="form-group"><label>ID Rastreio <span class="req">*</span></label><input type="text" id="form_id_rastreio" class="form-control"></div>
             </div>
 
-            <!-- Linha 3 (3 campos): area, tipo atividade, prioridade -->
+            <!-- Linha 3 (Proporção 1 para 2) -->
+            <div class="form-row-custom-4">
+                <div class="form-group"><label id="label_vinculo_pagamento">Vínculo de Pagamento</label><input type="text" id="form_vinculo_pagamento" class="form-control"></div>
+                <div class="form-group"><label>Descrição Breve <span class="req">*</span></label><input type="text" id="form_descricao_breve" class="form-control"></div>
+            </div>
+
+            <!-- Linha 4 (3 campos): area, tipo atividade, prioridade -->
             <div class="form-row-3">
                 <div class="form-group"><label>Área (Processo) <span class="req">*</span></label><select id="form_area" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>Tipo de Atividade <span class="req">*</span></label><select id="form_tipo_atividade" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>Prioridade <span class="req">*</span></label><select id="form_prioridade" class="form-control select2-init"></select></div>
-            </div>
-
-            <!-- Linha 4 (Proporção 1 para 2) -->
-            <div class="form-row-custom-4">
-                <div class="form-group"><label id="label_vinculo_pagamento">Vínculo de Pagamento</label><input type="text" id="form_vinculo_pagamento" class="form-control"></div>
-                <div class="form-group"><label>Descrição Breve <span class="req">*</span></label><input type="text" id="form_descricao_breve" class="form-control"></div>
             </div>
 
             <!-- Linha 5 (2 campos iguais preenchendo 100%) -->
