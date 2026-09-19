@@ -114,7 +114,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const obterEstruturaTabela = async (tabela) => {
     if (!tabela) throw new Error('Nome da tabela não informado.');
-    // Se for tabe_imp_pep, busca a estrutura baseada na tabela real para manter compatibilidade de inserts/updates
     const tabelaAlvoEstrutura = tabela === 'tabe_imp_pep' ? 'tabe_imp_pep' : tabela;
     const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: tabelaAlvoEstrutura });
     if (error) throw error;
@@ -167,7 +166,13 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
 
       const termoBruto = busca.trim();
-      const colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
+      
+      // Se for tabe_imp_pep, a busca deve abranger também as colunas unificadas na view_dados_pep
+      let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
+      if (tabelaBd === 'tabe_imp_pep') {
+        const colunasExtrasView = ['empresa', 'ano', 'regional', 'municipio', 'parceiro', 'area', 'grupo_atividade', 'pi', 'nota', 'pep', 'descricao', 'status', 'usu_cada'];
+        colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
+      }
 
       const from = (paginaAtual - 1) * registrosPorPagina;
       let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
@@ -208,7 +213,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
     try {
-      // Para buscar os distintos, se for view, podemos usar a RPC apontando para a tabela real ou adaptar se suportado
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'tabe_imp_pep' : tabelaBd;
       const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
       if (error) throw error;
@@ -296,15 +300,15 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
      };
 
      Swal.fire({
-       ...swalDefault,
-       html: `<div class="modal-header-pro"><div class="modal-icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Central de Cópia</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Opções de Cópia de PEPs</p></div></div><div class="modal-body-pro"><div id="copiarStateSelect"><p style="margin:0 0 10px;font-size:0.9rem;color:#475569;">Escolha o formato desejado para copiar os PEPs:</p></div><div id="copiarStateProgress" style="display:none;padding:10px 0;text-align:center;"><div id="copiarProgressMsg" style="font-size:0.95rem;color:#334155;font-weight:500;">Processando...</div><div style="width:100%;"><div class="progress-container"><div id="copiarProgressBar" class="progress-bar"></div></div><div id="copiarProgressText" class="progress-text">0%</div></div></div></div>`,
-       showCancelButton: false, showDenyButton: true, confirmButtonText: "PEP's Nível 3", confirmButtonColor: '#005596', denyButtonText: "PEP's Nível 2", denyButtonColor: '#10b981', reverseButtons: true, allowOutsideClick: false,
-       preConfirm: async () => {
-         const btn = Swal.getConfirmButton();
-         if (btn && btn.innerText === 'OK') return true;
-         await executarProcessamentoCopia('NIVEL3'); return false;
-       },
-       preDeny: async () => { await executarProcessamentoCopia('NIVEL2'); return false; }
+        ...swalDefault,
+        html: `<div class="modal-header-pro"><div class="modal-icon-box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div><div><h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;line-height:1.2;">Central de Cópia</h2><p style="margin:3px 0 0;font-size:0.82rem;color:#64748b;">Opções de Cópia de PEPs</p></div></div><div class="modal-body-pro"><div id="copiarStateSelect"><p style="margin:0 0 10px;font-size:0.9rem;color:#475569;">Escolha o formato desejado para copiar os PEPs:</p></div><div id="copiarStateProgress" style="display:none;padding:10px 0;text-align:center;"><div id="copiarProgressMsg" style="font-size:0.95rem;color:#334155;font-weight:500;">Processando...</div><div style="width:100%;"><div class="progress-container"><div id="copiarProgressBar" class="progress-bar"></div></div><div id="copiarProgressText" class="progress-text">0%</div></div></div></div>`,
+        showCancelButton: false, showDenyButton: true, confirmButtonText: "PEP's Nível 3", confirmButtonColor: '#005596', denyButtonText: "PEP's Nível 2", denyButtonColor: '#10b981', reverseButtons: true, allowOutsideClick: false,
+        preConfirm: async () => {
+          const btn = Swal.getConfirmButton();
+          if (btn && btn.innerText === 'OK') return true;
+          await executarProcessamentoCopia('NIVEL3'); return false;
+        },
+        preDeny: async () => { await executarProcessamentoCopia('NIVEL2'); return false; }
     });
   };
 
