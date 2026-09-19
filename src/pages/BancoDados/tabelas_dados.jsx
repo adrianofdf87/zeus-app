@@ -167,7 +167,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       const termoBruto = busca.trim();
       
-      // Se for tabe_imp_pep, a busca deve abranger também as colunas unificadas na view_dados_pep
       let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
       if (tabelaBd === 'tabe_imp_pep') {
         const colunasExtrasView = ['empresa', 'ano', 'regional', 'municipio', 'parceiro', 'area', 'grupo_atividade', 'pi', 'nota', 'pep', 'descricao', 'status', 'usu_cada'];
@@ -197,13 +196,25 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       if (error) throw error;
 
       setTotalBanco(count || 0);
-      setRegistros(data || []);
+      
+      // Se for a view/tabela de serviços de obras, formata o campo total_proj para número com 2 casas decimais se vier como número puro
+      let dadosTratados = data || [];
+      if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
+        dadosTratados = dadosTratados.map(row => ({
+          ...row,
+          total_proj: row.total_proj !== null && row.total_proj !== undefined 
+            ? Number(row.total_proj).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : row.total_proj
+        }));
+      }
+
+      setRegistros(dadosTratados);
     } catch (err) {
       Swal.fire('Erro', 'Erro ao carregar dados: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [tabelaBd, tabelaOuViewQuery, paginaAtual, registrosPorPagina, busca, filtrosColunas, estrutura]);
+  }, [tabelaBd, tabelaOuViewQuery, paginaAtual, registrosPorPagina, busca, filtrosColunas, estrutura, titulo]);
 
   useEffect(() => {
     const isBg = !isInitialMount.current;
@@ -213,7 +224,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
     try {
-      // Se for tabe_imp_pep, busca os distintos diretamente na view_dados_pep
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
       const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
       if (error) throw error;
