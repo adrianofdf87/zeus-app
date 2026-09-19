@@ -213,32 +213,20 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
     try {
-      const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'tabe_imp_pep' : tabelaBd;
+      // Se for tabe_imp_pep, busca os distintos diretamente na view_dados_pep
+      const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
       const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
       if (error) throw error;
-
-      // 1. Processa e ordena todos os valores distintos do banco
-      let lista = (data || []).reduce((acc, item) => {
+      
+      return (data || []).reduce((acc, item) => {
         let isNull = item.valor === null || item.valor === undefined || String(item.valor).trim() === "";
         let chave = isNull ? "##NULL##" : String(item.valor);
         let exibicao = isNull ? "-" : String(item.valor);
-        
-        // Se houver termo digitado, já avalia se corresponde
-        if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) {
-          acc.push({ chave, exibicao });
-        }
+        if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) acc.push({ chave, exibicao });
         return acc;
       }, []).sort((a, b) => a.exibicao.localeCompare(b.exibicao));
-
-      // 2. Se o usuário NÃO digitou nada e a lista tiver mais de 1000 itens, limita a exibição inicial a 1000
-      if (!termo && lista.length > 1000) {
-        lista = lista.slice(0, 1000);
-      }
-
-      return lista;
     } catch (err) {
-      console.error("Erro ao buscar opções:", err); 
-      return [];
+      console.error("Erro ao buscar opções:", err); return [];
     }
   };
 
