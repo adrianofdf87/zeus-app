@@ -1049,7 +1049,7 @@ async function atualizarCamposPorFilial(filial) {
         carregarOpcoesSelect('tabi_apoio_contrato', 'contratante', 'form_contratante', filial, 'filial'),
         carregarOpcoesSelect('tabi_apoio_contrato', 'processo', 'form_area', filial, 'filial'),
         carregarOpcoesSelect('tabi_apoio_localidade', 'localidade', 'form_municipio', filial, 'filial'),
-        carregarOpcoesSelect('tabi_apoio_atividade', 'tipo_atividade', 'form_tipo_atividade', filial, 'filial'),
+        carregarOpcoesSelect('tabi_apoio_atividade', 'grupo_atividade', 'form_tipo_atividade', filial, 'filial'),
         carregarOpcoesSelect('tabi_apoio_prioridade', 'prioridade', 'form_prioridade', filial, 'filial'),
         carregarOpcoesSelect('tabi_apoio_rastreio', 'rastreio', 'form_tipo_rastreio', filial, 'filial'),
         carregarOpcoesSelect('tabi_apoio_alimentador', 'alimentador', 'form_seal', filial, 'filial'),
