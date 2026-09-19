@@ -24,29 +24,29 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
         <div id="formNovaAtividade" class="atividade-form-container" translate="no">
             <!-- Linha 1 (3 campos): aviso, filial, contratante -->
             <div class="form-row-3">
+                <div class="form-group"><label>Carteira <span class="req">*</span></label><input type="month" id="form_prev_faturamento" class="form-control"></div>
                 <div class="form-group"><label>Aviso (Data) <span class="req">*</span></label><input type="date" id="form_aviso" class="form-control" ${isEdit ? 'readonly' : ''}></div>
                 <div class="form-group"><label>Filial <span class="req">*</span></label><select id="form_filial" class="form-control select2-init" ${isEdit ? 'disabled' : ''}></select></div>
-                <div class="form-group"><label>Contratante <span class="req">*</span></label><select id="form_contratante" class="form-control select2-init" ${isEdit ? 'disabled' : ''}></select></div>
             </div>
 
             <!-- Linha 2 (3 campos): tipo de custo, tipo de rastreio, Id rastreio -->
             <div class="form-row-3">
-                <div class="form-group"><label>Tipo de Custo <span class="req">*</span></label><select id="form_tipo_custo" class="form-control select2-init"><option value="">Selecione...</option><option value="INVESTIMENTO">INVESTIMENTO</option><option value="CUSTEIO">CUSTEIO</option></select></div>
                 <div class="form-group"><label>Tipo de Rastreio <span class="req">*</span></label><select id="form_tipo_rastreio" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>ID Rastreio <span class="req">*</span></label><input type="text" id="form_id_rastreio" class="form-control"></div>
+                <div class="form-group"><label id="label_vinculo_pagamento">Vínculo de Pagamento</label><input type="text" id="form_vinculo_pagamento" class="form-control"></div>
             </div>
 
             <!-- Linha 3 (Proporção 1 para 2) -->
-            <div class="form-row-custom-4">
-                <div class="form-group"><label id="label_vinculo_pagamento">Vínculo de Pagamento</label><input type="text" id="form_vinculo_pagamento" class="form-control"></div>
+            <div class="form-row-custom-4">                
                 <div class="form-group"><label>Descrição Breve <span class="req">*</span></label><input type="text" id="form_descricao_breve" class="form-control"></div>
+                <div class="form-group"><label>Contratante <span class="req">*</span></label><select id="form_contratante" class="form-control select2-init" ${isEdit ? 'disabled' : ''}></select></div>
             </div>
 
             <!-- Linha 4 (3 campos): area, tipo atividade, prioridade -->
             <div class="form-row-3">
                 <div class="form-group"><label>Área (Processo) <span class="req">*</span></label><select id="form_area" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>Tipo de Atividade <span class="req">*</span></label><select id="form_tipo_atividade" class="form-control select2-init"></select></div>
-                <div class="form-group"><label>Prioridade <span class="req">*</span></label><select id="form_prioridade" class="form-control select2-init"></select></div>
+                 <div class="form-group"><label>Tipo de Custo <span class="req">*</span></label><select id="form_tipo_custo" class="form-control select2-init"><option value="">Selecione...</option><option value="INVESTIMENTO">INVESTIMENTO</option><option value="CUSTEIO">CUSTEIO</option></select></div>
             </div>
 
             <!-- Linha 5 (2 campos iguais preenchendo 100%) -->
@@ -71,7 +71,7 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             <!-- Linha 8 (3 campos) -->
             <div class="form-row-3">
                 <div class="form-group"><label>Prazo (Data) <span class="req">*</span></label><input type="date" id="form_prazo" class="form-control" ${isEdit ? 'readonly' : ''}></div>
-                <div class="form-group"><label>Carteira <span class="req">*</span></label><input type="month" id="form_prev_faturamento" class="form-control"></div>
+                <div class="form-group"><label>Prioridade <span class="req">*</span></label><select id="form_prioridade" class="form-control select2-init"></select></div>
                 <div class="form-group"><label>Status <span class="req">*</span></label><select id="form_status" class="form-control select2-init"></select></div>
             </div>
             
