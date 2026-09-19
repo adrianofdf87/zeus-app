@@ -96,7 +96,7 @@ export async function abrirModalAtividade(idAtividade = null, onSucesso = null) 
             /* Tipos de linhas com grids independentes */
             .form-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%}
             .form-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%}
-            .form-row-custom-4{display:grid;grid-template-columns:1fr 2fr;gap:12px;width:100%}
+            .form-row-custom-4{display:grid;grid-template-columns:2fr 1fr;gap:12px;width:100%}
 
             .form-group{display:flex;flex-direction:column;width:100%}
             .form-group label{font-size:.75rem;font-weight:600;color:#334155;margin-bottom:2px}
