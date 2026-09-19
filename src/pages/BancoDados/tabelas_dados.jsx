@@ -745,4 +745,4 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       </div>
     </div>
   );
-}
+} 
