@@ -27,7 +27,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   const [limparFiltrosTrigger, setLimparFiltrosTrigger] = useState(0); 
   const isInitialMount = useRef(true);
 
-  // Mapeia para a view se for tabe_imp_pep, mantendo a tabela original para operações de escrita (CRUD/Importação) se necessário
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
@@ -197,13 +196,13 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       setTotalBanco(count || 0);
       
-      // Se for a view/tabela de serviços de obras, formata o campo total_proj para número com 2 casas decimais se vier como número puro
       let dadosTratados = data || [];
+      // Se for a view de serviços ou a tabela correspondente, força o total_proj a ser tratado como string numérica simples sem o formato monetário automático do DataTable
       if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
         dadosTratados = dadosTratados.map(row => ({
           ...row,
           total_proj: row.total_proj !== null && row.total_proj !== undefined 
-            ? Number(row.total_proj).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            ? Number(row.total_proj).toFixed(2).replace('.', ',')
             : row.total_proj
         }));
       }
