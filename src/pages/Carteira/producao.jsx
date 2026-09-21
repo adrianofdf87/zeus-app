@@ -46,6 +46,7 @@ export default function Producao() {
     carregarTodosDadosProdutividade();
   }, []);
 
+  // Lógica inteligente para carregar os valores da coluna selecionada (incluindo tratamento para o JSON de 'meses')
   useEffect(() => {
     if (!tipoFiltroAtual || !Array.isArray(todosDados) || todosDados.length === 0) {
       setValoresColunaAtual([]);
@@ -56,8 +57,14 @@ export default function Producao() {
     todosDados.forEach(item => {
       if (item && typeof item === 'object') {
         const val = item[tipoFiltroAtual];
-        if (val !== undefined && val !== null && val !== "") {
-          if (tipoFiltroAtual === "mes" || tipoFiltroAtual.includes("data")) {
+
+        // Se a coluna escolhida for o JSON 'meses', extrai todas as chaves (YYYY-MM)
+        if (tipoFiltroAtual === "meses" && val && typeof val === 'object') {
+          Object.keys(val).forEach(mesChave => {
+            if (mesChave) valoresSet.add(mesChave);
+          });
+        } else if (val !== undefined && val !== null && val !== "") {
+          if (tipoFiltroAtual.includes("data")) {
             const str = String(val).substring(0, 7);
             if (str.length === 7) valoresSet.add(str);
           } else {
@@ -67,7 +74,7 @@ export default function Producao() {
       }
     });
 
-    const listaValores = Array.from(valoresSet).sort();
+    const listaValores = Array.from(valoresSet).sort().reverse(); // Ordena decrescente para mostrar os meses mais recentes primeiro
     setValoresColunaAtual(listaValores);
     setValorFiltroSelect("TODOS");
   }, [tipoFiltroAtual, todosDados]);
@@ -107,9 +114,14 @@ export default function Producao() {
 
       if (allData.length > 0 && allData[0]) {
         const sample = allData[0];
+        // Filtra colunas indesejadas e garante que 'meses' apareça como opção de filtro
         const cols = Object.keys(sample).filter(c => !c.includes("id") && c !== "valor_proj" && c !== "valor_prod");
         setColunasDisponiveis(cols);
-        if (cols.length > 0 && cols[0]) {
+        
+        // Se a coluna 'meses' existir, define ela como padrão inicial para facilitar o filtro mensal
+        if (cols.includes("meses")) {
+          setTipoFiltroAtual("meses");
+        } else if (cols.length > 0 && cols[0]) {
           setTipoFiltroAtual(cols[0]);
         }
       }
@@ -156,15 +168,23 @@ export default function Producao() {
 
     let filtrados = [...dados];
 
+    // Aplicação de filtros em cascata (suportando validação especial para o objeto JSON 'meses')
     Object.keys(filtros).forEach(campo => {
       const valorFiltro = filtros[campo];
       filtrados = filtrados.filter(item => {
         if (!item) return false;
         const valItem = item[campo];
         if (valItem === undefined || valItem === null) return false;
-        if (campo === "mes" || campo.includes("data")) {
+
+        if (campo === "meses" && typeof valItem === 'object') {
+          // Verifica se o mês selecionado existe nas chaves do JSON e possui valor maior que zero
+          return valItem.hasOwnProperty(valorFiltro) && Number(valItem[valorFiltro]) > 0;
+        }
+
+        if (campo.includes("data")) {
           return String(valItem).startsWith(valorFiltro);
         }
+
         return String(valItem) === valorFiltro;
       });
     });
@@ -400,11 +420,11 @@ export default function Producao() {
                       {formatarMoeda(item.soma_valor_prod)}
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "1px", gap: "6px" }}>
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "36px" }}>
                           {item.perc_valor_prod.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: 'hidden' }}>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
                           <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "3px" }}></div>
                         </div>
                       </div>
