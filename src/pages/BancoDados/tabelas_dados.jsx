@@ -39,7 +39,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     'tabe_imp_equipes_jupiter',
     'tabe_cad_carteira',
     'tabe_imp_caderno_servico',
-    'tabe_imp_prod_jupiter'
+    'tabe_imp_prod_jupiter',
+    'view_dados_produtividade'
   ];
 
   const ehTabelaAvancada = tabelasAvancadasSemCrudManual.includes(tabelaBd);
@@ -175,7 +176,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
     try {
       let estData = estrutura;
-      if (estData.length === 0) {
+      if (estData.length === 0 && tabelaBd !== 'view_dados_produtividade') {
         estData = await obterEstruturaTabela(tabelaBd);
         setEstrutura(estData);
       }
@@ -213,6 +214,23 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       setTotalBanco(count || 0);
       
       let dadosTratados = data || [];
+
+      // Se for a view de produtividade, transforma o objeto JSON "Meses" em colunas diretas na linha
+      if (tabelaBd === 'view_dados_produtividade') {
+        dadosTratados = dadosTratados.map(row => {
+          const mesesObj = row.Meses || {};
+          const novaLinha = { ...row };
+          delete novaLinha.Meses; // Remove o objeto JSON original
+
+          // Expande cada chave do mês (ex: "2026-09") para uma propriedade direta da linha
+          Object.keys(mesesObj).forEach(mesKey => {
+            novaLinha[mesKey] = mesesObj[mesKey];
+          });
+
+          return novaLinha;
+        });
+      }
+
       if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
         dadosTratados = dadosTratados.map(row => ({
           ...row,
