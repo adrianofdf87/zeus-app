@@ -211,16 +211,17 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       setTotalBanco(count || 0);
       let dadosTratados = data || [];
 
-      // Tratamento dinâmico para a View de Produtividade (Agrupa por ordem e cria colunas mensais dinâmicas)
+      // Tratamento para consolidar por Ordem e preencher dinamicamente todos os meses existentes na página
       if (tabelaBd === 'view_dados_produtividade') {
         const mapaOrdens = {};
         const todosMesesSet = new Set();
 
+        // 1º Passo: Mapeia todos os meses existentes e agrupa os valores por Ordem de Serviço
         dadosTratados.forEach(row => {
-          const chaveUnica = row.ordem && row.ordem !== '-' ? row.ordem : `ID_${row.id}`;
+          const chaveOrdem = row.ordem && row.ordem.trim() !== '' ? row.ordem.trim() : `ID_${row.id}`;
 
-          if (!mapaOrdens[chaveUnica]) {
-            mapaOrdens[chaveUnica] = {
+          if (!mapaOrdens[chaveOrdem]) {
+            mapaOrdens[chaveOrdem] = {
               id: row.id,
               coordenador: row.coordenador,
               supervisor: row.supervisor,
@@ -236,16 +237,18 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           const val = Number(row.valor) || 0;
           const mes = row.ano_mes;
 
-          mapaOrdens[chaveUnica].valor_prod += val;
+          mapaOrdens[chaveOrdem].valor_prod += val;
 
           if (mes) {
             todosMesesSet.add(mes);
-            mapaOrdens[chaveUnica].mesesMap[mes] = (mapaOrdens[chaveUnica].mesesMap[mes] || 0) + val;
+            mapaOrdens[chaveOrdem].mesesMap[mes] = (mapaOrdens[chaveOrdem].mesesMap[mes] || 0) + val;
           }
         });
 
+        // Ordena os meses em ordem decrescente (ex: 2026-09, 2026-08...)
         const listaMeses = Array.from(todosMesesSet).sort().reverse();
 
+        // 2º Passo: Garante que TODAS as ordens tenham colunas para TODOS os meses encontrados, colocando 0 onde não houver valor
         dadosTratados = Object.values(mapaOrdens).map(item => {
           const novaLinha = {
             id: item.id,
@@ -260,8 +263,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
           listaMeses.forEach(mesKey => {
             const nomeColunaMes = `VALOR_${mesKey}`;
-            // Se o mês tiver valor, preenche; se não tiver, envia vazio (undefined/null)
-            novaLinha[nomeColunaMes] = item.mesesMap[mesKey] !== undefined ? item.mesesMap[mesKey] : null;
+            // Preenche com o valor do mês ou com 0 caso a ordem não possua lançamento naquele mês
+            novaLinha[nomeColunaMes] = item.mesesMap[mesKey] !== undefined ? item.mesesMap[mesKey] : 0;
           });
 
           return novaLinha;
