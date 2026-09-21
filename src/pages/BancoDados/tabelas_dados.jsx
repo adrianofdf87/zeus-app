@@ -215,7 +215,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       
       let dadosTratados = data || [];
 
-      // Expande dinamicamente o objeto JSON "Meses" para colunas planas na tabela
+      // Expande dinamicamente o objeto JSON "Meses" para colunas planas com o prefixo VALOR_
       if (tabelaBd === 'view_dados_produtividade') {
         dadosTratados = dadosTratados.map(row => {
           const mesesObj = row.Meses || row.meses || {};
@@ -229,7 +229,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
           if (typeof mesesObj === 'object' && mesesObj !== null) {
             Object.keys(mesesObj).forEach(mesKey => {
-              novaLinha[mesKey] = mesesObj[mesKey];
+              // Aplica o prefixo VALOR_ na coluna resultante
+              const nomeColunaMes = `VALOR_${mesKey}`;
+              novaLinha[nomeColunaMes] = mesesObj[mesKey];
             });
           }
 
