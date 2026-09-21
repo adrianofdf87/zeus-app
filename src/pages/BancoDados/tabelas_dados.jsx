@@ -138,6 +138,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const aplicarFiltrosAuxiliares = (query) => {
     Object.keys(filtrosColunas).forEach(col => {
+      // Ignora colunas dinâmicas de meses (VALOR_...) para evitar erro no Supabase
+      if (col.startsWith('VALOR_')) return;
+
       const regras = filtrosColunas[col];
       if (regras && regras.length > 0) {
         const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
@@ -183,7 +186,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       const termoBruto = busca.trim();
       let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
       
-      // Ajuste realizado aqui para refletir 'tipo_os' e 'num_os' na view de produtividade
       if (ehProd) colunasTexto = ['coordenador', 'supervisor', 'tipo_os', 'num_os', 'pep', 'status'];
       
       if (tabelaBd === 'tabe_imp_pep') {
@@ -191,7 +193,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
       }
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: ehProd ? 'exact' : 'exact' });
       query = aplicarFiltrosAuxiliares(query);
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
@@ -228,6 +230,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   }, [carregarDados]);
 
   const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
+    // Se for coluna dinâmica de meses, retorna vazio para evitar erro no RPC
+    if (coluna.startsWith('VALOR_')) return [];
+
     try {
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
       const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
