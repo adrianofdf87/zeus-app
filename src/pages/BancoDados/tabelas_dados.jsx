@@ -207,7 +207,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           const novaLinha = { ...row };
           delete novaLinha.Meses; delete novaLinha.meses;
           if (typeof mesesObj === 'object' && mesesObj !== null) Object.keys(mesesObj).forEach(mesKey => novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey]);
-          return novaLinex; // corrigido para retornar o objeto atualizado
+          return novaLinha; // corrigido para retornar o objeto atualizado
         });
       }
 
