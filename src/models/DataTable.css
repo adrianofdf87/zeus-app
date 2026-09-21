@@ -376,11 +376,11 @@
 .btn-danger-outline { background: #fff1f2 !important; color: #e11d48 !important; border-color: #fda4af !important; }
 
 /* ==========================================================================
-   DESTAQUE VISUAL DE COLUNAS COM FILTRO APLICADO (APENAS A SETA EM AMARELO ESCURO)
+   DESTAQUE VISUAL APENAS DA SETA DO FILTRO (FUNDO DO CABEÇALHO PADRÃO)
    ========================================================================== */
 .data-table th.th-filter-active {
-  background-color: inherit !important;
-  color: inherit !important;
+  background-color: #f1f5f9 !important; /* Mantém exatamente a mesma cor do th padrão */
+  color: #334155 !important;
   box-shadow: none !important;
 }
 
@@ -389,9 +389,10 @@
   font-weight: 600;
 }
 
+/* Altera apenas a seta para amarelo escuro mantendo o fundo padrão do botão transparente */
 .data-table th.th-filter-active .excel-filter-btn.filter-applied,
 .excel-filter-btn.filter-applied {
-  background-color: #fef08a !important; /* Fundo em amarelo suave */
-  color: #854d0e !important;          /* Ícone da seta em amarelo escuro (dourado/marrom forte) */
-  border-color: #facc15 !important;    /* Borda sutil amarela */
+  background-color: transparent !important; 
+  color: #b45309 !important; /* Amarelo escuro forte */
+  border-color: transparent !important;
 }
