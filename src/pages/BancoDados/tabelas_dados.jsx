@@ -190,7 +190,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       const from = (paginaAtual - 1) * registrosPorPagina;
       
-      // Contagem otimizada para evitar statement timeout em views pesadas
       const tipoContagem = tabelaBd === 'view_dados_produtividade' ? 'estimated' : 'exact';
       let query = supabase.from(tabelaOuViewQuery).select('*', { count: tipoContagem });
       query = aplicarFiltrosAuxiliares(query);
@@ -205,65 +204,31 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       const { data, count, error } = await query
         .range(from, from + registrosPorPagina - 1)
-        .order('ordem', { ascending: true });
+        .order('id', { ascending: true });
 
       if (error) throw error;
 
       setTotalBanco(count || 0);
       let dadosTratados = data || [];
 
+      // Tratamento para a View de Produtividade (Exibindo linhas completas sem colapsar por ordem vazia)
       if (tabelaBd === 'view_dados_produtividade') {
-        const mapaOrdens = {};
-        const todosMesesSet = new Set();
-
-        dadosTratados.forEach(row => {
-          const ordem = row.ordem;
-          if (!ordem) return;
-
-          if (!mapaOrdens[ordem]) {
-            mapaOrdens[ordem] = {
-              id: row.id,
-              coordenador: row.coordenador,
-              supervisor: row.supervisor,
-              Ordem: ordem,
-              pep: row.pep,
-              status: row.status,
-              valor_proj: row.valor_proj,
-              valor_prod: 0,
-              mesesMap: {}
-            };
-          }
-
+        dadosTratados = dadosTratados.map(row => {
           const val = Number(row.valor) || 0;
           const mes = row.ano_mes;
-
-          mapaOrdens[ordem].valor_prod += val;
-
-          if (mes) {
-            todosMesesSet.add(mes);
-            mapaOrdens[ordem].mesesMap[mes] = (mapaOrdens[ordem].mesesMap[mes] || 0) + val;
-          }
-        });
-
-        const listaMeses = Array.from(todosMesesSet).sort().reverse();
-
-        dadosTratados = Object.values(mapaOrdens).map(item => {
           const novaLinha = {
-            id: item.id,
-            coordenador: item.coordenador,
-            supervisor: item.supervisor,
-            Ordem: item.ordem,
-            pep: item.pep,
-            status: item.status,
-            valor_proj: item.valor_proj,
-            valor_prod: item.valor_prod
+            id: row.id,
+            coordenador: row.coordenador,
+            supervisor: row.supervisor,
+            Ordem: row.ordem,
+            pep: row.pep,
+            status: row.status,
+            valor_proj: row.valor_proj,
+            valor_prod: val
           };
-
-          listaMeses.forEach(mesKey => {
-            const nomeColunaMes = `VALOR_${mesKey}`;
-            novaLinha[nomeColunaMes] = item.mesesMap[mesKey] !== undefined ? item.mesesMap[mesKey] : 0;
-          });
-
+          if (mes) {
+            novaLinha[`VALOR_${mes}`] = val;
+          }
           return novaLinha;
         });
       }
