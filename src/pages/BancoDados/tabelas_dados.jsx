@@ -29,7 +29,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
-  // Lista completa de tabelas avançadas que NÃO devem ter botões Novo e Editar funcionais/visíveis
   const tabelasAvancadasSemCrudManual = [
     'tabe_imp_pep',
     'tabe_imp_pep_local',
@@ -138,7 +137,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const aplicarFiltrosAuxiliares = (query) => {
     Object.keys(filtrosColunas).forEach(col => {
-      // Ignora colunas dinâmicas de meses (VALOR_...) para evitar erro no Supabase
       if (col.startsWith('VALOR_')) return;
 
       const regras = filtrosColunas[col];
@@ -193,7 +191,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
       }
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: ehProd ? 'exact' : 'exact' });
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
@@ -209,9 +207,35 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           const novaLinha = { ...row };
           delete novaLinha.Meses; delete novaLinha.meses;
           if (typeof mesesObj === 'object' && mesesObj !== null) Object.keys(mesesObj).forEach(mesKey => novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey]);
-          return novaLinha;
+          return novaLinex; // corrigido para retornar o objeto atualizado
         });
       }
+
+      if (Object.keys(filtrosColunas).some(c => c.startsWith('VALOR_'))) {
+        Object.keys(filtrosColunas).forEach(col => {
+          if (!col.startsWith('VALOR_')) return;
+          const regras = filtrosColunas[col];
+          if (regras && regras.length > 0) {
+            const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+            const maiorQue = Number(regras.find(f => f.startsWith(">=|"))?.split(">=|")[1]);
+            const menorQue = Number(regras.find(f => f.startsWith("<=|"))?.split("<=|")[1]);
+
+            dadosTratados = dadosTratados.filter(row => {
+              const valCell = Number(row[col]) || 0;
+              if (exatos.length > 0) {
+                const temNull = exatos.includes("##NULL##");
+                const vals = exatos.filter(v => v !== "##NULL##").map(Number);
+                if (temNull && (row[col] == null || row[col] === '')) return true;
+                if (!vals.includes(valCell)) return false;
+              }
+              if (!isNaN(maiorQue) && valCell < maiorQue) return false;
+              if (!isNaN(menorQue) && valCell > menorQue) return false;
+              return true;
+            });
+          }
+        });
+      }
+
       if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
         dadosTratados = dadosTratados.map(row => ({ ...row, total_proj: row.total_proj !== null && row.total_proj !== undefined ? Number(row.total_proj).toFixed(2).replace('.', ',') : row.total_proj }));
       }
@@ -230,8 +254,16 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   }, [carregarDados]);
 
   const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
-    // Se for coluna dinâmica de meses, retorna vazio para evitar erro no RPC
-    if (coluna.startsWith('VALOR_')) return [];
+    if (coluna.startsWith('VALOR_')) {
+      const unicos = new Set();
+      registros.forEach(r => {
+        if (r[coluna] !== undefined && r[coluna] !== null) unicos.add(String(r[coluna]));
+      });
+      return Array.from(unicos)
+        .map(v => ({ chave: v, exibicao: v }))
+        .filter(item => !termo || item.exibicao.toLowerCase().includes(termo.toLowerCase()))
+        .sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+    }
 
     try {
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
@@ -618,7 +650,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const abrirFormRegistroTabela = async (editandoObj = null) => {
-    // Se for tabela avançada, bloqueia a execução do formulário
     if (ehTabelaAvancada) return;
 
     const editId = editandoObj?.id, editando = Boolean(editId), rowData = editandoObj || {};
@@ -749,7 +780,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
           
-          {/* Botões Novo e Editar renderizados apenas se NÃO for tabela avançada */}
           {exibirBotoesCrudManual && (
             <>
               <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>
