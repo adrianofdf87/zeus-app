@@ -6,6 +6,7 @@ import {
   Users, Shield, UserPlus, Edit3, Trash2, Lock, Unlock, RefreshCw 
 } from "lucide-react";
 import Swal from "sweetalert2";
+import bcrypt from "bcryptjs";
 
 export default function Usuarios() {
   const [dadosUsuarios, setDadosUsuarios] = useState([]);
@@ -174,8 +175,8 @@ export default function Usuarios() {
         if (error) throw error;
       } else {
         const senhaPlana = Math.random().toString(36).slice(-8) + "A1@";
-        const salt = dcodeIO.bcrypt.genSaltSync(10);
-        const senhaHash = dcodeIO.bcrypt.hashSync(senhaPlana, salt);
+        const salt = bcrypt.genSaltSync(10);
+        const senhaHash = bcrypt.hashSync(senhaPlana, salt);
         const usuarioLogadoNome = JSON.parse(localStorage.getItem("usuario_logado"))?.nome || "Sistema";
 
         const { error } = await supabase.from("tabi_cad_usuarios").insert([{ ...formValues, senha: senhaHash, senha_temporaria: true, situacao: "ATIVO", Usu_cad: usuarioLogadoNome }]);
