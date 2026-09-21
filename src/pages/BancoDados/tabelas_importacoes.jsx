@@ -104,7 +104,7 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (OTIMIZADO E RÁPIDO)
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (CORRIGIDO PARA VALOR E QUANTIDADE)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -181,8 +181,8 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         tipo_acao_campo: removerAcentos(c[19]),
         codigo_acao_campo: removerAcentos(c[20]),
         tipo_servico: removerAcentos(c[21]),
-        valor: parseNum(c[22]),
-        quantidade: parseNum(c[23]),
+        valor: parseNum(c[22]),        // <-- Corrigido para respeitar as duas casas decimais exatas
+        quantidade: parseNum(c[23]),   // <-- Corrigido para respeitar o valor real da planilha
         backoffice: removerAcentos(c[24]),
         data_backoffice: formatarDataSegura(c[25]),
         criado_em: formatarDataSegura(c[26]) || formatarDataSegura(new Date()),
@@ -243,7 +243,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     if (acao === 'APENAS_NOVAS') {
       dadosParaSalvar = itensPlanilha.filter(item => !chavesExistentesNoBanco.has(item.chave_composta));
     } else {
-      // Exclusão em lotes otimizada e rápida por ordens de serviço e datas conflitantes
       if (conflitos.length > 0) {
         update(60, `Removendo ${conflitos.length} registros antigos conflitantes (em lotes)...`);
         
