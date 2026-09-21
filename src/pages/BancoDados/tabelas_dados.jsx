@@ -195,50 +195,74 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
-        
         if (termoLimpo.length > 0) {
           const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
-
-          if (condicoes.length > 0) {
-            query = query.or(condicoes.join(','));
-          }
+          if (condicoes.length > 0) query = query.or(condicoes.join(','));
         }
       }
 
       const { data, count, error } = await query
         .range(from, from + registrosPorPagina - 1)
-        .order('id', { ascending: true });
+        .order('Ordem', { ascending: true });
 
       if (error) throw error;
 
       setTotalBanco(count || 0);
-      
       let dadosTratados = data || [];
 
-      // Tratamento universal: Garante que TODAS as linhas exibam TODOS os meses presentes na base com o prefixo VALOR_
+      // Tratamento leve e otimizado no Front-end para a View de Produtividade
       if (tabelaBd === 'view_dados_produtividade') {
-        // 1. Varre todos os registros para extrair o conjunto completo de meses existentes na página/base
+        // 1. Agrupa e consolida os dados crus da página atual por Ordem de Serviço
+        const mapaOrdens = {};
         const todosMesesSet = new Set();
+
         dadosTratados.forEach(row => {
-          const mObj = row.Meses || row.meses || {};
-          if (typeof mObj === 'object' && mObj !== null) {
-            Object.keys(mObj).forEach(mes => todosMesesSet.add(mes));
+          const ordem = row.Ordem;
+          if (!ordem) return;
+
+          if (!mapaOrdens[ordem]) {
+            mapaOrdens[ordem] = {
+              id: row.id,
+              coordenador: row.coordenador,
+              supervisor: row.supervisor,
+              Ordem: ordem,
+              pep: row.pep,
+              status: row.status,
+              valor_proj: row.valor_proj,
+              valor_prod: 0,
+              mesesMap: {}
+            };
+          }
+
+          const val = Number(row.valor) || 0;
+          const mes = row.ano_mes;
+
+          mapaOrdens[ordem].valor_prod += val;
+
+          if (mes) {
+            todosMesesSet.add(mes);
+            mapaOrdens[ordem].mesesMap[mes] = (mapaOrdens[ordem].mesesMap[mes] || 0) + val;
           }
         });
-        // Ordena os meses em ordem decrescente (ex: 2026-09, 2026-08...)
-        const listaTodosMeses = Array.from(todosMesesSet).sort().reverse();
 
-        // 2. Mapeia cada linha injetando o valor real ou 0 para cada mês universal
-        dadosTratados = dadosTratados.map(row => {
-          const mesesObj = row.Meses || row.meses || {};
-          const novaLinha = { ...row }; 
-          delete novaLinha.Meses; 
-          delete novaLinha.meses;
+        const listaMeses = Array.from(todosMesesSet).sort().reverse();
 
-          listaTodosMeses.forEach(mesKey => {
+        // 2. Converte o mapa em array final preenchendo com 0 os meses ausentes
+        dadosTratados = Object.values(mapaOrdens).map(item => {
+          const novaLinha = {
+            id: item.id,
+            coordenador: item.coordenador,
+            supervisor: item.supervisor,
+            Ordem: item.Ordem,
+            pep: item.pep,
+            status: item.status,
+            valor_proj: item.valor_proj,
+            valor_prod: item.valor_prod
+          };
+
+          listaMeses.forEach(mesKey => {
             const nomeColunaMes = `VALOR_${mesKey}`;
-            // Se a ordem tem valor no mês, exibe; senão, preenche com 0
-            novaLinha[nomeColunaMes] = (mesesObj[mesKey] !== undefined && mesesObj[mesKey] !== null) ? mesesObj[mesKey] : 0;
+            novaLinha[nomeColunaMes] = item.mesesMap[mesKey] !== undefined ? item.mesesMap[mesKey] : 0;
           });
 
           return novaLinha;
