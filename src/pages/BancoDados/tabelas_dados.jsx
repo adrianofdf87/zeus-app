@@ -211,24 +211,59 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       setTotalBanco(count || 0);
       let dadosTratados = data || [];
 
-      // Tratamento para a View de Produtividade (Exibindo linhas completas sem colapsar por ordem vazia)
+      // Tratamento dinâmico para a View de Produtividade (Agrupa por ordem e cria colunas mensais dinâmicas)
       if (tabelaBd === 'view_dados_produtividade') {
-        dadosTratados = dadosTratados.map(row => {
+        const mapaOrdens = {};
+        const todosMesesSet = new Set();
+
+        dadosTratados.forEach(row => {
+          const chaveUnica = row.ordem && row.ordem !== '-' ? row.ordem : `ID_${row.id}`;
+
+          if (!mapaOrdens[chaveUnica]) {
+            mapaOrdens[chaveUnica] = {
+              id: row.id,
+              coordenador: row.coordenador,
+              supervisor: row.supervisor,
+              Ordem: row.ordem,
+              pep: row.pep,
+              status: row.status,
+              valor_proj: row.valor_proj,
+              valor_prod: 0,
+              mesesMap: {}
+            };
+          }
+
           const val = Number(row.valor) || 0;
           const mes = row.ano_mes;
-          const novaLinha = {
-            id: row.id,
-            coordenador: row.coordenador,
-            supervisor: row.supervisor,
-            Ordem: row.ordem,
-            pep: row.pep,
-            status: row.status,
-            valor_proj: row.valor_proj,
-            valor_prod: val
-          };
+
+          mapaOrdens[chaveUnica].valor_prod += val;
+
           if (mes) {
-            novaLinha[`VALOR_${mes}`] = val;
+            todosMesesSet.add(mes);
+            mapaOrdens[chaveUnica].mesesMap[mes] = (mapaOrdens[chaveUnica].mesesMap[mes] || 0) + val;
           }
+        });
+
+        const listaMeses = Array.from(todosMesesSet).sort().reverse();
+
+        dadosTratados = Object.values(mapaOrdens).map(item => {
+          const novaLinha = {
+            id: item.id,
+            coordenador: item.coordenador,
+            supervisor: item.supervisor,
+            Ordem: item.Ordem,
+            pep: item.pep,
+            status: item.status,
+            valor_proj: item.valor_proj,
+            valor_prod: item.valor_prod
+          };
+
+          listaMeses.forEach(mesKey => {
+            const nomeColunaMes = `VALOR_${mesKey}`;
+            // Se o mês tiver valor, preenche; se não tiver, envia vazio (undefined/null)
+            novaLinha[nomeColunaMes] = item.mesesMap[mesKey] !== undefined ? item.mesesMap[mesKey] : null;
+          });
+
           return novaLinha;
         });
       }
