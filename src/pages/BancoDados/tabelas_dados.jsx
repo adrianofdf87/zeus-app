@@ -67,7 +67,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       style.innerHTML = `
         @keyframes lucide-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
         .lucide-spin { animation: lucide-spin 2s linear infinite; }
-        
+
         @keyframes loadingDots {
           0% { content: ''; }
           25% { content: '.'; }
@@ -171,6 +171,19 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     return val;
   };
 
+  const processarLinhaProdutividade = (row) => {
+    const mesesObj = row.Meses || row.meses || {};
+    const novaLinha = { ...row };
+    delete novaLinha.Meses; 
+    delete novaLinha.meses;
+    if (typeof mesesObj === 'object' && mesesObj !== null) {
+      Object.keys(mesesObj).forEach(mesKey => {
+        novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey];
+      });
+    }
+    return novaLinha;
+  };
+
   const carregarDados = useCallback(async (isBackground = false) => {
     setLoading(true);
     if (!isBackground) setRegistros([]);
@@ -183,9 +196,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
       const termoBruto = busca.trim();
       let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
-      
+
       if (ehProd) colunasTexto = ['coordenador', 'supervisor', 'tipo_os', 'num_os', 'pep', 'status'];
-      
+
       if (tabelaBd === 'tabe_imp_pep') {
         const colunasExtrasView = ['empresa','ano','regional','municipio','parceiro','area','grupo_atividade','pi','nota','pep','descricao','status','usu_cada'];
         colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
@@ -202,13 +215,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       setTotalBanco(count || 0);
       let dadosTratados = data || [];
       if (ehProd) {
-        dadosTratados = dadosTratados.map(row => {
-          const mesesObj = row.Meses || row.meses || {};
-          const novaLinha = { ...row };
-          delete novaLinha.Meses; delete novaLinha.meses;
-          if (typeof mesesObj === 'object' && mesesObj !== null) Object.keys(mesesObj).forEach(mesKey => novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey]);
-          return novaLinha; // corrigido para retornar o objeto atualizado
-        });
+        dadosTratados = dadosTratados.map(processarLinhaProdutividade);
       }
 
       if (Object.keys(filtrosColunas).some(c => c.startsWith('VALOR_'))) {
@@ -429,12 +436,12 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       let estData = estrutura.length === 0 ? await obterEstruturaTabela(tabelaBd) : estrutura;
       let baseExport = [];
+      const ehProd = tabelaBd === 'view_dados_produtividade';
 
       if (apenasFiltrados) {
         baseExport = linhasSelecionadasIds?.length > 0 ? registros.filter(r => linhasSelecionadasIds.includes(r.id)) : registros;
         updateProgress('export', 35, `Preparando ${baseExport.length.toLocaleString('pt-BR')} registro(s)...`); await pausa();
       } else {
-        const ehProd = tabelaBd === 'view_dados_produtividade';
         let count = null, inicio = 0, buscar = true;
         if (!ehProd) {
           updateProgress('export', 10, 'Consultando total de registros...');
@@ -443,6 +450,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           count = r.count || 0;
           if (!count) return updateProgress('export', 100, '<span style="color:#d97706;font-weight:600;">Nenhum registro para exportar.</span>');
         } else updateProgress('export', 10, 'Consultando dados da produtividade...');
+        
         while (buscar && (ehProd || inicio < count)) {
           const { data, error } = await supabase.from(tabelaOuViewQuery).select('*').order('id', { ascending: true }).range(inicio, inicio + 999);
           if (error) throw error;
@@ -457,8 +465,33 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       if (!baseExport.length) return updateProgress('export', 100, '<span style="color:#d97706;font-weight:600;">Nenhum registro para exportar.</span>');
       updateProgress('export', 92, 'Preparando dados...'); await pausa();
 
+      // Ajusta dados da produtividade caso venham direto do banco sem passar pelo front
+      if (ehProd) {
+        baseExport = baseExport.map(processarLinhaProdutividade);
+      }
+
       const ocultasSalvas = JSON.parse(localStorage.getItem(`tabelas_dados_${tabelaBd}_${userIdKey}_ocultas`)) || [];
-      const cols = estData.length > 0 ? estData.filter(c => !c.oculta && !ocultasSalvas.includes(c.nome_coluna)).map(c => c.nome_coluna) : Object.keys(baseExport[0]).filter(c => c !== 'id');
+      
+      let cols = [];
+      if (estData.length > 0) {
+        cols = estData.filter(c => !c.oculta && !ocultasSalvas.includes(c.nome_coluna)).map(c => c.nome_coluna);
+      } else {
+        cols = Object.keys(baseExport[0] || {}).filter(c => c !== 'id');
+      }
+
+      // Se for a view de produtividade, garante que as colunas de meses (VALOR_*) estejam inclusas na exportação
+      if (ehProd) {
+        const chavesMeses = new Set();
+        baseExport.forEach(row => {
+          Object.keys(row).forEach(k => {
+            if (k.startsWith('VALOR_')) chavesMeses.add(k);
+          });
+        });
+        chavesMeses.forEach(k => {
+          if (!cols.includes(k)) cols.push(k);
+        });
+      }
+
       const dadosExcel = baseExport.map(linha => cols.reduce((l, c) => { l[c] = formatarValorExibicao(linha[c] ?? ''); return l; }, {}));
 
       updateProgress('export', 96, 'Gerando Excel...'); await pausa();
@@ -702,7 +735,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     try {
       const campos = (await obterEstruturaTabela(tabelaBd)).filter(col => !col.oculta);
       if (!campos.length) return Swal.fire('Atenção', 'Sem campos disponíveis.', 'warning');
-      
+
       let filiais = [], usaFilial = false;
       if (tabelaBd !== 'tabi_apoio_contrato' && campos.some(c => c.nome_coluna.toLowerCase() === 'filial')) {
         try {
@@ -824,7 +857,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={14} /> Exportar</button>
           <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
-          
+
           {exibirBotoesCrudManual && (
             <>
               <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>
