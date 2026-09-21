@@ -253,7 +253,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     carregarDados(isBg);
   }, [carregarDados]);
 
-  const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
+  const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
     if (coluna.startsWith('VALOR_')) {
       const unicos = new Set();
       registros.forEach(r => {
@@ -267,18 +267,64 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
     try {
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
-      const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
+
+      // Mantém os filtros já aplicados nas OUTRAS colunas.
+      // O filtro da própria coluna é retirado para que o usuário possa
+      // trocar/expandir os valores sem perder as demais restrições.
+      const filtrosOutrasColunas = { ...filtrosAtuais };
+      delete filtrosOutrasColunas[coluna];
+
+      let query = supabase.from(tabelaDistintos).select(coluna);
+
+      Object.keys(filtrosOutrasColunas).forEach(col => {
+        if (col.startsWith('VALOR_')) return;
+
+        const regras = filtrosOutrasColunas[col];
+        if (!regras || regras.length === 0) return;
+
+        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+
+        if (exatos.length > 0) {
+          const temNull = exatos.includes("##NULL##");
+          const vals = exatos.filter(v => v !== "##NULL##");
+
+          if (temNull && vals.length > 0) {
+            query = query.or(`${col}.in.(${vals.join(',')}),${col}.is.null`);
+          } else if (temNull) {
+            query = query.is(col, null);
+          } else {
+            query = query.in(col, vals);
+          }
+        }
+
+        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
+      });
+
+      const { data, error } = await query;
       if (error) throw error;
-      
-      return (data || []).reduce((acc, item) => {
-        let isNull = item.valor === null || item.valor === undefined || String(item.valor).trim() === "";
-        let chave = isNull ? "##NULL##" : String(item.valor);
-        let exibicao = isNull ? "-" : String(item.valor);
-        if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) acc.push({ chave, exibicao });
-        return acc;
-      }, []).sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+
+      const unicos = new Map();
+
+      (data || []).forEach(item => {
+        const valor = item[coluna];
+        const isNull = valor === null || valor === undefined || String(valor).trim() === "";
+        const chave = isNull ? "##NULL##" : String(valor);
+        const exibicao = isNull ? "-" : String(valor);
+
+        if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) {
+          if (!unicos.has(chave)) unicos.set(chave, { chave, exibicao });
+        }
+      });
+
+      return Array.from(unicos.values())
+        .sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+
     } catch (err) {
-      console.error("Erro ao buscar opções:", err); return [];
+      console.error("Erro ao buscar opções:", err);
+      return [];
     }
   };
 
@@ -740,7 +786,15 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const temFiltroAtivo = busca.trim().length > 0 || Object.values(filtrosColunas).some(r => Array.isArray(r) && r.length > 0);
-  const limparTodosFiltros = () => { setBusca(""); setFiltrosColunas({}); setPaginaAtual(1); setLimparFiltrosTrigger(p => p + 1); };
+  const limparTodosFiltros = () => {
+    setBusca("");
+    setFiltrosColunas({});
+    setPaginaAtual(1);
+    setLinhasSelecionadasIds([]);
+    setRegistroSelecionadoId(null);
+    setRegistroSelecionadoObj(null);
+    setLimparFiltrosTrigger(p => p + 1);
+  };
 
   const btnBase = { display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', height:'32px', padding:'0 12px', minWidth:'100px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600', boxShadow:'0 1px 2px rgba(0,0,0,0.02)' };
   const btnIco = { display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600' };
@@ -796,7 +850,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             Atualizando dados<span className="loading-dots"></span>
           </div>
         ) : (
-          <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas(f); setPaginaAtual(1); }} onFetchColumnOptions={buscarOpcoesColunaBanco} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />
+          <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }} onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />
         )}
       </div>
     </div>
