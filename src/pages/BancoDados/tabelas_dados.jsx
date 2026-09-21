@@ -191,7 +191,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
       }
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: ehProd ? 'planned' : 'exact' });
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
