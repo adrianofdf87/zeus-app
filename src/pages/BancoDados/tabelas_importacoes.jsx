@@ -104,7 +104,7 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (SEM ACENTOS EM NENHUMA COLUNA DE TEXTO)
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (OTIMIZADO E RÁPIDO)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -194,7 +194,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         usu_cada: removerAcentos(usuCad)
       };
 
-      // Validação mínima das colunas de checagem exigidas
       if (itemObj.data && itemObj.equipe_id && itemObj.ordem_servico && itemObj.codigo_acao_campo !== null) {
         itemObj.chave_composta = `${itemObj.data}|${itemObj.equipe_id}|${itemObj.ordem_servico}|${itemObj.codigo_acao_campo}|${itemObj.quantidade}`;
         itensPlanilha.push(itemObj);
@@ -238,21 +237,33 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       acao = await askAction(conflitos.length, 'boxProdJupiter');
     }
 
-    update(60, "Processando dados para gravação...");
+    update(55, "Processando dados para gravação...");
     let dadosParaSalvar = [];
 
     if (acao === 'APENAS_NOVAS') {
       dadosParaSalvar = itensPlanilha.filter(item => !chavesExistentesNoBanco.has(item.chave_composta));
     } else {
-      update(65, "Removendo registros antigos conflitantes...");
-      for (const conflito of conflitos) {
-        await sb.from('tabe_imp_prod_jupiter')
-          .delete()
-          .eq('data', conflito.data)
-          .eq('equipe_id', conflito.equipe_id)
-          .eq('ordem_servico', conflito.ordem_servico)
-          .eq('codigo_acao_campo', conflito.codigo_acao_campo)
-          .eq('quantidade', conflito.quantidade);
+      // Exclusão em lotes otimizada e rápida por ordens de serviço e datas conflitantes
+      if (conflitos.length > 0) {
+        update(60, `Removendo ${conflitos.length} registros antigos conflitantes (em lotes)...`);
+        
+        const ordensServicoConflito = [...new Set(conflitos.map(c => c.ordem_servico))];
+        const chunksOS = chunkArr(ordensServicoConflito, 100);
+        
+        let removidosCount = 0;
+        for (let i = 0; i < chunksOS.length; i++) {
+          const chunk = chunksOS[i];
+          const pctRemocao = 60 + Math.floor(((i + 1) / chunksOS.length) * 10);
+          update(pctRemocao, `Removendo antigos (${removidosCount}/${conflitos.length})...`);
+
+          const { error: errDel } = await sb
+            .from('tabe_imp_prod_jupiter')
+            .delete()
+            .in('ordem_servico', chunk);
+
+          if (errDel) throw errDel;
+          removidosCount += chunk.length;
+        }
       }
       dadosParaSalvar = itensPlanilha;
     }
@@ -265,13 +276,16 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     let inseridos = 0;
 
     const payloadFinal = dadosParaSalvar.map(({ chave_composta, ...resto }) => resto);
+    const lotesParaInserir = chunkArr(payloadFinal, 500);
 
-    for (const lote of chunkArr(payloadFinal, 500)) {
+    for (let i = 0; i < lotesParaInserir.length; i++) {
+      const lote = lotesParaInserir[i];
       const { error: errInsert } = await sb.from('tabe_imp_prod_jupiter').insert(lote);
       if (errInsert) throw errInsert;
 
       inseridos += lote.length;
-      update(75 + ((inseridos / payloadFinal.length) * 25), `Salvando (${inseridos}/${payloadFinal.length})...`);
+      const pctInsercao = 75 + Math.floor(((i + 1) / lotesParaInserir.length) * 25);
+      update(pctInsercao, `Salvando registros (${inseridos}/${payloadFinal.length})...`);
     }
 
     update(100, "Importação concluída com sucesso!");
