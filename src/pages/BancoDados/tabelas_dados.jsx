@@ -182,7 +182,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
       const termoBruto = busca.trim();
       let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
-      if (ehProd) colunasTexto = ['coordenador','supervisor','ordem','pep','status'];
+      
+      // Ajuste realizado aqui para refletir 'tipo_os' e 'num_os' na view de produtividade
+      if (ehProd) colunasTexto = ['coordenador', 'supervisor', 'tipo_os', 'num_os', 'pep', 'status'];
+      
       if (tabelaBd === 'tabe_imp_pep') {
         const colunasExtrasView = ['empresa','ano','regional','municipio','parceiro','area','grupo_atividade','pi','nota','pep','descricao','status','usu_cada'];
         colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
