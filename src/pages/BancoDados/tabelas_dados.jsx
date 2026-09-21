@@ -254,33 +254,36 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   }, [carregarDados]);
 
   const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
+    const normalizarOpcao = (valor) => {
+      const isNull = valor === null || valor === undefined || String(valor).trim() === "";
+      return { chave: isNull ? "##NULL##" : String(valor), exibicao: isNull ? "-" : String(valor) };
+    };
+
     if (coluna.startsWith('VALOR_')) {
-      const unicos = new Set();
+      const unicos = new Map();
       registros.forEach(r => {
-        if (r[coluna] !== undefined && r[coluna] !== null) unicos.add(String(r[coluna]));
+        if (r[coluna] !== undefined && r[coluna] !== null) {
+          const op = normalizarOpcao(r[coluna]);
+          unicos.set(op.chave, op);
+        }
       });
-      return Array.from(unicos)
-        .map(v => ({ chave: v, exibicao: v }))
-        .filter(item => !termo || item.exibicao.toLowerCase().includes(termo.toLowerCase()))
+      return Array.from(unicos.values())
+        .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
         .sort((a, b) => a.exibicao.localeCompare(b.exibicao));
     }
 
     try {
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
-
-      // Mantém os filtros já aplicados nas OUTRAS colunas.
-      // O filtro da própria coluna é retirado para que o usuário possa
-      // trocar/expandir os valores sem perder as demais restrições.
-      const filtrosOutrasColunas = { ...filtrosAtuais };
+      const filtrosOutrasColunas = { ...(filtrosAtuais || {}) };
       delete filtrosOutrasColunas[coluna];
 
-      let query = supabase.from(tabelaDistintos).select(coluna);
+      let queryBase = supabase.from(tabelaDistintos).select(coluna);
 
       Object.keys(filtrosOutrasColunas).forEach(col => {
         if (col.startsWith('VALOR_')) return;
 
         const regras = filtrosOutrasColunas[col];
-        if (!regras || regras.length === 0) return;
+        if (!Array.isArray(regras) || regras.length === 0) return;
 
         const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
         const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
@@ -291,39 +294,44 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           const vals = exatos.filter(v => v !== "##NULL##");
 
           if (temNull && vals.length > 0) {
-            query = query.or(`${col}.in.(${vals.join(',')}),${col}.is.null`);
+            const valoresIn = vals
+              .map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+              .join(",");
+            queryBase = queryBase.or(`${col}.in.(${valoresIn}),${col}.is.null`);
           } else if (temNull) {
-            query = query.is(col, null);
+            queryBase = queryBase.is(col, null);
           } else {
-            query = query.in(col, vals);
+            queryBase = queryBase.in(col, vals);
           }
         }
 
-        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
-        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
+        if (maiorQue !== undefined && maiorQue !== "") queryBase = queryBase.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") queryBase = queryBase.lte(col, Number(menorQue));
       });
-
-      const { data, error } = await query;
-      if (error) throw error;
 
       const unicos = new Map();
+      let inicio = 0;
+      const limite = 1000;
+      let continuar = true;
 
-      (data || []).forEach(item => {
-        const valor = item[coluna];
-        const isNull = valor === null || valor === undefined || String(valor).trim() === "";
-        const chave = isNull ? "##NULL##" : String(valor);
-        const exibicao = isNull ? "-" : String(valor);
+      while (continuar) {
+        const { data, error } = await queryBase.range(inicio, inicio + limite - 1);
+        if (error) throw error;
 
-        if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) {
-          if (!unicos.has(chave)) unicos.set(chave, { chave, exibicao });
-        }
-      });
+        (data || []).forEach(item => {
+          const op = normalizarOpcao(item[coluna]);
+          unicos.set(op.chave, op);
+        });
+
+        continuar = (data || []).length === limite;
+        inicio += limite;
+      }
 
       return Array.from(unicos.values())
-        .sort((a, b) => a.exibicao.localeCompare(b.exibicao));
-
+        .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
+        .sort((a, b) => a.exibicao.localeCompare(b.exibicao, 'pt-BR', { numeric: true, sensitivity: 'base' }));
     } catch (err) {
-      console.error("Erro ao buscar opções:", err);
+      console.error("Erro ao buscar opções em cascata:", err);
       return [];
     }
   };
@@ -786,15 +794,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const temFiltroAtivo = busca.trim().length > 0 || Object.values(filtrosColunas).some(r => Array.isArray(r) && r.length > 0);
-  const limparTodosFiltros = () => {
-    setBusca("");
-    setFiltrosColunas({});
-    setPaginaAtual(1);
-    setLinhasSelecionadasIds([]);
-    setRegistroSelecionadoId(null);
-    setRegistroSelecionadoObj(null);
-    setLimparFiltrosTrigger(p => p + 1);
-  };
+  const limparTodosFiltros = () => { setBusca(""); setFiltrosColunas({}); setPaginaAtual(1); setLimparFiltrosTrigger(p => p + 1); };
 
   const btnBase = { display:'flex', alignItems:'center', justifyContent:'center', gap:'6px', height:'32px', padding:'0 12px', minWidth:'100px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600', boxShadow:'0 1px 2px rgba(0,0,0,0.02)' };
   const btnIco = { display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600' };
