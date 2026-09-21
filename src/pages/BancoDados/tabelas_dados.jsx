@@ -29,7 +29,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
-  // Lista completa de tabelas avançadas que NÃO devem ter botões Novo e Editar funcionais/visíveis
   const tabelasAvancadasSemCrudManual = [
     'tabe_imp_pep',
     'tabe_imp_pep_local',
@@ -190,7 +189,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
 
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
+      
+      // Contagem otimizada para evitar statement timeout em views pesadas
+      const tipoContagem = tabelaBd === 'view_dados_produtividade' ? 'estimated' : 'exact';
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: tipoContagem });
       query = aplicarFiltrosAuxiliares(query);
 
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
@@ -210,9 +212,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       setTotalBanco(count || 0);
       let dadosTratados = data || [];
 
-      // Tratamento leve e otimizado no Front-end para a View de Produtividade
       if (tabelaBd === 'view_dados_produtividade') {
-        // 1. Agrupa e consolida os dados crus da página atual por Ordem de Serviço
         const mapaOrdens = {};
         const todosMesesSet = new Set();
 
@@ -247,7 +247,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
         const listaMeses = Array.from(todosMesesSet).sort().reverse();
 
-        // 2. Converte o mapa em array final preenchendo com 0 os meses ausentes
         dadosTratados = Object.values(mapaOrdens).map(item => {
           const novaLinha = {
             id: item.id,
@@ -673,7 +672,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const abrirFormRegistroTabela = async (editandoObj = null) => {
-    // Se for tabela avançada, bloqueia a execução do formulário
     if (ehTabelaAvancada) return;
 
     const editId = editandoObj?.id, editando = Boolean(editId), rowData = editandoObj || {};
@@ -804,7 +802,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
           
-          {/* Botões Novo e Editar renderizados apenas se NÃO for tabela avançada */}
           {exibirBotoesCrudManual && (
             <>
               <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>
