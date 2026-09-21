@@ -29,6 +29,22 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
+  // Lista completa de tabelas avançadas que NÃO devem ter botões Novo e Editar funcionais/visíveis
+  const tabelasAvancadasSemCrudManual = [
+    'tabe_imp_pep',
+    'tabe_imp_pep_local',
+    'tabe_imp_ltg_proj',
+    'tabe_imp_pep_lto',
+    'view_dados_servicos_proj',
+    'tabe_imp_equipes_jupiter',
+    'tabe_cad_carteira',
+    'tabe_imp_caderno_servico',
+    'tabe_imp_prod_jupiter'
+  ];
+
+  const ehTabelaAvancada = tabelasAvancadasSemCrudManual.includes(tabelaBd);
+  const exibirBotoesCrudManual = permitsCrud && !ehTabelaAvancada;
+
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
   const userIdKey = sessaoUsuario.id || sessaoUsuario.email || 'geral';
   const getEl = (id) => document.getElementById(id);
@@ -197,7 +213,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       setTotalBanco(count || 0);
       
       let dadosTratados = data || [];
-      // Se for a view de serviços ou a tabela correspondente, força o total_proj a ser tratado como string numérica simples sem o formato monetário automático do DataTable
       if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
         dadosTratados = dadosTratados.map(row => ({
           ...row,
@@ -405,8 +420,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       colsImp = (await obterEstruturaTabela(tabelaBd)).filter(c => !c.oculta && !sysFields.includes(String(c.nome_coluna).toLowerCase()));
     } catch (e) { return Swal.fire('Erro', 'Não foi possível descobrir a estrutura: ' + e.message, 'error'); }
 
-    let optHtml = permitsCrud ? `<option value="PADRAO" selected>Importação Padrão (${titulo || tabelaBd})</option>` : '';
-    if (cfgEspecial) optHtml += `<option value="ESPECIAL" ${!permitsCrud ? 'selected' : ''}>${cfgEspecial.nomeFantasia}</option>`;
+    let optHtml = !ehTabelaAvancada ? `<option value="PADRAO" selected>Importação Padrão (${titulo || tabelaBd})</option>` : '';
+    if (cfgEspecial) optHtml += `<option value="ESPECIAL" ${ehTabelaAvancada ? 'selected' : ''}>${cfgEspecial.nomeFantasia}</option>`;
 
     Swal.fire({
       ...swalDefault,
@@ -602,6 +617,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const abrirFormRegistroTabela = async (editandoObj = null) => {
+    // Se for tabela avançada, bloqueia a execução do formulário
+    if (ehTabelaAvancada) return;
+
     const editId = editandoObj?.id, editando = Boolean(editId), rowData = editandoObj || {};
     const nmUsr = getNomeUsuarioLogado();
     try {
@@ -729,8 +747,15 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={14} /> Exportar</button>
           <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
-          {permitsCrud && <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>}
-          {permitsCrud && <button onClick={() => abrirFormRegistroTabela(registroSelecionadoObj)} disabled={!registroSelecionadoId} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155', opacity:registroSelecionadoId ? 1 : 0.4, cursor:registroSelecionadoId ? 'pointer' : 'not-allowed' }}><Edit2 size={14} /> Editar</button>}
+          
+          {/* Botões Novo e Editar renderizados apenas se NÃO for tabela avançada */}
+          {exibirBotoesCrudManual && (
+            <>
+              <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>
+              <button onClick={() => abrirFormRegistroTabela(registroSelecionadoObj)} disabled={!registroSelecionadoId} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155', opacity:registroSelecionadoId ? 1 : 0.4, cursor:registroSelecionadoId ? 'pointer' : 'not-allowed' }}><Edit2 size={14} /> Editar</button>
+            </>
+          )}
+
           <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={14} /> Excluir</button>
         </div>
       </div>
@@ -745,4 +770,4 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       </div>
     </div>
   );
-} 
+}
