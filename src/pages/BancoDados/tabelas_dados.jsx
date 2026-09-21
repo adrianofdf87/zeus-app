@@ -172,77 +172,44 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const carregarDados = useCallback(async (isBackground = false) => {
     setLoading(true);
-    if (!isBackground) { setRegistros([]); }
-
+    if (!isBackground) setRegistros([]);
     try {
       let estData = estrutura;
-      if (estData.length === 0 && tabelaBd !== 'view_dados_produtividade') {
+      const ehProd = tabelaBd === 'view_dados_produtividade';
+      if (estData.length === 0 && !ehProd) {
         estData = await obterEstruturaTabela(tabelaBd);
         setEstrutura(estData);
       }
-
       const termoBruto = busca.trim();
-      
       let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
+      if (ehProd) colunasTexto = ['coordenador','supervisor','ordem','pep','status'];
       if (tabelaBd === 'tabe_imp_pep') {
-        const colunasExtrasView = ['empresa', 'ano', 'regional', 'municipio', 'parceiro', 'area', 'grupo_atividade', 'pi', 'nota', 'pep', 'descricao', 'status', 'usu_cada'];
+        const colunasExtrasView = ['empresa','ano','regional','municipio','parceiro','area','grupo_atividade','pi','nota','pep','descricao','status','usu_cada'];
         colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
       }
-
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: ehProd ? 'planned' : 'exact' });
       query = aplicarFiltrosAuxiliares(query);
-
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
-        
-        if (termoLimpo.length > 0) {
-          const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
-
-          if (condicoes.length > 0) {
-            query = query.or(condicoes.join(','));
-          }
-        }
+        if (termoLimpo.length > 0) query = query.or(colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`).join(','));
       }
-
-      const { data, count, error } = await query
-        .range(from, from + registrosPorPagina - 1)
-        .order('id', { ascending: true });
-
+      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order('id', { ascending: true });
       if (error) throw error;
-
       setTotalBanco(count || 0);
-      
       let dadosTratados = data || [];
-
-      // Herda automaticamente todas as colunas nuevas (pep, status, etc.) e expande os Meses
-      if (tabelaBd === 'view_dados_produtividade') {
+      if (ehProd) {
         dadosTratados = dadosTratados.map(row => {
           const mesesObj = row.Meses || row.meses || {};
-          const novaLinha = { ...row }; 
-          delete novaLinha.Meses; 
-          delete novaLinha.meses;
-
-          if (typeof mesesObj === 'object' && mesesObj !== null) {
-            Object.keys(mesesObj).forEach(mesKey => {
-              const nomeColunaMes = `VALOR_${mesKey}`;
-              novaLinha[nomeColunaMes] = mesesObj[mesKey];
-            });
-          }
-
+          const novaLinha = { ...row };
+          delete novaLinha.Meses; delete novaLinha.meses;
+          if (typeof mesesObj === 'object' && mesesObj !== null) Object.keys(mesesObj).forEach(mesKey => novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey]);
           return novaLinha;
         });
       }
-
       if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
-        dadosTratados = dadosTratados.map(row => ({
-          ...row,
-          total_proj: row.total_proj !== null && row.total_proj !== undefined 
-            ? Number(row.total_proj).toFixed(2).replace('.', ',')
-            : row.total_proj
-        }));
+        dadosTratados = dadosTratados.map(row => ({ ...row, total_proj: row.total_proj !== null && row.total_proj !== undefined ? Number(row.total_proj).toFixed(2).replace('.', ',') : row.total_proj }));
       }
-
       setRegistros(dadosTratados);
     } catch (err) {
       Swal.fire('Erro', 'Erro ao carregar dados: ' + err.message, 'error');
@@ -382,17 +349,22 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         baseExport = linhasSelecionadasIds?.length > 0 ? registros.filter(r => linhasSelecionadasIds.includes(r.id)) : registros;
         updateProgress('export', 35, `Preparando ${baseExport.length.toLocaleString('pt-BR')} registro(s)...`); await pausa();
       } else {
-        updateProgress('export', 10, 'Consultando total de registros...');
-        const { count, error: countErr } = await supabase.from(tabelaOuViewQuery).select('id', { count: 'exact', head: true });
-        if (countErr) throw countErr;
-        if (!count) return updateProgress('export', 100, '<span style="color:#d97706;font-weight:600;">Nenhum registro para exportar.</span>');
-        let inicio = 0;
-        while (inicio < count) {
+        const ehProd = tabelaBd === 'view_dados_produtividade';
+        let count = null, inicio = 0, buscar = true;
+        if (!ehProd) {
+          updateProgress('export', 10, 'Consultando total de registros...');
+          const r = await supabase.from(tabelaOuViewQuery).select('id', { count: 'exact', head: true });
+          if (r.error) throw r.error;
+          count = r.count || 0;
+          if (!count) return updateProgress('export', 100, '<span style="color:#d97706;font-weight:600;">Nenhum registro para exportar.</span>');
+        } else updateProgress('export', 10, 'Consultando dados da produtividade...');
+        while (buscar && (ehProd || inicio < count)) {
           const { data, error } = await supabase.from(tabelaOuViewQuery).select('*').order('id', { ascending: true }).range(inicio, inicio + 999);
           if (error) throw error;
           if (!data?.length) break;
-          baseExport.push(...data); inicio += data.length;
-          updateProgress('export', Math.min(90, Math.round((baseExport.length / count) * 85) + 10), `Carregando... ${baseExport.length}/${count}`);
+          baseExport.push(...data); inicio += data.length; buscar = data.length === 1000;
+          const pct = ehProd ? Math.min(90, 10 + Math.floor(baseExport.length / 100)) : Math.min(90, Math.round((baseExport.length / count) * 85) + 10);
+          updateProgress('export', pct, `Carregando... ${baseExport.length}${count ? `/${count}` : ''}`);
           await pausa();
         }
       }
