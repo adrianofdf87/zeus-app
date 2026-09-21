@@ -207,7 +207,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           const novaLinha = { ...row };
           delete novaLinha.Meses; delete novaLinha.meses;
           if (typeof mesesObj === 'object' && mesesObj !== null) Object.keys(mesesObj).forEach(mesKey => novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey]);
-          return novaLinha;
+          return novaLinha; // corrigido para retornar o objeto atualizado
         });
       }
 
@@ -266,21 +266,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     }
 
     try {
-      // Cascade support: Se temos dados locais carregados na página que já consideram os filtros cruzados, extraímos os distintos diretamente deles
-      if (registros.length > 0) {
-        const unicos = new Set();
-        registros.forEach(r => {
-          let val = r[coluna];
-          let isNull = (val === null || val === undefined || String(val).trim() === "");
-          let chave = isNull ? "##NULL##" : String(val);
-          let exibicao = isNull ? "-" : String(val);
-          if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) {
-            unicos.add(JSON.stringify({ chave, exibicao }));
-          }
-        });
-        return Array.from(unicos).map(item => JSON.parse(item)).sort((a, b) => a.exibicao.localeCompare(b.exibicao));
-      }
-
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
       const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: tabelaDistintos, p_coluna: coluna });
       if (error) throw error;

@@ -24,7 +24,6 @@ const formatarDado = (valor, coluna) => {
       return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
     }
   }
-  
   return String(valor);
 };
 
@@ -299,60 +298,17 @@ export default function DataTable({
 
   const colunasVisiveis = colunasTabela.filter(c => !colunasOcultas.includes(c));
 
-  // Cascata: Filtra as opções da coluna considerando os filtros das *outras* colunas aplicados no escopo atual
+  // Opções combinando os dados do banco (que já traz todos os distintos) e pesquisa dinâmica caso busque algo específico
   const opcoesFiltroAtual = useMemo(() => {
-    const coluna = menuAtivo?.coluna;
-    if (!coluna) return [];
-
     let baseOpcoes = [];
 
-    // Se temos dados carregados na página/memória, podemos derivar opções cruzadas em cascata perfeitamente
-    if (data.length > 0) {
-      // Cria uma cópia dos filtros globais ignorando a coluna atual para simular o efeito cascata
-      const filtrosExcetoAtual = { ...filtrosGlobais };
-      delete filtrosExcetoAtual[coluna];
-
-      const dadosFiltradosPelasOutrasColunas = data.filter(item => {
-        for (let col in filtrosExcetoAtual) {
-          const regras = filtrosExcetoAtual[col];
-          if (!regras || regras.length === 0) continue;
-
-          let valBruto = item[col];
-          let valNum = parseFloat(valBruto);
-          let valStr = valBruto === null || valBruto === undefined || String(valBruto).trim() === "" ? "##NULL##" : String(valBruto);
-
-          const numFilters = regras.filter(f => f.startsWith(">=|") || f.startsWith("<=|"));
-          const exactFilters = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
-
-          let passaNum = true;
-          if (numFilters.length > 0) {
-            if (isNaN(valNum)) passaNum = false;
-            else {
-              for (let nf of numFilters) {
-                if (nf.startsWith(">=|") && valNum < parseFloat(nf.split(">=|")[1])) passaNum = false;
-                if (nf.startsWith("<=|") && valNum > parseFloat(nf.split("<=|")[1])) passaNum = false;
-              }
-            }
-          }
-
-          let passaExact = true;
-          if (exactFilters.length > 0) {
-            passaExact = exactFilters.includes(valStr);
-          }
-
-          if (numFilters.length > 0 && exactFilters.length > 0) {
-            if (!passaNum && !passaExact) return false;
-          } else if (numFilters.length > 0 && !passaNum) {
-            return false;
-          } else if (exactFilters.length > 0 && !passaExact) {
-            return false;
-          }
-        }
-        return true;
-      });
-
+    if (opcoesBancoColuna.length > 0) {
+      baseOpcoes = opcoesBancoColuna;
+    } else {
+      const coluna = menuAtivo?.coluna;
+      if (!coluna) return [];
       const vistos = new Set();
-      dadosFiltradosPelasOutrasColunas.forEach(item => {
+      data.forEach(item => {
         let val = item[coluna];
         let isNull = (val === null || val === undefined || String(val).trim() === "");
         let chave = isNull ? "##NULL##" : String(val);
@@ -362,15 +318,18 @@ export default function DataTable({
           baseOpcoes.push({ chave, exibicao });
         }
       });
-    } else if (opcoesBancoColuna.length > 0) {
-      baseOpcoes = opcoesBancoColuna;
     }
 
+    // Filtragem local pelo termo digitado
     if (!termoBuscaFiltro) return baseOpcoes.sort((a, b) => a.exibicao.localeCompare(b.exibicao));
 
     const termoLower = termoBuscaFiltro.toLowerCase();
-    return baseOpcoes.filter(op => op.exibicao.toLowerCase().includes(termoLower)).sort((a, b) => a.exibicao.localeCompare(b.exibicao));
-  }, [opcoesBancoColuna, menuAtivo, data, termoBuscaFiltro, filtrosGlobais]);
+    const filtradasLocal = baseOpcoes.filter(op => op.exibicao.toLowerCase().includes(termoLower));
+
+    // Se o usuário digitou algo e não encontrou localmente nas opções carregadas, podemos simular ou garantir que o banco cubra.
+    // Como `opcoesBancoColuna` já puxa todos os distintos do banco, se não achar nem lá, retornará vazio.
+    return filtradasLocal.sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+  }, [opcoesBancoColuna, menuAtivo, data, termoBuscaFiltro]);
 
   const temFiltroNaColunaAtual = menuAtivo && menuAtivo.tipo === 'excel' && filtrosGlobais[menuAtivo.coluna] && filtrosGlobais[menuAtivo.coluna].length > 0;
   const temQualquerFiltroAtivo = Object.keys(filtrosGlobais).some(col => filtrosGlobais[col] && filtrosGlobais[col].length > 0);
@@ -394,8 +353,7 @@ export default function DataTable({
               </th>
 
               {colunasVisiveis.map((col, idx) => {
-                const temFiltroCol = filtrosGlobais[col] && filtrosGlobais[col].length > 0;
-                const ativo = temFiltroCol || ordenacao.coluna === col;
+                const ativo = (filtrosGlobais[col] && filtrosGlobais[col].length > 0) || ordenacao.coluna === col;
                 const nomeExibicao = colunasApelidos[col] || col.toUpperCase();
 
                 return (
@@ -414,18 +372,16 @@ export default function DataTable({
                       localStorage.setItem(`${tableId}_ordem`, JSON.stringify(novas));
                       setDraggedColIdx(null);
                     }}
-                    className={`draggable-th ${temFiltroCol ? 'coluna-com-filtro-ativo' : ''}`}
-                    style={temFiltroCol ? { backgroundColor: '#e0f2fe' } : {}}
+                    className="draggable-th"
                   >
                     <div className="th-cell-container" onClick={(e) => abrirMenuExcel(col, e)}>
-                      <span className="th-title-text" title={nomeExibicao} style={temFiltroCol ? { fontWeight: 'bold', color: '#0369a1' } : {}}>
-                        {nomeExibicao} {temFiltroCol && ' 🔍'}
+                      <span className="th-title-text" title={nomeExibicao}>
+                        {nomeExibicao}
                       </span>
                       <div className="th-actions-group">
                         <button 
                           id={`btn_col_${col}`}
                           className={`excel-filter-btn ${ativo ? 'active' : ''}`}
-                          style={temFiltroCol ? { backgroundColor: '#0284c7', color: '#fff' } : {}}
                         >
                           <ChevronDown size={14} />
                         </button>
@@ -499,15 +455,15 @@ export default function DataTable({
             <div className="page-buttons-group">
               <button disabled={paginaAtual === 1} onClick={() => onPageChange && onPageChange(1)} title="Primeira Página">
                 <div style={{ display: 'flex', marginLeft: '-2px' }}><ChevronLeft size={14} /><ChevronLeft size={14} style={{ marginLeft: '-6px' }} /></div>
-              </button>          
+              </button>           
               
               <button disabled={paginaAtual === 1} onClick={() => onPageChange && onPageChange(paginaAtual - 1)} title="Página Anterior">
                 <ChevronLeft size={14}/>
-              </button>          
+              </button>           
               
               <button disabled={paginaAtual === totalPaginas} onClick={() => onPageChange && onPageChange(paginaAtual + 1)} title="Próxima Página">
                 <ChevronRight size={14}/>
-              </button>          
+              </button>           
               
               <button disabled={paginaAtual === totalPaginas} onClick={() => onPageChange && onPageChange(totalPaginas)} title="Última Página">
                 <div style={{ display: 'flex', marginRight: '-2px' }}><ChevronRight size={14} /><ChevronRight size={14} style={{ marginLeft: '-6px' }} /></div>
