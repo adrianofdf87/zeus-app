@@ -215,20 +215,31 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       
       let dadosTratados = data || [];
 
-      // Herda automaticamente todas as colunas nuevas (pep, status, etc.) e expande os Meses
+      // Tratamento universal: Garante que TODAS as linhas exibam TODOS os meses presentes na base com o prefixo VALOR_
       if (tabelaBd === 'view_dados_produtividade') {
+        // 1. Varre todos os registros para extrair o conjunto completo de meses existentes na página/base
+        const todosMesesSet = new Set();
+        dadosTratados.forEach(row => {
+          const mObj = row.Meses || row.meses || {};
+          if (typeof mObj === 'object' && mObj !== null) {
+            Object.keys(mObj).forEach(mes => todosMesesSet.add(mes));
+          }
+        });
+        // Ordena os meses em ordem decrescente (ex: 2026-09, 2026-08...)
+        const listaTodosMeses = Array.from(todosMesesSet).sort().reverse();
+
+        // 2. Mapeia cada linha injetando o valor real ou 0 para cada mês universal
         dadosTratados = dadosTratados.map(row => {
           const mesesObj = row.Meses || row.meses || {};
           const novaLinha = { ...row }; 
           delete novaLinha.Meses; 
           delete novaLinha.meses;
 
-          if (typeof mesesObj === 'object' && mesesObj !== null) {
-            Object.keys(mesesObj).forEach(mesKey => {
-              const nomeColunaMes = `VALOR_${mesKey}`;
-              novaLinha[nomeColunaMes] = mesesObj[mesKey];
-            });
-          }
+          listaTodosMeses.forEach(mesKey => {
+            const nomeColunaMes = `VALOR_${mesKey}`;
+            // Se a ordem tem valor no mês, exibe; senão, preenche com 0
+            novaLinha[nomeColunaMes] = (mesesObj[mesKey] !== undefined && mesesObj[mesKey] !== null) ? mesesObj[mesKey] : 0;
+          });
 
           return novaLinha;
         });
