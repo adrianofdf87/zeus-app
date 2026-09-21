@@ -1,17 +1,25 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../services/supabase";
-import { Table, Filter, RotateCcw } from "lucide-react";
+import Swal from "sweetalert2";
+import { 
+  TrendingUp, DollarSign, FileText, Table, Filter, X, 
+  ArrowUp, ArrowDown, RefreshCw, LayoutGrid, AlignJustify 
+} from "lucide-react";
+import "./tabelas_internas.css"; // Reaproveita a mesma folha de estilos padrão do sistema
 
 export default function Producao() {
   const [loading, setLoading] = useState(true);
   const [todosDados, setTodosDados] = useState([]);
-  const [dadosFiltrados, setDadosFiltrados] = useState([]);
+  const [filtrosAtivos, setFiltrosAtivos] = useState({ mes: 'TODOS', tipo: 'TODOS' });
+  const [tipoFiltroAtual, setTipoFiltroAtual] = useState('mes');
+  const [valorFiltroSelect, setValorFiltroSelect] = useState('TODOS');
   
-  // Opções e estados dos filtros
   const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
   const [tiposDisponiveis, setTiposDisponiveis] = useState([]);
-  const [filtroMes, setFiltroMes] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("");
+
+  // Estados de Ordenação da Tabela de Resumo
+  const [ordenacaoCampo, setOrdenacaoCampo] = useState('soma_valor_proj');
+  const [ordenacaoDirecao, setOrdenacaoDirecao] = useState('desc');
 
   const [totaisGerais, setTotaisGerais] = useState({
     qtdOs: 0,
@@ -20,13 +28,23 @@ export default function Producao() {
   });
   const [dadosProcessadosTabela, setDadosProcessadosTabela] = useState([]);
 
+  const AlertaLimpo = Swal.mixin({
+    showCancelButton: false,
+    showConfirmButton: true,
+    confirmButtonText: 'OK',
+    allowOutsideClick: false,
+    allowEscapeKey: true,
+    buttonsStyling: true,
+    customClass: {
+      popup: 'swal-feedback',
+      confirmButton: 'swal-botao-ok-curto',
+      cancelButton: 'swal-esconder-cancelamento'
+    }
+  });
+
   useEffect(() => {
     carregarTodosDadosProdutividade();
   }, []);
-
-  useEffect(() => {
-    aplicarFiltrosEProcessar();
-  }, [todosDados, filtroMes, filtroTipo]);
 
   const carregarTodosDadosProdutividade = async () => {
     try {
@@ -61,8 +79,9 @@ export default function Producao() {
 
       setTodosDados(allData);
       extrairOpcoesFiltros(allData);
+      processarDados(allData, filtrosAtivos);
     } catch (error) {
-      console.error("Erro ao carregar dados de produtividade:", error.message);
+      AlertaLimpo.fire({ icon: "error", title: "Erro", text: "Não foi possível carregar os dados de produtividade: " + error.message });
     } finally {
       setLoading(false);
     }
@@ -75,10 +94,17 @@ export default function Producao() {
     dados.forEach((item) => {
       if (item.tipo_os) tiposSet.add(item.tipo_os);
 
-      const campoData = item.data || item.data_criacao || item.data_programacao || item.mes || item.data_execucao;
-      if (campoData) {
-        const dataStr = String(campoData).substring(0, 7);
-        if (dataStr.length === 7) mesesSet.add(dataStr);
+      // Tratamento robusto caso 'meses' seja um campo JSON ou string de data comum
+      const campoMesOuData = item.meses || item.mes || item.data || item.data_criacao || item.data_programacao;
+      if (campoMesOuData) {
+        try {
+          // Se for JSON ou string serializada, tenta tratar
+          let parsed = typeof campoMesOuData === 'string' ? campoMesOuData : JSON.stringify(campoMesOuData);
+          const dataStr = parsed.substring(0, 7);
+          if (dataStr.length === 7) mesesSet.add(dataStr);
+        } catch (e) {
+          // Ignora se formato inválido
+        }
       }
     });
 
@@ -87,40 +113,63 @@ export default function Producao() {
     const mesesOrdenados = Array.from(mesesSet).sort().map((m) => {
       const [ano, mes] = m.split("-");
       const nomeMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-      const label = `${nomeMeses[parseInt(mes, 10) - 1]} / ${ano}`;
+      const label = `${nomeMeses[parseInt(mes, 10) - 1] || 'Mês'} / ${ano}`;
       return { valor: m, label };
     });
 
     setMesesDisponiveis(mesesOrdenados);
   };
 
-  const aplicarFiltrosEProcessar = () => {
-    let filtrados = [...todosDados];
+  const adicionarFiltroDinamico = () => {
+    setFiltrosAtivos(prev => {
+      const novosFiltros = { ...prev };
+      if (tipoFiltroAtual === 'mes') {
+        novosFiltros.mes = valorFiltroSelect;
+      } else if (tipoFiltroAtual === 'tipo') {
+        novosFiltros.tipo = valorFiltroSelect;
+      }
+      processarDados(todosDados, novosFiltros);
+      return novosFiltros;
+    });
+  };
 
-    if (filtroTipo) {
-      filtrados = filtrados.filter(item => item.tipo_os === filtroTipo);
+  const removerFiltro = (tipo) => {
+    setFiltrosAtivos(prev => {
+      const novosFiltros = { ...prev, [tipo]: 'TODOS' };
+      processarDados(todosDados, novosFiltros);
+      return novosFiltros;
+    });
+  };
+
+  const limparTodosFiltros = () => {
+    const filtrosLimpos = { mes: 'TODOS', tipo: 'TODOS' };
+    setFiltrosAtivos(filtrosLimpos);
+    setValorFiltroSelect('TODOS');
+    processarDados(todosDados, filtrosLimpos);
+  };
+
+  const processarDados = (dados, filtros) => {
+    let filtrados = [...dados];
+
+    if (filtros.tipo && filtros.tipo !== 'TODOS') {
+      filtrados = filtrados.filter(item => item.tipo_os === filtros.tipo);
     }
 
-    if (filtroMes) {
+    if (filtros.mes && filtros.mes !== 'TODOS') {
       filtrados = filtrados.filter(item => {
-        const campoData = item.data || item.data_criacao || item.data_programacao || item.mes || item.data_execucao;
-        if (!campoData) return false;
-        return String(campoData).startsWith(filtroMes);
+        const campoMesOuData = item.meses || item.mes || item.data || item.data_criacao || item.data_programacao;
+        if (!campoMesOuData) return false;
+        return String(campoMesOuData).startsWith(filtros.mes);
       });
     }
 
-    setDadosFiltrados(filtrados);
-    processarDadosTabela(filtrados);
-  };
-
-  const processarDadosTabela = (dados) => {
     let somaGeralProj = 0;
     let somaGeralProd = 0;
     let qtdOsTotal = 0;
 
     const agrupado = {};
 
-    dados.forEach((item) => {
+    filtrados.forEach((item) => {
       const tipo = item.tipo_os || "Não Definido";
       const valProj = Number(item.valor_proj) || 0;
       const valProd = Number(item.valor_prod) || 0;
@@ -160,17 +209,43 @@ export default function Producao() {
       };
     });
 
-    resultadoFinal.sort((a, b) => b.soma_valor_proj - a.soma_valor_proj);
     setDadosProcessadosTabela(resultadoFinal);
   };
 
-  const limparFiltros = () => {
-    setFiltroMes("");
-    setFiltroTipo("");
+  // Ordenação da Tabela Consolidada
+  const dadosTabelaOrdenados = [...dadosProcessadosTabela].sort((a, b) => {
+    let valorA = a[ordenacaoCampo];
+    let valorB = b[ordenacaoCampo];
+
+    if (valorA === undefined || valorA === null) valorA = '';
+    if (valorB === undefined || valorB === null) valorB = '';
+
+    if (typeof valorA === 'string') valorA = valorA.toLowerCase();
+    if (typeof valorB === 'string') valorB = valorB.toLowerCase();
+
+    if (valorA < valorB) return ordenacaoDirecao === 'asc' ? -1 : 1;
+    if (valorA > valorB) return ordenacaoDirecao === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const alternarOrdenacao = (campo) => {
+    if (ordenacaoCampo === campo) {
+      setOrdenacaoDirecao(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setOrdenacaoCampo(campo);
+      setOrdenacaoDirecao('asc');
+    }
   };
 
   const formatarMoeda = (valor) => {
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const temFiltroAtivo = filtrosAtivos.mes !== 'TODOS' || filtrosAtivos.tipo !== 'TODOS';
+
+  const alturaUnificadaEstilo = {
+    height: '32px',
+    boxSizing: 'border-box'
   };
 
   if (loading) {
@@ -184,78 +259,76 @@ export default function Producao() {
   }
 
   return (
-    <div style={{ padding: '16px 20px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
-      
-      {/* Cabeçalho Compacto */}
-      <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '0 0 2px 0' }}>
-            Dashboard de Produtividade
-          </h2>
-          <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-            Visão consolidada por Tipo de OS (<code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px', color: '#0284c7' }}>view_dados_produtividade</code>)
-          </p>
+    <div className="data-apoio-container">
+      {/* HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', background: '#ffffff', padding: '10px 16px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ backgroundColor: '#0284c7', color: '#fff', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,85,150,0.2)' }}>
+            <TrendingUp size={16} />
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a', fontWeight: '700', lineHeight: '1.2' }}>Dashboard de Produtividade</h2>
+            <p style={{ margin: '1px 0 0 0', fontSize: '0.72rem', color: '#64748b' }}>Visão consolidada por Tipo de OS (view_dados_produtividade).</p>
+          </div>
         </div>
+
         <button 
+          className="btn-adicionar-card-global" 
+          style={{ ...alturaUnificadaEstilo, position: 'relative', top: 'auto', right: 'auto', padding: '0 14px', fontSize: '0.85rem' }} 
           onClick={carregarTodosDadosProdutividade}
-          style={{ background: '#005596', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'background 0.2s' }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#0284c7'}
-          onMouseLeave={(e) => e.currentTarget.style.background = '#005596'}
         >
-          Atualizar Dados
+          <RefreshCw size={14} />
+          <span>Atualizar Dados</span>
         </button>
       </div>
 
-      {/* Div de Filtros */}
-      <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>
-          <Filter size={15} color="#005596" />
-          <span>Filtros:</span>
-        </div>
+      {/* FILTER BAR & CONTROLES DE ORDENAÇÃO */}
+      <div className="filter-bar">
+        <div className="filter-controls-wrapper">
+          <div className="filter-select-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <select className="filter-control-field" style={alturaUnificadaEstilo} value={tipoFiltroAtual} onChange={(e) => { setTipoFiltroAtual(e.target.value); setValorFiltroSelect('TODOS'); }}>
+              <option value="mes">Filtrar por Mês</option>
+              <option value="tipo">Filtrar por Tipo de OS</option>
+            </select>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Mês:</span>
-          <select 
-            value={filtroMes} 
-            onChange={(e) => setFiltroMes(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', color: '#0f172a', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
-          >
-            <option value="">Todos os Meses</option>
-            {mesesDisponiveis.map((m, idx) => (
-              <option key={idx} value={m.valor}>{m.label}</option>
-            ))}
-          </select>
-        </div>
+            <select className="filter-control-field" style={alturaUnificadaEstilo} value={valorFiltroSelect} onChange={(e) => setValorFiltroSelect(e.target.value)}>
+              <option value="TODOS">TODOS</option>
+              {tipoFiltroAtual === 'mes' 
+                ? mesesDisponiveis.map(m => <option key={m.valor} value={m.valor}>{m.label}</option>)
+                : tiposDisponiveis.map(t => <option key={t} value={t}>{t}</option>)
+              }
+            </select>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Tipo de OS:</span>
-          <select 
-            value={filtroTipo} 
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', color: '#0f172a', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
-          >
-            <option value="">Todos os Tipos</option>
-            {tiposDisponiveis.map((tipo, idx) => (
-              <option key={idx} value={tipo}>{tipo}</option>
-            ))}
-          </select>
-        </div>
+            <button type="button" className="filter-btn-aplicar" style={alturaUnificadaEstilo} onClick={adicionarFiltroDinamico}>
+              Adicionar Filtro
+            </button>
 
-        {(filtroMes || filtroTipo) && (
-          <button 
-            onClick={limparFiltros}
-            style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            <RotateCcw size={13} /> Limpar Filtros
-          </button>
-        )}
+            {temFiltroAtivo && (
+              <button type="button" className="filter-btn-limpar-todos" style={alturaUnificadaEstilo} onClick={limparTodosFiltros} title="Limpar todos os filtros">
+                <X size={11} /> Limpar Todos
+              </button>
+            )}
+          </div>
+
+          <div className="filter-badges-container" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+            {filtrosAtivos.mes !== 'TODOS' && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 500, border: '1px solid #bae6fd' }}>
+                <span>Mês: <strong>{mesesDisponiveis.find(m => m.valor === filtrosAtivos.mes)?.label || filtrosAtivos.mes}</strong></span>
+                <button onClick={() => removerFiltro('mes')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#0369a1', display: 'flex', alignItems: 'center', padding: 0 }}><X size={12} /></button>
+              </div>
+            )}
+            {filtrosAtivos.tipo !== 'TODOS' && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 500, border: '1px solid #bae6fd' }}>
+                <span>Tipo OS: <strong>{filtrosAtivos.tipo}</strong></span>
+                <button onClick={() => removerFiltro('tipo')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#0369a1', display: 'flex', alignItems: 'center', padding: 0 }}><X size={12} /></button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Tabela Compacta com Totais Integrados na Última Linha */}
-      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        
+      {/* TABELA DE RESULTADOS COM TOTAIS INTEGRADOS NO RODAPÉ */}
+      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', overflow: 'hidden', marginTop: '12px' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc' }}>
           <Table size={16} color="#005596" />
           <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
@@ -267,37 +340,60 @@ export default function Producao() {
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+            <table className="tabela-apoio-estilizada" style={{ width: '100%' }}>
               <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: '600' }}>
-                  <th style={{ padding: '9px 16px' }}>Tipo de OS</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'center' }}>Qtd OS</th>
-                  <th style={{ padding: '9px 12px' }}>Valor Projetado</th>
-                  <th style={{ padding: '9px 12px', width: '160px' }}>% Part. Proj.</th>
-                  <th style={{ padding: '9px 12px' }}>Valor Produzido</th>
-                  <th style={{ padding: '9px 16px', width: '160px' }}>% Part. Prod.</th>
+                <tr>
+                  <th onClick={() => alternarOrdenacao('tipo_os')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Tipo de OS</span>
+                      {ordenacaoCampo === 'tipo_os' && (
+                        ordenacaoDirecao === 'asc' ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: '#005596' }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: '#005596' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => alternarOrdenacao('qtd_os')} style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center', width: '100%' }}>
+                      <span>Qtd OS</span>
+                      {ordenacaoCampo === 'qtd_os' && (
+                        ordenacaoDirecao === 'asc' ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: '#005596' }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: '#005596' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => alternarOrdenacao('soma_valor_proj')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Valor Projetado</span>
+                      {ordenacaoCampo === 'soma_valor_proj' && (
+                        ordenacaoDirecao === 'asc' ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: '#005596' }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: '#005596' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ width: '160px' }}>% Part. Proj.</th>
+                  <th onClick={() => alternarOrdenacao('soma_valor_prod')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Valor Produzido</span>
+                      {ordenacaoCampo === 'soma_valor_prod' && (
+                        ordenacaoDirecao === 'asc' ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: '#005596' }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: '#005596' }} />
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ width: '160px' }}>% Part. Prod.</th>
                 </tr>
               </thead>
               <tbody>
-                {dadosProcessadosTabela.map((item, index) => (
-                  <tr 
-                    key={index} 
-                    style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <td style={{ padding: '9px 16px', fontWeight: '600', color: '#0f172a' }}>
+                {dadosTabelaOrdenados.map((item, index) => (
+                  <tr key={index} style={{ transition: 'background 0.15s' }}>
+                    <td style={{ fontWeight: '600', color: '#0f172a' }}>
                       <span style={{ background: '#e0f2fe', color: '#005596', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>
                         {item.tipo_os}
                       </span>
                     </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: '600', color: '#334155' }}>
+                    <td style={{ textAlign: 'center', fontWeight: '600', color: '#334155' }}>
                       {item.qtd_os.toLocaleString()}
                     </td>
-                    <td style={{ padding: '9px 12px', fontWeight: '600', color: '#0f172a' }}>
+                    <td style={{ fontWeight: '600', color: '#0f172a' }}>
                       {formatarMoeda(item.soma_valor_proj)}
                     </td>
-                    <td style={{ padding: '9px 12px' }}>
+                    <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '11px', fontWeight: '600', color: '#0284c7', minWidth: '36px' }}>
                           {item.perc_valor_proj.toFixed(1)}%
@@ -307,10 +403,10 @@ export default function Producao() {
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '9px 12px', fontWeight: '600', color: '#0f172a' }}>
+                    <td style={{ fontWeight: '600', color: '#0f172a' }}>
                       {formatarMoeda(item.soma_valor_prod)}
                     </td>
-                    <td style={{ padding: '9px 16px' }}>
+                    <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981', minWidth: '36px' }}>
                           {item.perc_valor_prod.toFixed(1)}%
@@ -323,25 +419,24 @@ export default function Producao() {
                   </tr>
                 ))}
               </tbody>
-              {/* Linha de Total Geral Fixa no Rodapé da Tabela */}
               <tfoot>
                 <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: '700', color: '#0f172a' }}>
                   <td style={{ padding: '11px 16px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
-                    Total Geral {(filtroMes || filtroTipo) && <span style={{ color: '#0284c7', fontWeight: 'normal' }}>(Filtrado)</span>}
+                    Total Geral {temFiltroAtivo && <span style={{ color: '#0284c7', fontWeight: 'normal' }}>(Filtrado)</span>}
                   </td>
-                  <td style={{ padding: '11px 12px', textAlign: 'center', fontSize: '13px' }}>
+                  <td style={{ textAlign: 'center', fontSize: '13px' }}>
                     {totaisGerais.qtdOs.toLocaleString()}
                   </td>
-                  <td style={{ padding: '11px 12px', fontSize: '13px', color: '#005596' }}>
+                  <td style={{ fontSize: '13px', color: '#005596' }}>
                     {formatarMoeda(totaisGerais.valorProjTotal)}
                   </td>
-                  <td style={{ padding: '11px 12px', fontSize: '11px', color: '#64748b' }}>
+                  <td style={{ fontSize: '11px', color: '#64748b' }}>
                     100%
                   </td>
-                  <td style={{ padding: '11px 12px', fontSize: '13px', color: '#10b981' }}>
+                  <td style={{ fontSize: '13px', color: '#10b981' }}>
                     {formatarMoeda(totaisGerais.valorProdTotal)}
                   </td>
-                  <td style={{ padding: '11px 16px', fontSize: '11px', color: '#64748b' }}>
+                  <td style={{ fontSize: '11px', color: '#64748b' }}>
                     100%
                   </td>
                 </tr>
@@ -349,9 +444,7 @@ export default function Producao() {
             </table>
           </div>
         )}
-
       </div>
-
     </div>
   );
 }
