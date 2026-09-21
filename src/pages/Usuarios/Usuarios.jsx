@@ -3,7 +3,7 @@ import DataTable from "../../models/DataTable";
 import { supabase } from "../../services/supabase";
 import PermissoesTab from "./permissoes";
 import { 
-  Users, Shield, UserPlus, Edit3, Trash2, Lock, Unlock, RefreshCw 
+  Users, Shield, UserPlus, Edit3, Trash2, Lock, Unlock, RefreshCw, Search, FilterX 
 } from "lucide-react";
 import Swal from "sweetalert2";
 import bcrypt from "bcryptjs";
@@ -300,6 +300,11 @@ export default function Usuarios() {
     }
   };
 
+  const temFiltroAtivo = busca.trim().length > 0 || Object.values(filtrosColunas).some(r => Array.isArray(r) && r.length > 0);
+  const limparTodosFiltros = () => { setBusca(""); setFiltrosColunas({}); setPaginaAtual(1); setLimparFiltrosTrigger(p => p + 1); };
+
+  const btnIco = { display:'flex', alignItems:'center', justifyContent:'center', width:'32px', height:'32px', borderRadius:'6px', fontSize:'0.8rem', cursor:'pointer', boxSizing:'border-box', fontWeight:'600' };
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: "12px", padding: "0 10px", boxSizing: "border-box", overflow: "hidden" }}>
       
@@ -324,35 +329,46 @@ export default function Usuarios() {
       {/* Conteúdo da Aba 1: Tabela */}
       <div style={{ display: abaAtiva === 'usuarios' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0, gap: '10px' }}>
         
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexShrink: 0, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button onClick={() => abrirModalNovoOuEditar(null)} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-              <UserPlus size={16} /> Novo
-            </button>
-            <button onClick={() => abrirModalNovoOuEditar(usuarioSelecionadoId)} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
-              <Edit3 size={16} /> Editar
-            </button>
-            <button onClick={excluirSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: usuarioSelecionadoId ? "#dc2626" : "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
-              <Trash2 size={16} /> Excluir
-            </button>
-            <button onClick={alternarBloqueioSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
-              {usuarioAtualBloqueado() ? <Unlock size={16} /> : <Lock size={16} />} 
-              <span>{usuarioAtualBloqueado() ? "Desbloquear" : "Bloquear"}</span>
-            </button>
-            <button onClick={() => carregarUsuarios(false)} title="Atualizar Tabela" style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-              <RefreshCw size={16} /> Atualizar
-            </button>
+        {/* Barra de Pesquisa Geral, Limpar Filtros e Botões de Ação */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
+          
+          {/* Campo de Busca Geral com ícone de lupa à esquerda + Botão Limpar Filtros */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '280px' }}>
+            <div style={{ position: 'relative', flex: '1' }}>
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input 
+                type="text" 
+                placeholder="Pesquisar geral..." 
+                value={busca} 
+                onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
+                style={{ width: '100%', padding: '0 12px 0 38px', height: '32px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff', boxSizing: 'border-box' }} 
+              />
+            </div>
+            {temFiltroAtivo && (
+              <button onClick={limparTodosFiltros} style={{ ...btnIco, background: '#fff', border: '1px solid #cbd5e1', color: '#dc2626' }} title="Limpar filtros">
+                <FilterX size={16} />
+              </button>
+            )}
           </div>
 
-          {/* Campo de Busca Geral */}
-          <div style={{ flex: "1", minWidth: "220px", maxWidth: "300px" }}>
-            <input 
-              type="text" 
-              placeholder="Pesquisar geral..." 
-              value={busca} 
-              onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
-              style={{ width: '100%', padding: '0 10px', height: '32px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
-            />
+          {/* Botões de Ação */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={() => abrirModalNovoOuEditar(null)} style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: '32px', padding: '0 12px', borderRadius: "6px", fontSize: "0.8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+              <UserPlus size={14} /> Novo
+            </button>
+            <button onClick={() => abrirModalNovoOuEditar(usuarioSelecionadoId)} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: '32px', padding: '0 12px', borderRadius: "6px", fontSize: "0.8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
+              <Edit3 size={14} /> Editar
+            </button>
+            <button onClick={excluirSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: usuarioSelecionadoId ? "#dc2626" : "#374151", border: "1px solid #cbd5e1", height: '32px', padding: '0 12px', borderRadius: "6px", fontSize: "0.8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
+              <Trash2 size={14} /> Excluir
+            </button>
+            <button onClick={alternarBloqueioSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: '32px', padding: '0 12px', borderRadius: "6px", fontSize: "0.8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
+              {usuarioAtualBloqueado() ? <Unlock size={14} /> : <Lock size={14} />} 
+              <span>{usuarioAtualBloqueado() ? "Desbloquear" : "Bloquear"}</span>
+            </button>
+            <button onClick={() => carregarUsuarios(false)} title="Atualizar Tabela" style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: '32px', padding: '0 12px', borderRadius: "6px", fontSize: "0.8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+              <RefreshCw size={14} /> Atualizar
+            </button>
           </div>
         </div>
 
