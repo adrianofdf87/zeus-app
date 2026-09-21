@@ -176,7 +176,7 @@ async function importarPepFaturado(limpar, file, sb, update) {
         tpo: limpaStr(c[2]),
         objeto: limpaStr(c[3]),
         data: formatarDataSegura(c[4]),
-        classe_custo: limpaStr(c[5]),
+        classe_invest: limpaStr(c[5]),
         denom_classe: limpaStr(c[6]),
         codigo: limpaStr(c[7]),
         descricao_codigo: limpaStr(c[8]),
