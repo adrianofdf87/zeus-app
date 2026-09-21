@@ -5,7 +5,7 @@ import {
   TrendingUp, Table, X, 
   ArrowUp, ArrowDown, RefreshCw 
 } from "lucide-react";
-import "./tabelas_internas.css";
+import "../BancoDados/tabelas_internas.css";
 
 export default function Producao() {
   const [loading, setLoading] = useState(true);
@@ -404,7 +404,7 @@ export default function Producao() {
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "36px" }}>
                           {item.perc_valor_prod.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: 'hidden' }}>
                           <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "3px" }}></div>
                         </div>
                       </div>
