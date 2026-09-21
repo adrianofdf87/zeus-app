@@ -37,7 +37,8 @@ export default function DataTable({
   onPageChange,
   onLimitChange,
   onFilterChange,
-  onFetchColumnOptions
+  onFetchColumnOptions,
+  filtrosExternos = {}
 }) {
   const [colunasTabela, setColunasTabela] = useState([]);
   const [colunasOcultas, setColunasOcultas] = useState([]);
@@ -58,6 +59,11 @@ export default function DataTable({
   const [opcoesBancoColuna, setOpcoesBancoColuna] = useState([]);
   const [opcoesBancoCarregadas, setOpcoesBancoCarregadas] = useState(false);
   const [loadingOpcoes, setLoadingOpcoes] = useState(false);
+
+  // Mantém os filtros mesmo quando o componente é desmontado durante o carregamento do banco.
+  useEffect(() => {
+    setFiltrosGlobais(filtrosExternos || {});
+  }, [filtrosExternos]);
   
   const [editandoNome, setEditandoNome] = useState(false);
   const [novoApelidoCol, setNovoApelidoCol] = useState("");

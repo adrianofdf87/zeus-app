@@ -841,7 +841,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             Atualizando dados<span className="loading-dots"></span>
           </div>
         ) : (
-          <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }} onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />
+          <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }} onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)} filtrosExternos={filtrosColunas} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />
         )}
       </div>
     </div>
