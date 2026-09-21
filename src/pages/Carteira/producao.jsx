@@ -1,21 +1,33 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
-import { TrendingUp, DollarSign, FileText, Table } from "lucide-react";
+import { TrendingUp, DollarSign, FileText, Table, Filter, RotateCcw } from "lucide-react";
 
 export default function Producao() {
   const [loading, setLoading] = useState(true);
-  const [dadosProcessados, setDadosProcessados] = useState([]);
+  const [todosDados, setTodosDados] = useState([]);
+  const [dadosFiltrados, setDadosFiltrados] = useState([]);
+  
+  // Opções e estados dos filtros
+  const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
+  const [tiposDisponiveis, setTiposDisponiveis] = useState([]);
+  const [filtroMes, setFiltroMes] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
+
   const [totaisGerais, setTotaisGerais] = useState({
     qtdOs: 0,
     valorProjTotal: 0,
     valorProdTotal: 0
   });
+  const [dadosProcessadosTabela, setDadosProcessadosTabela] = useState([]);
 
   useEffect(() => {
     carregarTodosDadosProdutividade();
   }, []);
 
-  // Função para buscar TODOS os registros da view contornando o limite de 1000 linhas do Supabase
+  useEffect(() => {
+    aplicarFiltrosEProcessar();
+  }, [todosDados, filtroMes, filtroTipo]);
+
   const carregarTodosDadosProdutividade = async () => {
     try {
       setLoading(true);
@@ -38,7 +50,7 @@ export default function Producao() {
         if (data && data.length > 0) {
           allData = allData.concat(data);
           if (data.length < pageSize) {
-            fetchMore = false; // Acabaram os registros
+            fetchMore = false;
           } else {
             page++;
           }
@@ -47,7 +59,8 @@ export default function Producao() {
         }
       }
 
-      processarDados(allData);
+      setTodosDados(allData);
+      extrairOpcoesFiltros(allData);
     } catch (error) {
       console.error("Erro ao carregar dados de produtividade:", error.message);
     } finally {
@@ -55,7 +68,55 @@ export default function Producao() {
     }
   };
 
-  const processarDados = (dados) => {
+  // Identifica dinamicamente os meses e tipos disponíveis na view
+  const extrairOpcoesFiltros = (dados) => {
+    const mesesSet = new Set();
+    const tiposSet = new Set();
+
+    dados.forEach((item) => {
+      if (item.tipo_os) tiposSet.add(item.tipo_os);
+
+      // Tenta encontrar uma propriedade de data válida no registro
+      const campoData = item.data || item.data_criacao || item.data_programacao || item.mes || item.data_execucao;
+      if (campoData) {
+        // Extrai o formato AAAA-MM para ordenação e exibição
+        const dataStr = String(campoData).substring(0, 7);
+        if (dataStr.length === 7) mesesSet.add(dataStr);
+      }
+    });
+
+    setTiposDisponiveis(Array.from(tiposSet).sort());
+    
+    const mesesOrdenados = Array.from(mesesSet).sort().map((m) => {
+      const [ano, mes] = m.split("-");
+      const nomeMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      const label = `${nomeMeses[parseInt(mes, 10) - 1]} / ${ano}`;
+      return { valor: m, label };
+    });
+
+    setMesesDisponiveis(mesesOrdenados);
+  };
+
+  const aplicarFiltrosEProcessar = () => {
+    let filtrados = [...todosDados];
+
+    if (filtroTipo) {
+      filtrados = filtrados.filter(item => item.tipo_os === filtroTipo);
+    }
+
+    if (filtroMes) {
+      filtrados = filtrados.filter(item => {
+        const campoData = item.data || item.data_criacao || item.data_programacao || item.mes || item.data_execucao;
+        if (!campoData) return false;
+        return String(campoData).startsWith(filtroMes);
+      });
+    }
+
+    setDadosFiltrados(filtrados);
+    processarDadosTabela(filtrados);
+  };
+
+  const processarDadosTabela = (dados) => {
     let somaGeralProj = 0;
     let somaGeralProd = 0;
     let qtdOsTotal = 0;
@@ -103,7 +164,12 @@ export default function Producao() {
     });
 
     resultadoFinal.sort((a, b) => b.soma_valor_proj - a.soma_valor_proj);
-    setDadosProcessados(resultadoFinal);
+    setDadosProcessadosTabela(resultadoFinal);
+  };
+
+  const limparFiltros = () => {
+    setFiltroMes("");
+    setFiltroTipo("");
   };
 
   const formatarMoeda = (valor) => {
@@ -113,29 +179,29 @@ export default function Producao() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '60vh' }}>
-        <h3 style={{ fontSize: '18px', color: '#005596', fontWeight: '600', margin: 0, textAlign: 'center' }}>
-          Carregando e consolidando todos os dados...
+        <h3 style={{ fontSize: '16px', color: '#005596', fontWeight: '600', margin: 0, textAlign: 'center' }}>
+          Carregando dados de produtividade...
         </h3>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ padding: '16px 20px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* Cabeçalho */}
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+      {/* Cabeçalho Compacto */}
+      <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '0 0 2px 0' }}>
             Dashboard de Produtividade
           </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-            Visão consolidada por Tipo de OS com base na view <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#0284c7' }}>view_dados_produtividade</code>
+          <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+            Visão consolidada por Tipo de OS (<code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px', color: '#0284c7' }}>view_dados_produtividade</code>)
           </p>
         </div>
         <button 
           onClick={carregarTodosDadosProdutividade}
-          style={{ background: '#005596', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.2s' }}
+          style={{ background: '#005596', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', transition: 'background 0.2s' }}
           onMouseEnter={(e) => e.currentTarget.style.background = '#0284c7'}
           onMouseLeave={(e) => e.currentTarget.style.background = '#005596'}
         >
@@ -143,105 +209,151 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* Cards de KPIs no Topo */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+      {/* Div de Filtros */}
+      <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontSize: '13px', fontWeight: '700' }}>
+          <Filter size={15} color="#005596" />
+          <span>Filtros:</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Mês:</span>
+          <select 
+            value={filtroMes} 
+            onChange={(e) => setFiltroMes(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', color: '#0f172a', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="">Todos os Meses</option>
+            {mesesDisponiveis.map((m, idx) => (
+              <option key={idx} value={m.valor}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Tipo de OS:</span>
+          <select 
+            value={filtroTipo} 
+            onChange={(e) => setFiltroTipo(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', color: '#0f172a', background: '#f8fafc', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="">Todos os Tipos</option>
+            {tiposDisponiveis.map((tipo, idx) => (
+              <option key={idx} value={tipo}>{tipo}</option>
+            ))}
+          </select>
+        </div>
+
+        {(filtroMes || filtroTipo) && (
+          <button 
+            onClick={limparFiltros}
+            style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <RotateCcw size={13} /> Limpar Filtros
+          </button>
+        )}
+      </div>
+
+      {/* Cards de KPIs Reduzidos (Altura menor em ~30%) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
         
-        <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', borderLeft: '4px solid #005596', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: '#e0f2fe', padding: '12px', borderRadius: '10px', color: '#005596', display: 'flex' }}>
-            <FileText size={24} />
+        <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', borderLeft: '3px solid #005596', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: '#e0f2fe', padding: '8px', borderRadius: '6px', color: '#005596', display: 'flex' }}>
+            <FileText size={18} />
           </div>
           <div>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Total de Ordens (OS)</span>
-            <h3 style={{ fontSize: '22px', fontWeight: '700', color: '#0f172a', margin: '4px 0 0 0' }}>{totaisGerais.qtdOs.toLocaleString()}</h3>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Total de Ordens (OS)</span>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '2px 0 0 0' }}>{totaisGerais.qtdOs.toLocaleString()}</h3>
           </div>
         </div>
 
-        <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', borderLeft: '4px solid #0284c7', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: '#e0f2fe', padding: '12px', borderRadius: '10px', color: '#0284c7', display: 'flex' }}>
-            <DollarSign size={24} />
+        <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', borderLeft: '3px solid #0284c7', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: '#e0f2fe', padding: '8px', borderRadius: '6px', color: '#0284c7', display: 'flex' }}>
+            <DollarSign size={18} />
           </div>
           <div>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Valor Projetado Total</span>
-            <h3 style={{ fontSize: '22px', fontWeight: '700', color: '#0f172a', margin: '4px 0 0 0' }}>{formatarMoeda(totaisGerais.valorProjTotal)}</h3>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Valor Projetado Total</span>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '2px 0 0 0' }}>{formatarMoeda(totaisGerais.valorProjTotal)}</h3>
           </div>
         </div>
 
-        <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', borderLeft: '4px solid #10b981', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: '#d1fae5', padding: '12px', borderRadius: '10px', color: '#10b981', display: 'flex' }}>
-            <TrendingUp size={24} />
+        <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', borderLeft: '3px solid #10b981', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: '#d1fae5', padding: '8px', borderRadius: '6px', color: '#10b981', display: 'flex' }}>
+            <TrendingUp size={18} />
           </div>
           <div>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Valor Produzido Total</span>
-            <h3 style={{ fontSize: '22px', fontWeight: '700', color: '#0f172a', margin: '4px 0 0 0' }}>{formatarMoeda(totaisGerais.valorProdTotal)}</h3>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Valor Produzido Total</span>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '2px 0 0 0' }}>{formatarMoeda(totaisGerais.valorProdTotal)}</h3>
           </div>
         </div>
 
       </div>
 
-      {/* Card em Formato de Tabela Moderna */}
-      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      {/* Tabela em Formato de Card Compacta (Reduzida em altura) */}
+      <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
         
-        {/* Cabeçalho do Card/Tabela */}
-        <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc' }}>
-          <Table size={18} color="#005596" />
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc' }}>
+          <Table size={16} color="#005596" />
+          <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
         </div>
 
-        {dadosProcessados.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
-            Nenhum registro encontrado.
+        {dadosProcessadosTabela.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+            Nenhum registro encontrado para os filtros selecionados.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: '600' }}>
-                  <th style={{ padding: '12px 20px' }}>Tipo de OS</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Qtd OS</th>
-                  <th style={{ padding: '12px 16px' }}>Valor Projetado</th>
-                  <th style={{ padding: '12px 16px', width: '180px' }}>% Part. Proj.</th>
-                  <th style={{ padding: '12px 16px' }}>Valor Produzido</th>
-                  <th style={{ padding: '12px 20px', width: '180px' }}>% Part. Prod.</th>
+                  <th style={{ padding: '8px 16px' }}>Tipo de OS</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'center' }}>Qtd OS</th>
+                  <th style={{ padding: '8px 12px' }}>Valor Projetado</th>
+                  <th style={{ padding: '8px 12px', width: '160px' }}>% Part. Proj.</th>
+                  <th style={{ padding: '8px 12px' }}>Valor Produzido</th>
+                  <th style={{ padding: '8px 16px', width: '160px' }}>% Part. Prod.</th>
                 </tr>
               </thead>
               <tbody>
-                {dadosProcessados.map((item, index) => (
+                {dadosProcessadosTabela.map((item, index) => (
                   <tr 
                     key={index} 
                     style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    <td style={{ padding: '14px 20px', fontWeight: '600', color: '#0f172a' }}>
-                      <span style={{ background: '#e0f2fe', color: '#005596', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>
+                    <td style={{ padding: '9px 16px', fontWeight: '600', color: '#0f172a' }}>
+                      <span style={{ background: '#e0f2fe', color: '#005596', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>
                         {item.tipo_os}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: '600', color: '#334155' }}>
+                    <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: '600', color: '#334155' }}>
                       {item.qtd_os.toLocaleString()}
                     </td>
-                    <td style={{ padding: '14px 16px', fontWeight: '600', color: '#0f172a' }}>
+                    <td style={{ padding: '9px 12px', fontWeight: '600', color: '#0f172a' }}>
                       {formatarMoeda(item.soma_valor_proj)}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#0284c7', minWidth: '40px' }}>
+                    <td style={{ padding: '9px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: '#0284c7', minWidth: '36px' }}>
                           {item.perc_valor_proj.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: '#e2e8f0', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ flex: 1, background: '#e2e8f0', height: '5px', borderRadius: '3px', overflow: 'hidden' }}>
                           <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: '#0284c7', height: '100%', borderRadius: '3px' }}></div>
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '14px 16px', fontWeight: '600', color: '#0f172a' }}>
+                    <td style={{ padding: '9px 12px', fontWeight: '600', color: '#0f172a' }}>
                       {formatarMoeda(item.soma_valor_prod)}
                     </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#10b981', minWidth: '40px' }}>
+                    <td style={{ padding: '9px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: '#10b981', minWidth: '36px' }}>
                           {item.perc_valor_prod.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: '#e2e8f0', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ flex: 1, background: '#e2e8f0', height: '5px', borderRadius: '3px', overflow: 'hidden' }}>
                           <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: '#10b981', height: '100%', borderRadius: '3px' }}></div>
                         </div>
                       </div>
