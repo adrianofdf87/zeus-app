@@ -104,7 +104,7 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (CORRIGIDO)
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (COM REMOÇÃO DE ACENTOS NA CIDADE)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -116,7 +116,7 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     const rows = await readRows(file, { defval: "", cellDates: true });
     if (rows.length < 2) throw new Error("A planilha está vazia.");
 
-    // Função interna blindada para formatar datas da planilha (suporta serial do Excel, Date objects e strings pt-BR ou ISO)
+    // Função interna blindada para formatar datas com segurança
     const formatarDataSegura = (val) => {
       if (!val) return null;
       if (val instanceof Date) {
@@ -124,18 +124,15 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         return val.toISOString().split('T')[0];
       }
       if (typeof val === 'number') {
-        // Converte número serial do Excel para data
         const date = new Date(Math.round((val - 25569) * 86400 * 1000));
         return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
       }
       const str = String(val).trim();
       if (!str || str.toLowerCase() === 'null' || str === 'undefined') return null;
 
-      // Se já estiver no formato AAAA-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
       if (/^\d{4}-\d{2}-\d{2}T/.test(str)) return str.split('T')[0];
 
-      // Se estiver no formato DD/MM/AAAA
       if (str.includes('/')) {
         const partes = str.split('/');
         if (partes.length === 3) {
@@ -154,6 +151,10 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       const c = rows[i];
       if (!c || c.join("").trim() === "") continue;
 
+      // Tratamento da cidade para remover acentos/diacríticos
+      const cidadeRaw = limpaStr(c[8]);
+      const cidadeTratada = cidadeRaw ? cidadeRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : null;
+
       const itemObj = {
         lancamento_servico_id: limpaStr(c[0]),
         id: limpaStr(c[1]) || `JUP-${Date.now()}-${i}`,
@@ -163,7 +164,7 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         centro_custo: limpaStr(c[5]),
         processo: limpaStr(c[6]),
         tipo_equipe: limpaStr(c[7]),
-        cidade: limpaStr(c[8]),
+        cidade: cidadeTratada, // <-- Cidade sem acentos aplicada aqui
         encarregado: limpaStr(c[9]),
         supervisor: limpaStr(c[10]),
         coordenador: limpaStr(c[11]),
@@ -204,7 +205,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     update(35, "Verificando existência de registros no banco...");
     const chavesExistentesNoBanco = new Set();
     
-    // Busca paginada para evitar estouro de requisição no Supabase ao verificar duplicidades
     let pagina = 0;
     let buscarMais = true;
     while (buscarMais) {
@@ -228,7 +228,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       }
     }
 
-    // Filtra quais chaves da planilha já existem no banco
     const conflitos = itensPlanilha.filter(item => chavesExistentesNoBanco.has(item.chave_composta));
     
     let acao = 'SUBSTITUIR';
@@ -262,7 +261,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     update(75, "Gravando dados na tabela tabe_imp_prod_jupiter...");
     let inseridos = 0;
 
-    // Remove a propriedade temporária de chave composta antes de enviar o payload para o Supabase
     const payloadFinal = dadosParaSalvar.map(({ chave_composta, ...resto }) => resto);
 
     for (const lote of chunkArr(payloadFinal, 500)) {
