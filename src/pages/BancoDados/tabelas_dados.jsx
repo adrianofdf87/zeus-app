@@ -29,6 +29,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
+  // Identifica se é uma view com base no nome da tabelaBd
+  const ehView = String(tabelaBd || '').toLowerCase().includes('view');
+
   const tabelasAvancadasSemCrudManual = [
     'tabe_imp_pep',
     'tabe_imp_pep_local',
@@ -465,7 +468,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       if (!baseExport.length) return updateProgress('export', 100, '<span style="color:#d97706;font-weight:600;">Nenhum registro para exportar.</span>');
       updateProgress('export', 92, 'Preparando dados...'); await pausa();
 
-      // Ajusta dados da produtividade caso venham direto do banco sem passar pelo front
       if (ehProd) {
         baseExport = baseExport.map(processarLinhaProdutividade);
       }
@@ -479,7 +481,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         cols = Object.keys(baseExport[0] || {}).filter(c => c !== 'id');
       }
 
-      // Se for a view de produtividade, garante que as colunas de meses (VALOR_*) estejam inclusas na exportação
       if (ehProd) {
         const chavesMeses = new Set();
         baseExport.forEach(row => {
@@ -524,6 +525,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const importarDadosTabela = async () => {
+    // Bloqueia caso seja view
+    if (ehView) return;
+
     let fileSel = null, importStep = 'SELECT', colsImp = [];
     const sysFields = ['id', 'created_at', 'updated_at', 'usu_cada', 'usucad', 'usuario', 'usuario_cadastro', 'cadastrado_por'];
     const cfgEspecial = configuracoesImportacaoEspecificas[tabelaBd];
@@ -777,6 +781,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const excluirRegistrosSelecionados = async () => {
+    // Bloqueia caso seja view
+    if (ehView) return;
+
     if (!linhasSelecionadasIds?.length) return;
     const idsPag = registros.map(r => r.id).filter(Boolean);
     const selTodos = idsPag.length > 0 && idsPag.every(id => linhasSelecionadasIds.includes(id));
@@ -855,7 +862,12 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           {temFiltroAtivo && <button onClick={limparTodosFiltros} style={{ ...btnIco, background:'#fff', border:'1px solid #cbd5e1', color:'#dc2626' }} title="Limpar filtros"><FilterX size={16} /></button>}
           <button onClick={() => carregarDados(false)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Atualizar"><RefreshCw size={14} className={loading ? "lucide-spin" : ""} /> Atualizar</button>
           <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={14} /> Exportar</button>
-          <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
+          
+          {/* Botão de Importar oculto se for view */}
+          {!ehView && (
+            <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
+          )}
+
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
 
           {exibirBotoesCrudManual && (
@@ -865,7 +877,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             </>
           )}
 
-          <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={14} /> Excluir</button>
+          {/* Botão de Excluir oculto se for view */}
+          {!ehView && (
+            <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={14} /> Excluir</button>
+          )}
         </div>
       </div>
       <div style={{ flex:1, background:'#ffffff', borderRadius:'12px', border:'1px solid #e2e8f0', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
