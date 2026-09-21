@@ -8,8 +8,11 @@ import Carteira from "./pages/Carteira/carteira.jsx";
 // Import das Tabelas Internas
 import TabelasInternas from "./pages/BancoDados/tabelas_internas.jsx"; 
 
-// 1. Import da nova tela de Programação
+// Import da tela de Programação
 import Programacao from "./pages/Programacao/Programacoes.jsx";
+
+// Import da nova tela de Produção (dentro de pages/carteira)
+import Producao from "./pages/Carteira/producao.jsx";
 
 // Componente padronizado para as mensagens no centro da tela
 function MensagemCentro({ texto }) {
@@ -41,10 +44,11 @@ function App() {
           {/* Rota da Carteira */}
           <Route path="carteira" element={<Carteira />} />
           
-          {/* 2. Rota da Programação atualizada com o novo componente */}
+          {/* Rota da Programação */}
           <Route path="programacao" element={<Programacao />} />
           
-          <Route path="producao" element={<MensagemCentro texto="Tela de Produção em construção..." />} />
+          {/* Rota da Produção atualizada para apontar para o componente real */}
+          <Route path="producao" element={<Producao />} />
           
           <Route path="usuarios" element={<Usuarios />} />
 

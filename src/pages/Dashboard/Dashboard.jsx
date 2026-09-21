@@ -292,6 +292,7 @@ export default function Dashboard() {
               <div className="submenu">
                 <Link to="/dashboard/carteira" onClick={() => setSidebarOpen(false)}><Wallet /><span>Carteira</span></Link>
                 <Link to="/dashboard/programacao" onClick={() => setSidebarOpen(false)}><CalendarRange /><span>Programação</span></Link>
+                {/* Rota da Produção atualizada para o novo componente */}
                 <Link to="/dashboard/producao" onClick={() => setSidebarOpen(false)}><TrendingUp /><span>Produção</span></Link>
               </div>
             )}
