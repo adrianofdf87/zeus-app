@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import DataTable from "../../models/DataTable";
 import { supabase } from "../../services/supabase";
 import PermissoesTab from "./permissoes";
@@ -10,22 +10,69 @@ import bcrypt from "bcryptjs";
 
 export default function Usuarios() {
   const [dadosUsuarios, setDadosUsuarios] = useState([]);
+  const [totalBanco, setTotalBanco] = useState(0);
   const [carregando, setCarregando] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState("usuarios"); // 'usuarios' | 'perfis'
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState(null);
   const [usuarioSelecionadoObj, setUsuarioSelecionadoObj] = useState(null);
+  
+  // Estados de paginação e filtros idênticos aos das outras tabelas
+  const [busca, setBusca] = useState("");
+  const [filtrosColunas, setFiltrosColunas] = useState({});
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [registrosPorPagina, setRegistrosPorPagina] = useState(100);
+  const [limparFiltrosTrigger, setLimparFiltrosTrigger] = useState(0);
+  const isInitialMount = useRef(true);
 
   const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado")) || {};
   const userIdKey = sessaoUsuario.id || sessaoUsuario.email || 'geral';
 
-  const carregarUsuarios = async () => {
+  // Função auxiliar para aplicar os filtros por coluna nas consultas do Supabase
+  const aplicarFiltrosAuxiliares = (query) => {
+    Object.keys(filtrosColunas).forEach(col => {
+      const regras = filtrosColunas[col];
+      if (regras && regras.length > 0) {
+        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+        if (exatos.length > 0) {
+          const temNull = exatos.includes("##NULL##");
+          const vals = exatos.filter(v => v !== "##NULL##");
+          if (temNull && vals.length > 0) query = query.or(`${col}.in.(${vals.join(',')}),${col}.is.null`);
+          else if (temNull) query = query.is(col, null);
+          else query = query.in(col, exatos);
+        }
+        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
+      }
+    });
+    return query;
+  };
+
+  const carregarUsuarios = useCallback(async (isBackground = false) => {
     try {
-      setCarregando(true);
-      const { data, error } = await supabase
-        .from("tabi_cad_usuarios")
-        .select('id, nome, email, "Telefone", "Perfil", situacao, "Usu_cad", "Data_cad"');
+      if (!isBackground) setCarregando(true);
+      const termoBruto = busca.trim();
+      const colunasTexto = ['nome', 'email', 'Telefone', 'Perfil', 'situacao', 'Usu_cad'];
+
+      const from = (paginaAtual - 1) * registrosPorPagina;
+      let query = supabase.from("tabi_cad_usuarios").select('*', { count: 'exact' });
+      
+      query = aplicarFiltrosAuxiliares(query);
+
+      if (termoBruto.length >= 2 && colunasTexto.length > 0) {
+        const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
+        if (termoLimpo.length > 0) {
+          query = query.or(colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`).join(','));
+        }
+      }
+
+      const { data, count, error } = await query
+        .range(from, from + registrosPorPagina - 1)
+        .order('id', { ascending: true });
 
       if (error) throw error;
+      setTotalBanco(count || 0);
       setDadosUsuarios(data || []);
     } catch (err) {
       console.error("Erro detalhado ao carregar usuários:", err);
@@ -33,11 +80,73 @@ export default function Usuarios() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [paginaAtual, registrosPorPagina, busca, filtrosColunas]);
 
   useEffect(() => {
-    carregarUsuarios();
-  }, []);
+    const isBg = !isInitialMount.current;
+    if (isInitialMount.current) isInitialMount.current = false;
+    carregarUsuarios(isBg);
+  }, [carregarUsuarios]);
+
+  // Função que alimenta o filtro em cascata buscando os valores distintos diretamente do banco
+  const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
+    const normalizarOpcao = (valor) => {
+      const vazio = valor === null || valor === undefined || String(valor).trim() === "";
+      return { chave: vazio ? "##NULL##" : String(valor), exibicao: vazio ? "-" : String(valor) };
+    };
+
+    try {
+      const filtrosOutrasColunas = { ...(filtrosAtuais || {}) };
+      delete filtrosOutrasColunas[coluna];
+
+      let query = supabase.from("tabi_cad_usuarios").select(coluna);
+
+      Object.keys(filtrosOutrasColunas).forEach(col => {
+        const regras = filtrosOutrasColunas[col];
+        if (!Array.isArray(regras) || regras.length === 0) return;
+
+        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+
+        if (exatos.length > 0) {
+          const temNull = exatos.includes("##NULL##");
+          const vals = exatos.filter(v => v !== "##NULL##");
+          if (temNull && vals.length > 0) {
+            const valores = vals.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(',');
+            query = query.or(`${col}.in.(${valores}),${col}.is.null`);
+          } else if (temNull) {
+            query = query.is(col, null);
+          } else {
+            query = query.in(col, vals);
+          }
+        }
+        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
+      });
+
+      const unicos = new Map();
+      let inicio = 0;
+      const limite = 1000;
+      while (true) {
+        const { data, error } = await query.range(inicio, inicio + limite - 1);
+        if (error) throw error;
+        (data || []).forEach(item => {
+          const op = normalizarOpcao(item[coluna]);
+          unicos.set(op.chave, op);
+        });
+        if (!data || data.length < limite) break;
+        inicio += limite;
+      }
+
+      return Array.from(unicos.values())
+        .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
+        .sort((a, b) => a.exibicao.localeCompare(b.exibicao, 'pt-BR', { numeric: true, sensitivity: 'base' }));
+    } catch (err) {
+      console.error("Erro ao buscar opções em cascata:", err);
+      return [];
+    }
+  };
 
   const handleSelectionChange = (idsSelecionados) => {
     if (idsSelecionados.length === 1) {
@@ -49,7 +158,7 @@ export default function Usuarios() {
       setUsuarioSelecionadoId(null);
       setUsuarioSelecionadoObj(null);
       if (abaAtiva === "perfis") {
-        setAbaAtiva("usuarios"); // Se desmarcar o usuário, volta para a aba principal
+        setAbaAtiva("usuarios");
       }
     }
   };
@@ -66,7 +175,7 @@ export default function Usuarios() {
       const novaSituacao = usuarioAtualBloqueado() ? "ATIVO" : "BLOQUEADO";
       const { error } = await supabase.from("tabi_cad_usuarios").update({ situacao: novaSituacao }).eq("id", usuarioSelecionadoId);
       if (error) throw error;
-      await carregarUsuarios();
+      await carregarUsuarios(false);
       const objAtualizado = dadosUsuarios.find(u => String(u.id) === String(usuarioSelecionadoId));
       setUsuarioSelecionadoObj(objAtualizado);
     } catch (err) {
@@ -98,7 +207,7 @@ export default function Usuarios() {
       await Swal.fire({ icon: "success", title: "Excluído!", text: "Usuário excluído com sucesso.", confirmButtonColor: "#005596" });
       setUsuarioSelecionadoId(null);
       setUsuarioSelecionadoObj(null);
-      carregarUsuarios();
+      carregarUsuarios(false);
     } catch (err) {
       Swal.fire("Erro", "Não foi possível excluir: " + err.message, "error");
     } finally {
@@ -182,7 +291,7 @@ export default function Usuarios() {
         const { error } = await supabase.from("tabi_cad_usuarios").insert([{ ...formValues, senha: senhaHash, senha_temporaria: true, situacao: "ATIVO", Usu_cad: usuarioLogadoNome }]);
         if (error) throw error;
       }
-      carregarUsuarios();
+      carregarUsuarios(false);
       Swal.fire({ icon: "success", title: "Sucesso", text: "Dados salvos com sucesso.", timer: 2000, showConfirmButton: false });
     } catch (err) {
       Swal.fire("Erro", "Erro ao salvar: " + err.message, "error");
@@ -194,7 +303,7 @@ export default function Usuarios() {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: "12px", padding: "0 10px", boxSizing: "border-box", overflow: "hidden" }}>
       
-      {/* Abas Superiores (A aba de Perfis só aparece se houver usuário selecionado) */}
+      {/* Abas Superiores */}
       <div style={{ display: "flex", gap: "12px", borderBottom: "2px solid #e5e7eb", flexShrink: 0 }}>
         <button 
           style={{ background: "transparent", border: "none", padding: "8px 14px", fontSize: "0.9rem", fontWeight: "600", color: abaAtiva === 'usuarios' ? "#005596" : "#6b7280", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", borderBottom: abaAtiva === 'usuarios' ? "2px solid #005596" : "2px solid transparent", marginBottom: "-2px" }} 
@@ -215,23 +324,36 @@ export default function Usuarios() {
       {/* Conteúdo da Aba 1: Tabela */}
       <div style={{ display: abaAtiva === 'usuarios' ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0, gap: '10px' }}>
         
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-          <button onClick={() => abrirModalNovoOuEditar(null)} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-            <UserPlus size={16} /> Novo
-          </button>
-          <button onClick={() => abrirModalNovoOuEditar(usuarioSelecionadoId)} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
-            <Edit3 size={16} /> Editar
-          </button>
-          <button onClick={excluirSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: usuarioSelecionadoId ? "#dc2626" : "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
-            <Trash2 size={16} /> Excluir
-          </button>
-          <button onClick={alternarBloqueioSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
-            {usuarioAtualBloqueado() ? <Unlock size={16} /> : <Lock size={16} />} 
-            <span>{usuarioAtualBloqueado() ? "Desbloquear" : "Bloquear"}</span>
-          </button>
-          <button onClick={carregarUsuarios} title="Atualizar Tabela" style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-            <RefreshCw size={16} /> Atualizar
-          </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexShrink: 0, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button onClick={() => abrirModalNovoOuEditar(null)} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+              <UserPlus size={16} /> Novo
+            </button>
+            <button onClick={() => abrirModalNovoOuEditar(usuarioSelecionadoId)} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
+              <Edit3 size={16} /> Editar
+            </button>
+            <button onClick={excluirSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: usuarioSelecionadoId ? "#dc2626" : "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
+              <Trash2 size={16} /> Excluir
+            </button>
+            <button onClick={alternarBloqueioSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : 0.4 }}>
+              {usuarioAtualBloqueado() ? <Unlock size={16} /> : <Lock size={16} />} 
+              <span>{usuarioAtualBloqueado() ? "Desbloquear" : "Bloquear"}</span>
+            </button>
+            <button onClick={() => carregarUsuarios(false)} title="Atualizar Tabela" style={{ background: "#fff", color: "#374151", border: "1px solid #d1d5db", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", fontWeight: "500", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+              <RefreshCw size={16} /> Atualizar
+            </button>
+          </div>
+
+          {/* Campo de Busca Geral */}
+          <div style={{ flex: "1", minWidth: "220px", maxWidth: "300px" }}>
+            <input 
+              type="text" 
+              placeholder="Pesquisar geral..." 
+              value={busca} 
+              onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} 
+              style={{ width: '100%', padding: '0 10px', height: '32px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', fontSize: '0.85rem', background: '#fff', boxSizing: 'border-box' }} 
+            />
+          </div>
         </div>
 
         {carregando ? (
@@ -240,7 +362,16 @@ export default function Usuarios() {
           </div>
         ) : (
           <DataTable 
+            key={limparFiltrosTrigger}
             data={dadosUsuarios} 
+            totalBanco={totalBanco}
+            paginaAtual={paginaAtual}
+            registrosPorPagina={registrosPorPagina}
+            onPageChange={setPaginaAtual}
+            onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }}
+            onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }}
+            onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)}
+            filtrosExternos={filtrosColunas}
             tableId={`usuarios_${userIdKey}`} 
             onSelectionChange={handleSelectionChange} 
           />
