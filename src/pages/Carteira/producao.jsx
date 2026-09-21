@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
-import { TrendingUp, DollarSign, FileText, Table, Filter, RotateCcw } from "lucide-react";
+import { Table, Filter, RotateCcw } from "lucide-react";
 
 export default function Producao() {
   const [loading, setLoading] = useState(true);
@@ -68,7 +68,6 @@ export default function Producao() {
     }
   };
 
-  // Identifica dinamicamente os meses e tipos disponíveis na view
   const extrairOpcoesFiltros = (dados) => {
     const mesesSet = new Set();
     const tiposSet = new Set();
@@ -76,10 +75,8 @@ export default function Producao() {
     dados.forEach((item) => {
       if (item.tipo_os) tiposSet.add(item.tipo_os);
 
-      // Tenta encontrar uma propriedade de data válida no registro
       const campoData = item.data || item.data_criacao || item.data_programacao || item.mes || item.data_execucao;
       if (campoData) {
-        // Extrai o formato AAAA-MM para ordenação e exibição
         const dataStr = String(campoData).substring(0, 7);
         if (dataStr.length === 7) mesesSet.add(dataStr);
       }
@@ -256,42 +253,7 @@ export default function Producao() {
         )}
       </div>
 
-      {/* Cards de KPIs Reduzidos (Altura menor em ~30%) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
-        
-        <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', borderLeft: '3px solid #005596', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: '#e0f2fe', padding: '8px', borderRadius: '6px', color: '#005596', display: 'flex' }}>
-            <FileText size={18} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Total de Ordens (OS)</span>
-            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '2px 0 0 0' }}>{totaisGerais.qtdOs.toLocaleString()}</h3>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', borderLeft: '3px solid #0284c7', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: '#e0f2fe', padding: '8px', borderRadius: '6px', color: '#0284c7', display: 'flex' }}>
-            <DollarSign size={18} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Valor Projetado Total</span>
-            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '2px 0 0 0' }}>{formatarMoeda(totaisGerais.valorProjTotal)}</h3>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', borderLeft: '3px solid #10b981', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: '#d1fae5', padding: '8px', borderRadius: '6px', color: '#10b981', display: 'flex' }}>
-            <TrendingUp size={18} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Valor Produzido Total</span>
-            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '2px 0 0 0' }}>{formatarMoeda(totaisGerais.valorProdTotal)}</h3>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Tabela em Formato de Card Compacta (Reduzida em altura) */}
+      {/* Tabela Compacta com Totais Integrados na Última Linha */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
         
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc' }}>
@@ -308,12 +270,12 @@ export default function Producao() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: '600' }}>
-                  <th style={{ padding: '8px 16px' }}>Tipo de OS</th>
-                  <th style={{ padding: '8px 12px', textAlign: 'center' }}>Qtd OS</th>
-                  <th style={{ padding: '8px 12px' }}>Valor Projetado</th>
-                  <th style={{ padding: '8px 12px', width: '160px' }}>% Part. Proj.</th>
-                  <th style={{ padding: '8px 12px' }}>Valor Produzido</th>
-                  <th style={{ padding: '8px 16px', width: '160px' }}>% Part. Prod.</th>
+                  <th style={{ padding: '9px 16px' }}>Tipo de OS</th>
+                  <th style={{ padding: '9px 12px', textAlign: 'center' }}>Qtd OS</th>
+                  <th style={{ padding: '9px 12px' }}>Valor Projetado</th>
+                  <th style={{ padding: '9px 12px', width: '160px' }}>% Part. Proj.</th>
+                  <th style={{ padding: '9px 12px' }}>Valor Produzido</th>
+                  <th style={{ padding: '9px 16px', width: '160px' }}>% Part. Prod.</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,6 +323,29 @@ export default function Producao() {
                   </tr>
                 ))}
               </tbody>
+              {/* Linha de Total Geral Fixa no Rodapé da Tabela */}
+              <tfoot>
+                <tr style={{ background: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: '700', color: '#0f172a' }}>
+                  <td style={{ padding: '11px 16px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>
+                    Total Geral {(filtroMes || filtroTipo) && <span style={{ color: '#0284c7', fontWeight: 'normal' }}>(Filtrado)</span>}
+                  </td>
+                  <td style={{ padding: '11px 12px', textAlign: 'center', fontSize: '13px' }}>
+                    {totaisGerais.qtdOs.toLocaleString()}
+                  </td>
+                  <td style={{ padding: '11px 12px', fontSize: '13px', color: '#005596' }}>
+                    {formatarMoeda(totaisGerais.valorProjTotal)}
+                  </td>
+                  <td style={{ padding: '11px 12px', fontSize: '11px', color: '#64748b' }}>
+                    100%
+                  </td>
+                  <td style={{ padding: '11px 12px', fontSize: '13px', color: '#10b981' }}>
+                    {formatarMoeda(totaisGerais.valorProdTotal)}
+                  </td>
+                  <td style={{ padding: '11px 16px', fontSize: '11px', color: '#64748b' }}>
+                    100%
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
