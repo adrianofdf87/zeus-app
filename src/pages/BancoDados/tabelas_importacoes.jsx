@@ -38,6 +38,12 @@ export const configuracoesImportacaoEspecificas = {
     extensoesAceitas: ['csv', 'xls', 'xlsx'], acceptInput: ".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     textoDropzone: "Arraste a planilha <b>.csv, .xls</b> ou <b>.xlsx</b> aqui", textoRegra: "A planilha deve conter a coluna <b>id_rastreio</b> e <b>carteira</b> para o gerenciamento automático de IDs.",
     funcaoProcessadora: processarImportacaoAtividadeMassa
+  },
+  'tabe_imp_prod_jupiter': {
+    nomeFantasia: "Importação Avançada Produção Júpiter", tabela: "tabe_imp_prod_jupiter", requerSelecaoOpcao: true,
+    extensoesAceitas: ['csv', 'xls', 'xlsx'], acceptInput: ".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    textoDropzone: "Arraste a planilha <b>.csv, .xls</b> ou <b>.xlsx</b> aqui", textoRegra: "A planilha deve conter as colunas de produção Júpiter estruturadas.",
+    funcaoProcessadora: processarImportacaoProdJupiter
   }
 };
 
@@ -67,6 +73,12 @@ const parseCoord = v => { if (v == null || v === '') return null; if (typeof v =
 const parseIntNum = v => { if (!v && v !== 0) return null; if (typeof v === 'number') return Math.round(v); const p = parseInt(String(v).replace(/\D/g, ''), 10); return isNaN(p) ? null : p; };
 const formatPep = v => { if(!v) return null; let l = v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); return l.length >= 18 ? `${l.substring(0, 2)}-${l.substring(2, 13)}.${l.substring(13, 14)}.${l.substring(14, 18)}` : v.substring(0, 21); };
 const formataDt = v => { if(!v) return null; if(v instanceof Date) return `${v.getUTCFullYear()}-${String(v.getUTCMonth()+1).padStart(2,'0')}-${String(v.getUTCDate()).padStart(2,'0')}`; let c = limpaStr(v); if(c && c.includes('/')){ const p = c.split('/'); if(p.length===3) return `${p[2]}-${p[1]}-${p[0]}`; } return c; };
+const formatHora = v => {
+  if (!v) return null;
+  if (v instanceof Date) return v.toTimeString().split(' ')[0];
+  let c = limpaStr(v);
+  return c ? c : null;
+};
 const chunkArr = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
 const askAction = (count, id) => new Promise(res => {
   const p = document.getElementById('apoioStateProgress');
@@ -90,6 +102,150 @@ const readRows = (file, opt) => new Promise((res, rej) => {
 });
 const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConfirmButton(); if(b) Object.assign(b.style, {opacity:"0.4", cursor:"not-allowed", backgroundColor:"#94a3b8"}), b.disabled = true; } };
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
+
+// ==========================================
+// NOVO PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER
+// ==========================================
+async function processarImportacaoProdJupiter(limpar, file, sb, update) {
+  try {
+    update(2, "Iniciando importação de Produção Júpiter...");
+    await loadXlsx(update);
+    const usuCad = getUsu();
+    
+    update(10, "Lendo arquivo...");
+    const rows = await readRows(file, { defval: "", cellDates: true });
+    if (rows.length < 2) throw new Error("A planilha está vazia.");
+
+    update(20, "Mapeando e formatando dados da planilha...");
+    const itensPlanilha = [];
+
+    // Mapeamento das colunas com base na ordem dos campos da tabela tabe_imp_prod_jupiter
+    for (let i = 1; i < rows.length; i++) {
+      const c = rows[i];
+      if (!c || c.join("").trim() === "") continue;
+
+      const itemObj = {
+        lancamento_servico_id: limpaStr(c[0]),
+        id: limpaStr(c[1]) || `JUP-${Date.now()}-${i}`,
+        data: formataDt(c[2]),
+        equipe_id: limpaStr(c[3]),
+        equipe: limpaStr(c[4]),
+        centro_custo: limpaStr(c[5]),
+        processo: limpaStr(c[6]),
+        tipo_equipe: limpaStr(c[7]),
+        cidade: limpaStr(c[8]),
+        encarregado: limpaStr(c[9]),
+        supervisor: limpaStr(c[10]),
+        coordenador: limpaStr(c[11]),
+        ordem_servico: limpaStr(c[12]),
+        hora_inicio: formatHora(c[13]),
+        hora_fim: formatHora(c[14]),
+        km_inicio: parseNum(c[15]),
+        km_fim: parseNum(c[16]),
+        observacao: limpaStr(c[17]),
+        acao_campo: limpaStr(c[18]),
+        tipo_acao_campo: limpaStr(c[19]),
+        codigo_acao_campo: limpaStr(c[20]),
+        tipo_servico: limpaStr(c[21]),
+        valor: parseNum(c[22]),
+        quantidade: parseNum(c[23]),
+        backoffice: limpaStr(c[24]),
+        data_backoffice: formataDt(c[25]),
+        criado_em: formataDt(c[26]) || formataDt(new Date()),
+        criado_por: limpaStr(c[27]) || usuCad,
+        editado_em: formataDt(c[28]),
+        editado_por: limpaStr(c[29]),
+        apagado_em: formataDt(c[30]),
+        apagado_por: limpaStr(c[31]),
+        usu_cada: usuCad
+      };
+
+      // Validação mínima das colunas de checagem exigidas
+      if (itemObj.data && itemObj.equipe_id && itemObj.ordem_servico && itemObj.codigo_acao_campo !== null) {
+        itemObj.chave_composta = `${itemObj.data}|${itemObj.equipe_id}|${itemObj.ordem_servico}|${itemObj.codigo_acao_campo}|${itemObj.quantidade}`;
+        itensPlanilha.push(itemObj);
+      }
+    }
+
+    if (!itensPlanilha.length) {
+      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (data, equipe_id, ordem_servico, codigo_acao_campo, quantidade) estão preenchidas.");
+    }
+
+    update(35, "Verificando existência de registros no banco...");
+    const chavesPlanilha = [...new Set(itensPlanilha.map(i => i.chave_composta))];
+    const chavesExistentesNoBanco = new Set();
+
+    // Consulta em lotes para checar conflitos nas colunas especificadas
+    const chunksChaves = chunkArr(chavesPlanilha, 100);
+    for (let i = 0; i < chunksChaves.length; i++) {
+      update(35 + Math.floor(((i + 1) / chunksChaves.length) * 20), `Checando duplicidades (${i + 1}/${chunksChaves.length})...`);
+      
+      const { data: registrosBanco, error: errBusca } = await sb
+        .from('tabe_imp_prod_jupiter')
+        .select('data, equipe_id, ordem_servico, codigo_acao_campo, quantidade');
+
+      if (errBusca) throw errBusca;
+
+      if (registrosBanco) {
+        registrosBanco.forEach(r => {
+          const chaveDb = `${formataDt(r.data)}|${r.equipe_id}|${r.ordem_servico}|${r.codigo_acao_campo}|${parseNum(r.quantidade)}`;
+          chavesExistentesNoBanco.add(chaveDb);
+        });
+      }
+    }
+
+    // Filtra quais chaves da planilha já existem no banco
+    const conflitos = itensPlanilha.filter(item => chavesExistentesNoBanco.has(item.chave_composta));
+    
+    let acao = 'SUBSTITUIR';
+    if (conflitos.length > 0) {
+      acao = await askAction(conflitos.length, 'boxProdJupiter');
+    }
+
+    update(60, "Processando dados para gravação...");
+    let dadosParaSalvar = [];
+
+    if (acao === 'APENAS_NOVAS') {
+      dadosParaSalvar = itensPlanilha.filter(item => !chavesExistentesNoBanco.has(item.chave_composta));
+    } else {
+      // Se a opção for substituir, removemos do banco os registros conflitantes antes de inserir os novos atualizados
+      update(65, "Removendo registros antigos conflitantes...");
+      for (const conflito of conflitos) {
+        await sb.from('tabe_imp_prod_jupiter')
+          .delete()
+          .eq('data', conflito.data)
+          .eq('equipe_id', conflito.equipe_id)
+          .eq('ordem_servico', conflito.ordem_servico)
+          .eq('codigo_acao_campo', conflito.codigo_acao_campo)
+          .eq('quantidade', conflito.quantidade);
+      }
+      dadosParaSalvar = itensPlanilha;
+    }
+
+    if (!dadosParaSalvar.length) {
+      throw new Error("Nenhum registro novo para salvar. Todos os itens já existem na base e a opção selecionada foi 'Apenas Novos'.");
+    }
+
+    update(75, "Gravando dados na tabela tabe_imp_prod_jupiter...");
+    let inseridos = 0;
+
+    // Limpa a propriedade temporária de chave composta antes do insert
+    const payloadFinal = dadosParaSalvar.map(({ chave_composta, ...resto }) => resto);
+
+    for (const lote of chunkArr(payloadFinal, 500)) {
+      const { error: errInsert } = await sb.from('tabe_imp_prod_jupiter').insert(lote);
+      if (errInsert) throw errInsert;
+
+      inseridos += lote.length;
+      update(75 + ((inseridos / payloadFinal.length) * 25), `Salvando (${inseridos}/${payloadFinal.length})...`);
+    }
+
+    update(100, "Importação concluída com sucesso!");
+  } catch (err) {
+    console.error("Erro na importação de Produção Júpiter:", err);
+    throw err;
+  }
+}
 
 // PROCESSADOR DE IMPORTAÇÃO DE ATIVIDADES EM MASSA
   async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizarProgressoGlobal) {
