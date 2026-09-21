@@ -215,21 +215,16 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       
       let dadosTratados = data || [];
 
-      // Expande dinamicamente o objeto JSON "Meses" para colunas planas com o prefixo VALOR_
+      // Herda todas as colunas novas do banco e expande dinamicamente o objeto JSON "Meses" para colunas VALOR_AAAA-MM
       if (tabelaBd === 'view_dados_produtividade') {
         dadosTratados = dadosTratados.map(row => {
           const mesesObj = row.Meses || row.meses || {};
-          const novaLinha = { 
-            id: row.id,
-            coordenador: row.coordenador,
-            supervisor: row.supervisor,
-            Ordem: row.Ordem || row.ordem,
-            valor_prod: row.valor_prod
-          };
+          const novaLinha = { ...row }; // Herda automaticamente 'pep', 'status', 'coordenador', 'supervisor', 'Ordem', etc.
+          delete novaLinha.Meses; // Remove o objeto JSON original para não exibir a coluna crua
+          delete novaLinha.meses;
 
           if (typeof mesesObj === 'object' && mesesObj !== null) {
             Object.keys(mesesObj).forEach(mesKey => {
-              // Aplica o prefixo VALOR_ na coluna resultante
               const nomeColunaMes = `VALOR_${mesKey}`;
               novaLinha[nomeColunaMes] = mesesObj[mesKey];
             });
@@ -746,7 +741,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px', background:'#ffffff', padding:'8px 14px', borderRadius:'8px', boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
           <div style={{ backgroundColor:corTheme, color:'#fff', width:'32px', height:'32px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 4px rgba(0,85,150,0.2)' }}><Database size={16} /></div>
-          <div><h2 style={{ margin:0, fontSize:'0.95rem', color:'#0f172a', fontWeight:'700', lineHeight:'1.2' }}>{titulo}</h2><p style={{ margin:'1px 0 0', fontSize:'0.72rem', color:'#64748b' }}>Gerenciamento da tabela: <b>{tabelaBd}</b></p></div>
+          <div><h2 style={{ margin:0, fontSize:'0.95rem', color:'#0f172a', fontWeight:'700', lineHeight:'1.2' }}>{titulo}</h2><p style={{ margin:'1px 0 0', fontSize:'0.72rem', color:#64748b }}>Gerenciamento da tabela: <b>{tabelaBd}</b></p></div>
         </div>
         {onClose && <button onClick={onClose} style={{ background:'transparent', border:'none', cursor:'pointer', color:'#64748b', padding:'6px', borderRadius:'50%' }} title="Fechar"><X size={18} /></button>}
       </div>
