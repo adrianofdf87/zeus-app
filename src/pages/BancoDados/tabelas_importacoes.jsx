@@ -68,7 +68,16 @@ const getUsu = () => {
   return window.usuarioLogado || window.emailUsuario || 'Usuário Sistema';
 };
 const limpaStr = v => v ? String(v).replace(/^"|"$/g, '').trim() : null;
-const parseNum = v => { if (!v && v !== 0) return 0; if (typeof v === 'number') return v; const p = parseFloat(String(v).replace(/\s+/g, '').replace('R$', '').replace(/\./g, '').replace(',', '.')); return isNaN(p) ? 0 : p; };
+
+// Função parseNum corrigida para respeitar o ponto (.) como separador decimal exato
+const parseNum = v => { 
+  if (v === null || v === undefined || v === '') return 0; 
+  if (typeof v === 'number') return Number(v.toFixed(2)); 
+  let str = String(v).trim().replace('R$', '').replace(/\s+/g, '');
+  const p = parseFloat(str); 
+  return isNaN(p) ? 0 : Number(p.toFixed(2)); 
+};
+
 const parseCoord = v => { if (v == null || v === '') return null; if (typeof v === 'number') return v; const p = parseFloat(String(v).replace(/\s+/g, '').replace(',', '.')); return isNaN(p) ? null : p; };
 const parseIntNum = v => { if (!v && v !== 0) return null; if (typeof v === 'number') return Math.round(v); const p = parseInt(String(v).replace(/\D/g, ''), 10); return isNaN(p) ? null : p; };
 const formatPep = v => { if(!v) return null; let l = v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); return l.length >= 18 ? `${l.substring(0, 2)}-${l.substring(2, 13)}.${l.substring(13, 14)}.${l.substring(14, 18)}` : v.substring(0, 21); };
@@ -104,7 +113,7 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (CORRIGIDO PARA VALOR E QUANTIDADE)
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (OTIMIZADO E SEM ACENTOS)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -181,8 +190,8 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         tipo_acao_campo: removerAcentos(c[19]),
         codigo_acao_campo: removerAcentos(c[20]),
         tipo_servico: removerAcentos(c[21]),
-        valor: parseNum(c[22]),        // <-- Corrigido para respeitar as duas casas decimais exatas
-        quantidade: parseNum(c[23]),   // <-- Corrigido para respeitar o valor real da planilha
+        valor: parseNum(c[22]),
+        quantidade: parseNum(c[23]),
         backoffice: removerAcentos(c[24]),
         data_backoffice: formatarDataSegura(c[25]),
         criado_em: formatarDataSegura(c[26]) || formatarDataSegura(new Date()),
