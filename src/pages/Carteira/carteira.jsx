@@ -190,13 +190,11 @@ export default function Carteira() {
 
       const termoBruto = busca.trim();
       if (termoBruto.length >= 2) {
-        // Pega todas as colunas da tabela e exclui estritamente apenas as três de data solicitadas
         const colunasExcluidas = ['aviso', 'prazo', 'criado_em'];
         let colunasTexto = estData
           .map(c => c.nome_coluna)
           .filter(col => !colunasExcluidas.includes(col.toLowerCase()));
 
-        // Fallback seguro caso a estrutura venha vazia
         if (colunasTexto.length === 0) {
           colunasTexto = ['carteira', 'filial', 'contratante', 'municipio', 'seccional', 'area', 'tipo_custo', 'tipo_atividade', 'prioridade', 'tipo_rastreio', 'pep'];
         }
@@ -238,19 +236,64 @@ export default function Carteira() {
     carregarCarteira(isBg);
   }, [carregarCarteira]);
 
-  const buscarOpcoesColunaBanco = async (coluna, termo = "") => {
+  // Função ajustada para cascata completa considerando os filtros ativos das outras colunas
+  const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
+    const normalizarOpcao = (valor) => {
+      const vazio = valor === null || valor === undefined || String(valor).trim() === "";
+      return { chave: vazio ? "##NULL##" : String(valor), exibicao: vazio ? "-" : String(valor) };
+    };
+
     try {
-      const { data, error } = await supabase.rpc('obter_distintos_coluna', { p_tabela: 'tabe_cad_carteira', p_coluna: coluna });
-      if (error) throw error;
-      return (data || []).reduce((acc, item) => {
-        let isNull = item.valor === null || item.valor === undefined || String(item.valor).trim() === "";
-        let chave = isNull ? "##NULL##" : String(item.valor);
-        let exibicao = isNull ? "-" : String(item.valor);
-        if (!termo || exibicao.toLowerCase().includes(termo.toLowerCase())) acc.push({ chave, exibicao });
-        return acc;
-      }, []).sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+      const filtrosOutrasColunas = { ...(filtrosAtuais || {}) };
+      delete filtrosOutrasColunas[coluna];
+
+      let query = supabase.from("tabe_cad_carteira").select(coluna);
+
+      // Aplica as restrições das outras colunas filtradas (cascata)
+      Object.keys(filtrosOutrasColunas).forEach(col => {
+        const regras = filtrosOutrasColunas[col];
+        if (!Array.isArray(regras) || regras.length === 0) return;
+
+        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+
+        if (exatos.length > 0) {
+          const temNull = exatos.includes("##NULL##");
+          const vals = exatos.filter(v => v !== "##NULL##");
+          if (temNull && vals.length > 0) {
+            const valores = vals.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(',');
+            query = query.or(`${col}.in.(${valores}),${col}.is.null`);
+          } else if (temNull) {
+            query = query.is(col, null);
+          } else {
+            query = query.in(col, vals);
+          }
+        }
+        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
+      });
+
+      const unicos = new Map();
+      let inicio = 0;
+      const limite = 1000;
+      while (true) {
+        const { data, error } = await query.range(inicio, inicio + limite - 1);
+        if (error) throw error;
+        (data || []).forEach(item => {
+          const op = normalizarOpcao(item[coluna]);
+          unicos.set(op.chave, op);
+        });
+        if (!data || data.length < limite) break;
+        inicio += limite;
+      }
+
+      return Array.from(unicos.values())
+        .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
+        .sort((a, b) => a.exibicao.localeCompare(b.exibicao, 'pt-BR', { numeric: true, sensitivity: 'base' }));
     } catch (err) {
-      console.error("Erro ao buscar opções:", err); return [];
+      console.error("Erro ao buscar opções em cascata:", err);
+      return [];
     }
   };
 
@@ -563,7 +606,7 @@ export default function Carteira() {
             </div>
           </div>
 
-          {/* DataTable Avançado com Loader integrado */}
+          {/* DataTable Avançado com Loader integrado e suporte completo a filtros em cascata */}
           <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {loading && listaCarteiraGlobal.length === 0 ? (
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#64748b", fontWeight: "500" }}>
@@ -579,7 +622,8 @@ export default function Carteira() {
                 onPageChange={setPaginaAtual} 
                 onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} 
                 onFilterChange={f => { setFiltrosColunas(f); setPaginaAtual(1); }} 
-                onFetchColumnOptions={buscarOpcoesColunaBanco} 
+                onFetchColumnOptions={(coluna, filtros, termo) => buscarOpcoesColunaBanco(coluna, filtros, termo)} 
+                filtrosExternos={filtrosColunas}
                 tableId={`carteira_${userIdKey}`} 
                 onSelectionChange={handleSelectionChange} 
               />
