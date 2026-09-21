@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import Swal from "sweetalert2";
 import { 
-  TrendingUp, Table, Filter, X, 
+  TrendingUp, Table, X, 
   ArrowUp, ArrowDown, RefreshCw 
 } from "lucide-react";
 import "./tabelas_internas.css";
@@ -11,16 +11,13 @@ export default function Producao() {
   const [loading, setLoading] = useState(true);
   const [todosDados, setTodosDados] = useState([]);
   
-  // Colunas disponíveis para filtro (extraídas das chaves da view)
   const [colunasDisponiveis, setColunasDisponiveis] = useState([]);
   const [valoresColunaAtual, setValoresColunaAtual] = useState([]);
 
-  // Estados dos Filtros e Cascata
   const [tipoFiltroAtual, setTipoFiltroAtual] = useState('');
   const [valorFiltroSelect, setValorFiltroSelect] = useState('TODOS');
-  const [filtrosAtivos, setFiltrosAtivos] = useState({}); // Ex: { tipo_os: 'MANUTENCAO', mes: '2026-05' }
+  const [filtrosAtivos, setFiltrosAtivos] = useState({});
 
-  // Estados de Ordenação da Tabela
   const [ordenacaoCampo, setOrdenacaoCampo] = useState('soma_valor_proj');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState('desc');
 
@@ -49,7 +46,6 @@ export default function Producao() {
     carregarTodosDadosProdutividade();
   }, []);
 
-  // Sempre que mudar a coluna selecionada no primeiro select, atualiza as opções do segundo select em cascata
   useEffect(() => {
     if (!tipoFiltroAtual || todosDados.length === 0) {
       setValoresColunaAtual([]);
@@ -58,9 +54,8 @@ export default function Producao() {
 
     const valoresSet = new Set();
     todosDados.forEach(item => {
-      let val = item[tipoFiltroAtual];
+      const val = item[tipoFiltroAtual];
       if (val !== undefined && val !== null && val !== '') {
-        // Se for o campo de mês/data, formata bonito caso venha formato de data
         if (tipoFiltroAtual === 'mes' || tipoFiltroAtual.includes('data')) {
           const str = String(val).substring(0, 7);
           if (str.length === 7) valoresSet.add(str);
@@ -108,7 +103,6 @@ export default function Producao() {
 
       setTodosDados(allData);
 
-      // Define as colunas que fazem sentido para filtro (excluindo IDs ou valores numéricos diretos)
       if (allData.length > 0) {
         const sample = allData[0];
         const cols = Object.keys(sample).filter(c => !c.includes('id') && c !== 'valor_proj' && c !== 'valor_prod');
@@ -118,7 +112,7 @@ export default function Producao() {
 
       processarDados(allData, {});
     } catch (error) {
-      AlertaLimpo.fire({ icon: "error", title: "Erro", text: "Não foi possível carregar os dados de produtividade: " + error.message });
+      AlertaLimpo.fire({ icon: "error", title: "Erro", text: "Não foi possível carregar os dados: " + error.message });
     } finally {
       setLoading(false);
     }
@@ -152,7 +146,6 @@ export default function Producao() {
   const processarDados = (dados, filtros) => {
     let filtrados = [...dados];
 
-    // Aplica todos os filtros ativos em cascata
     Object.keys(filtros).forEach(campo => {
       const valorFiltro = filtros[campo];
       filtrados = filtrados.filter(item => {
@@ -168,7 +161,6 @@ export default function Producao() {
     let somaGeralProj = 0;
     let somaGeralProd = 0;
     let qtdOsTotal = 0;
-
     const agrupado = {};
 
     filtrados.forEach((item) => {
@@ -214,7 +206,6 @@ export default function Producao() {
     setDadosProcessadosTabela(resultadoFinal);
   };
 
-  // Ordenação da Tabela Consolidada
   const dadosTabelaOrdenados = [...dadosProcessadosTabela].sort((a, b) => {
     let valorA = a[ordenacaoCampo];
     let valorB = b[ordenacaoCampo];
@@ -244,11 +235,7 @@ export default function Producao() {
   };
 
   const temFiltroAtivo = Object.keys(filtrosAtivos).length > 0;
-
-  const alturaUnificadaEstilo = {
-    height: '32px',
-    boxSizing: 'border-box'
-  };
+  const alturaUnificadaEstilo = { height: '32px', boxSizing: 'border-box' };
 
   if (loading) {
     return (
@@ -262,7 +249,6 @@ export default function Producao() {
 
   return (
     <div className="data-apoio-container">
-      {/* HEADER PADRONIZADO */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', background: '#ffffff', padding: '10px 16px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ backgroundColor: '#0284c7', color: '#fff', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,85,150,0.2)' }}>
@@ -284,19 +270,15 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* FILTER BAR EM CASCATA COM 2 SELECTS */}
       <div className="filter-bar">
         <div className="filter-controls-wrapper">
           <div className="filter-select-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            
-            {/* Primeiro Select: Escolher a Coluna */}
             <select className="filter-control-field" style={alturaUnificadaEstilo} value={tipoFiltroAtual} onChange={(e) => setTipoFiltroAtual(e.target.value)}>
               {colunasDisponiveis.map(col => (
                 <option key={col} value={col}>Coluna: {col.toUpperCase()}</option>
               ))}
             </select>
 
-            {/* Segundo Select: Escolher o Valor da Coluna selecionada */}
             <select className="filter-control-field" style={alturaUnificadaEstilo} value={valorFiltroSelect} onChange={(e) => setValorFiltroSelect(e.target.value)}>
               <option value="TODOS">TODOS OS VALORES</option>
               {valoresColunaAtual.map(val => (
@@ -315,7 +297,6 @@ export default function Producao() {
             )}
           </div>
 
-          {/* CHIPS DE FILTRO ATIVOS */}
           <div className="filter-badges-container" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
             {Object.keys(filtrosAtivos).map(campo => (
               <div key={campo} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 500, border: '1px solid #bae6fd' }}>
@@ -327,7 +308,6 @@ export default function Producao() {
         </div>
       </div>
 
-      {/* TABELA DE RESULTADOS COM TOTAIS INTEGRADOS NO RODAPÉ */}
       <div style={{ background: '#fff', borderRadius: '10px', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', overflow: 'hidden', marginTop: '12px' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc' }}>
           <Table size={16} color="#005596" />
