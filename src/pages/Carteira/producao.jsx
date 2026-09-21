@@ -1,23 +1,26 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import Swal from "sweetalert2";
 import { 
-  TrendingUp, DollarSign, FileText, Table, Filter, X, 
-  ArrowUp, ArrowDown, RefreshCw, LayoutGrid, AlignJustify 
+  TrendingUp, Table, Filter, X, 
+  ArrowUp, ArrowDown, RefreshCw 
 } from "lucide-react";
-import "./tabelas_internas.css"; // Reaproveita a mesma folha de estilos padrão do sistema
+import "./tabelas_internas.css";
 
 export default function Producao() {
   const [loading, setLoading] = useState(true);
   const [todosDados, setTodosDados] = useState([]);
-  const [filtrosAtivos, setFiltrosAtivos] = useState({ mes: 'TODOS', tipo: 'TODOS' });
-  const [tipoFiltroAtual, setTipoFiltroAtual] = useState('mes');
-  const [valorFiltroSelect, setValorFiltroSelect] = useState('TODOS');
   
-  const [mesesDisponiveis, setMesesDisponiveis] = useState([]);
-  const [tiposDisponiveis, setTiposDisponiveis] = useState([]);
+  // Colunas disponíveis para filtro (extraídas das chaves da view)
+  const [colunasDisponiveis, setColunasDisponiveis] = useState([]);
+  const [valoresColunaAtual, setValoresColunaAtual] = useState([]);
 
-  // Estados de Ordenação da Tabela de Resumo
+  // Estados dos Filtros e Cascata
+  const [tipoFiltroAtual, setTipoFiltroAtual] = useState('');
+  const [valorFiltroSelect, setValorFiltroSelect] = useState('TODOS');
+  const [filtrosAtivos, setFiltrosAtivos] = useState({}); // Ex: { tipo_os: 'MANUTENCAO', mes: '2026-05' }
+
+  // Estados de Ordenação da Tabela
   const [ordenacaoCampo, setOrdenacaoCampo] = useState('soma_valor_proj');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState('desc');
 
@@ -45,6 +48,32 @@ export default function Producao() {
   useEffect(() => {
     carregarTodosDadosProdutividade();
   }, []);
+
+  // Sempre que mudar a coluna selecionada no primeiro select, atualiza as opções do segundo select em cascata
+  useEffect(() => {
+    if (!tipoFiltroAtual || todosDados.length === 0) {
+      setValoresColunaAtual([]);
+      return;
+    }
+
+    const valoresSet = new Set();
+    todosDados.forEach(item => {
+      let val = item[tipoFiltroAtual];
+      if (val !== undefined && val !== null && val !== '') {
+        // Se for o campo de mês/data, formata bonito caso venha formato de data
+        if (tipoFiltroAtual === 'mes' || tipoFiltroAtual.includes('data')) {
+          const str = String(val).substring(0, 7);
+          if (str.length === 7) valoresSet.add(str);
+        } else {
+          valoresSet.add(String(val));
+        }
+      }
+    });
+
+    const listaValores = Array.from(valoresSet).sort();
+    setValoresColunaAtual(listaValores);
+    setValorFiltroSelect('TODOS');
+  }, [tipoFiltroAtual, todosDados]);
 
   const carregarTodosDadosProdutividade = async () => {
     try {
@@ -78,8 +107,16 @@ export default function Producao() {
       }
 
       setTodosDados(allData);
-      extrairOpcoesFiltros(allData);
-      processarDados(allData, filtrosAtivos);
+
+      // Define as colunas que fazem sentido para filtro (excluindo IDs ou valores numéricos diretos)
+      if (allData.length > 0) {
+        const sample = allData[0];
+        const cols = Object.keys(sample).filter(c => !c.includes('id') && c !== 'valor_proj' && c !== 'valor_prod');
+        setColunasDisponiveis(cols);
+        if (cols.length > 0) setTipoFiltroAtual(cols[0]);
+      }
+
+      processarDados(allData, {});
     } catch (error) {
       AlertaLimpo.fire({ icon: "error", title: "Erro", text: "Não foi possível carregar os dados de produtividade: " + error.message });
     } finally {
@@ -87,81 +124,46 @@ export default function Producao() {
     }
   };
 
-  const extrairOpcoesFiltros = (dados) => {
-    const mesesSet = new Set();
-    const tiposSet = new Set();
-
-    dados.forEach((item) => {
-      if (item.tipo_os) tiposSet.add(item.tipo_os);
-
-      // Tratamento robusto caso 'meses' seja um campo JSON ou string de data comum
-      const campoMesOuData = item.meses || item.mes || item.data || item.data_criacao || item.data_programacao;
-      if (campoMesOuData) {
-        try {
-          // Se for JSON ou string serializada, tenta tratar
-          let parsed = typeof campoMesOuData === 'string' ? campoMesOuData : JSON.stringify(campoMesOuData);
-          const dataStr = parsed.substring(0, 7);
-          if (dataStr.length === 7) mesesSet.add(dataStr);
-        } catch (e) {
-          // Ignora se formato inválido
-        }
-      }
-    });
-
-    setTiposDisponiveis(Array.from(tiposSet).sort());
-    
-    const mesesOrdenados = Array.from(mesesSet).sort().map((m) => {
-      const [ano, mes] = m.split("-");
-      const nomeMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-      const label = `${nomeMeses[parseInt(mes, 10) - 1] || 'Mês'} / ${ano}`;
-      return { valor: m, label };
-    });
-
-    setMesesDisponiveis(mesesOrdenados);
-  };
-
   const adicionarFiltroDinamico = () => {
+    if (!tipoFiltroAtual || valorFiltroSelect === 'TODOS') return;
+
     setFiltrosAtivos(prev => {
-      const novosFiltros = { ...prev };
-      if (tipoFiltroAtual === 'mes') {
-        novosFiltros.mes = valorFiltroSelect;
-      } else if (tipoFiltroAtual === 'tipo') {
-        novosFiltros.tipo = valorFiltroSelect;
-      }
+      const novosFiltros = { ...prev, [tipoFiltroAtual]: valorFiltroSelect };
       processarDados(todosDados, novosFiltros);
       return novosFiltros;
     });
   };
 
-  const removerFiltro = (tipo) => {
+  const removerFiltro = (campo) => {
     setFiltrosAtivos(prev => {
-      const novosFiltros = { ...prev, [tipo]: 'TODOS' };
+      const novosFiltros = { ...prev };
+      delete novosFiltros[campo];
       processarDados(todosDados, novosFiltros);
       return novosFiltros;
     });
   };
 
   const limparTodosFiltros = () => {
-    const filtrosLimpos = { mes: 'TODOS', tipo: 'TODOS' };
-    setFiltrosAtivos(filtrosLimpos);
+    setFiltrosAtivos({});
     setValorFiltroSelect('TODOS');
-    processarDados(todosDados, filtrosLimpos);
+    processarDados(todosDados, {});
   };
 
   const processarDados = (dados, filtros) => {
     let filtrados = [...dados];
 
-    if (filtros.tipo && filtros.tipo !== 'TODOS') {
-      filtrados = filtrados.filter(item => item.tipo_os === filtros.tipo);
-    }
-
-    if (filtros.mes && filtros.mes !== 'TODOS') {
+    // Aplica todos os filtros ativos em cascata
+    Object.keys(filtros).forEach(campo => {
+      const valorFiltro = filtros[campo];
       filtrados = filtrados.filter(item => {
-        const campoMesOuData = item.meses || item.mes || item.data || item.data_criacao || item.data_programacao;
-        if (!campoMesOuData) return false;
-        return String(campoMesOuData).startsWith(filtros.mes);
+        const valItem = item[campo];
+        if (valItem === undefined || valItem === null) return false;
+        if (campo === 'mes' || campo.includes('data')) {
+          return String(valItem).startsWith(valorFiltro);
+        }
+        return String(valItem) === valorFiltro;
       });
-    }
+    });
 
     let somaGeralProj = 0;
     let somaGeralProd = 0;
@@ -241,7 +243,7 @@ export default function Producao() {
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const temFiltroAtivo = filtrosAtivos.mes !== 'TODOS' || filtrosAtivos.tipo !== 'TODOS';
+  const temFiltroAtivo = Object.keys(filtrosAtivos).length > 0;
 
   const alturaUnificadaEstilo = {
     height: '32px',
@@ -260,7 +262,7 @@ export default function Producao() {
 
   return (
     <div className="data-apoio-container">
-      {/* HEADER */}
+      {/* HEADER PADRONIZADO */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', background: '#ffffff', padding: '10px 16px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ backgroundColor: '#0284c7', color: '#fff', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,85,150,0.2)' }}>
@@ -282,21 +284,24 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* FILTER BAR & CONTROLES DE ORDENAÇÃO */}
+      {/* FILTER BAR EM CASCATA COM 2 SELECTS */}
       <div className="filter-bar">
         <div className="filter-controls-wrapper">
           <div className="filter-select-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <select className="filter-control-field" style={alturaUnificadaEstilo} value={tipoFiltroAtual} onChange={(e) => { setTipoFiltroAtual(e.target.value); setValorFiltroSelect('TODOS'); }}>
-              <option value="mes">Filtrar por Mês</option>
-              <option value="tipo">Filtrar por Tipo de OS</option>
+            
+            {/* Primeiro Select: Escolher a Coluna */}
+            <select className="filter-control-field" style={alturaUnificadaEstilo} value={tipoFiltroAtual} onChange={(e) => setTipoFiltroAtual(e.target.value)}>
+              {colunasDisponiveis.map(col => (
+                <option key={col} value={col}>Coluna: {col.toUpperCase()}</option>
+              ))}
             </select>
 
+            {/* Segundo Select: Escolher o Valor da Coluna selecionada */}
             <select className="filter-control-field" style={alturaUnificadaEstilo} value={valorFiltroSelect} onChange={(e) => setValorFiltroSelect(e.target.value)}>
-              <option value="TODOS">TODOS</option>
-              {tipoFiltroAtual === 'mes' 
-                ? mesesDisponiveis.map(m => <option key={m.valor} value={m.valor}>{m.label}</option>)
-                : tiposDisponiveis.map(t => <option key={t} value={t}>{t}</option>)
-              }
+              <option value="TODOS">TODOS OS VALORES</option>
+              {valoresColunaAtual.map(val => (
+                <option key={val} value={val}>{val}</option>
+              ))}
             </select>
 
             <button type="button" className="filter-btn-aplicar" style={alturaUnificadaEstilo} onClick={adicionarFiltroDinamico}>
@@ -310,19 +315,14 @@ export default function Producao() {
             )}
           </div>
 
+          {/* CHIPS DE FILTRO ATIVOS */}
           <div className="filter-badges-container" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
-            {filtrosAtivos.mes !== 'TODOS' && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 500, border: '1px solid #bae6fd' }}>
-                <span>Mês: <strong>{mesesDisponiveis.find(m => m.valor === filtrosAtivos.mes)?.label || filtrosAtivos.mes}</strong></span>
-                <button onClick={() => removerFiltro('mes')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#0369a1', display: 'flex', alignItems: 'center', padding: 0 }}><X size={12} /></button>
+            {Object.keys(filtrosAtivos).map(campo => (
+              <div key={campo} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 500, border: '1px solid #bae6fd' }}>
+                <span>{campo}: <strong>{filtrosAtivos[campo]}</strong></span>
+                <button onClick={() => removerFiltro(campo)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#0369a1', display: 'flex', alignItems: 'center', padding: 0 }}><X size={12} /></button>
               </div>
-            )}
-            {filtrosAtivos.tipo !== 'TODOS' && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '16px', fontSize: '0.78rem', fontWeight: 500, border: '1px solid #bae6fd' }}>
-                <span>Tipo OS: <strong>{filtrosAtivos.tipo}</strong></span>
-                <button onClick={() => removerFiltro('tipo')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#0369a1', display: 'flex', alignItems: 'center', padding: 0 }}><X size={12} /></button>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
