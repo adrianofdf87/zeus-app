@@ -29,6 +29,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
+  // Lista completa de tabelas avançadas que NÃO devem ter botões Novo e Editar funcionais/visíveis
   const tabelasAvancadasSemCrudManual = [
     'tabe_imp_pep',
     'tabe_imp_pep_local',
@@ -189,16 +190,18 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       }
 
       const from = (paginaAtual - 1) * registrosPorPagina;
-      
-      const tipoContagem = tabelaBd === 'view_dados_produtividade' ? 'estimated' : 'exact';
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: tipoContagem });
+      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
       query = aplicarFiltrosAuxiliares(query);
 
       if (termoBruto.length >= 2 && colunasTexto.length > 0) {
         const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
+        
         if (termoLimpo.length > 0) {
           const condicoes = colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`);
-          if (condicoes.length > 0) query = query.or(condicoes.join(','));
+
+          if (condicoes.length > 0) {
+            query = query.or(condicoes.join(','));
+          }
         }
       }
 
@@ -209,63 +212,23 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       if (error) throw error;
 
       setTotalBanco(count || 0);
+      
       let dadosTratados = data || [];
 
-      // Tratamento para consolidar por Ordem e preencher dinamicamente todos os meses existentes na página
+      // Herda automaticamente todas as colunas nuevas (pep, status, etc.) e expande os Meses
       if (tabelaBd === 'view_dados_produtividade') {
-        const mapaOrdens = {};
-        const todosMesesSet = new Set();
+        dadosTratados = dadosTratados.map(row => {
+          const mesesObj = row.Meses || row.meses || {};
+          const novaLinha = { ...row }; 
+          delete novaLinha.Meses; 
+          delete novaLinha.meses;
 
-        // 1º Passo: Mapeia todos os meses existentes e agrupa os valores por Ordem de Serviço
-        dadosTratados.forEach(row => {
-          const chaveOrdem = row.ordem && row.ordem.trim() !== '' ? row.ordem.trim() : `ID_${row.id}`;
-
-          if (!mapaOrdens[chaveOrdem]) {
-            mapaOrdens[chaveOrdem] = {
-              id: row.id,
-              coordenador: row.coordenador,
-              supervisor: row.supervisor,
-              Ordem: row.ordem,
-              pep: row.pep,
-              status: row.status,
-              valor_proj: row.valor_proj,
-              valor_prod: 0,
-              mesesMap: {}
-            };
+          if (typeof mesesObj === 'object' && mesesObj !== null) {
+            Object.keys(mesesObj).forEach(mesKey => {
+              const nomeColunaMes = `VALOR_${mesKey}`;
+              novaLinha[nomeColunaMes] = mesesObj[mesKey];
+            });
           }
-
-          const val = Number(row.valor) || 0;
-          const mes = row.ano_mes;
-
-          mapaOrdens[chaveOrdem].valor_prod += val;
-
-          if (mes) {
-            todosMesesSet.add(mes);
-            mapaOrdens[chaveOrdem].mesesMap[mes] = (mapaOrdens[chaveOrdem].mesesMap[mes] || 0) + val;
-          }
-        });
-
-        // Ordena os meses em ordem decrescente (ex: 2026-09, 2026-08...)
-        const listaMeses = Array.from(todosMesesSet).sort().reverse();
-
-        // 2º Passo: Garante que TODAS as ordens tenham colunas para TODOS os meses encontrados, colocando 0 onde não houver valor
-        dadosTratados = Object.values(mapaOrdens).map(item => {
-          const novaLinha = {
-            id: item.id,
-            coordenador: item.coordenador,
-            supervisor: item.supervisor,
-            Ordem: item.Ordem,
-            pep: item.pep,
-            status: item.status,
-            valor_proj: item.valor_proj,
-            valor_prod: item.valor_prod
-          };
-
-          listaMeses.forEach(mesKey => {
-            const nomeColunaMes = `VALOR_${mesKey}`;
-            // Preenche com o valor do mês ou com 0 caso a ordem não possua lançamento naquele mês
-            novaLinha[nomeColunaMes] = item.mesesMap[mesKey] !== undefined ? item.mesesMap[mesKey] : 0;
-          });
 
           return novaLinha;
         });
@@ -675,6 +638,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const abrirFormRegistroTabela = async (editandoObj = null) => {
+    // Se for tabela avançada, bloqueia a execução do formulário
     if (ehTabelaAvancada) return;
 
     const editId = editandoObj?.id, editando = Boolean(editId), rowData = editandoObj || {};
@@ -805,6 +769,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
           <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           {tabelaBd === "tabe_imp_pep" && <button onClick={copiarPIs} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Copiar PEP's"><Copy size={14} /> Copiar PEP's</button>}
           
+          {/* Botões Novo e Editar renderizados apenas se NÃO for tabela avançada */}
           {exibirBotoesCrudManual && (
             <>
               <button onClick={() => abrirFormRegistroTabela(null)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Plus size={14} /> Novo</button>
