@@ -203,7 +203,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
       const { data, count, error } = await query
         .range(from, from + registrosPorPagina - 1)
-        .order('Ordem', { ascending: true });
+        .order('ordem', { ascending: true });
 
       if (error) throw error;
 
@@ -217,7 +217,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         const todosMesesSet = new Set();
 
         dadosTratados.forEach(row => {
-          const ordem = row.Ordem;
+          const ordem = row.ordem;
           if (!ordem) return;
 
           if (!mapaOrdens[ordem]) {
@@ -253,7 +253,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             id: item.id,
             coordenador: item.coordenador,
             supervisor: item.supervisor,
-            Ordem: item.Ordem,
+            Ordem: item.ordem,
             pep: item.pep,
             status: item.status,
             valor_proj: item.valor_proj,
