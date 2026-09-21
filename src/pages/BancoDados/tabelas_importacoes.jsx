@@ -162,12 +162,12 @@ async function importarPepFaturado(limpar, file, sb, update) {
       const c = rows[i];
       if (!c || c.join("").trim() === "") continue;
 
-      // Pegando somente os primeiros caracteres na coluna PEP
+      // Pegando da coluna c[1] e extraindo os primeiros 21 caracteres para o PEP
       const pepBruto = limpaStr(c[1]);
-      const pepTratado = pepBruto ? pepBruto.substring(0, 24) : null; 
+      const pepTratado = pepBruto ? pepBruto.substring(0, 21) : null; 
 
-      // Pegando somente o último caractere na coluna TPC
-      const tpcBruto = limpaStr(c[19]); 
+      // Pegando da coluna c[1] (ou altere o índice se necessário) e extraindo somente o último caractere para o TPC
+      const tpcBruto = limpaStr(c[1]); 
       const tpcTratado = tpcBruto ? tpcBruto.slice(-1) : null;
 
       const itemObj = {

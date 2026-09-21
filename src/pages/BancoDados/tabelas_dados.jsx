@@ -42,7 +42,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     'tabe_cad_carteira',
     'tabe_imp_caderno_servico',
     'tabe_imp_prod_jupiter',
-    'view_dados_produtividade'
+    'view_dados_produtividade',
+    'tabe_imp_pep_fat'
   ];
 
   const ehTabelaAvancada = tabelasAvancadasSemCrudManual.includes(tabelaBd);
