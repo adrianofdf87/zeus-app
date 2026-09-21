@@ -56,6 +56,7 @@ export default function DataTable({
   const [inputMaiorQue, setInputMaiorQue] = useState("");
   const [inputMenorQue, setInputMenorQue] = useState("");
   const [opcoesBancoColuna, setOpcoesBancoColuna] = useState([]);
+  const [opcoesBancoCarregadas, setOpcoesBancoCarregadas] = useState(false);
   const [loadingOpcoes, setLoadingOpcoes] = useState(false);
   
   const [editandoNome, setEditandoNome] = useState(false);
@@ -214,13 +215,23 @@ export default function DataTable({
     setTermoBuscaFiltro("");
     setEditandoNome(false);
     setNovoApelidoCol(colunasApelidos[coluna] || coluna.toUpperCase());
+    setOpcoesBancoColuna([]);
+    setOpcoesBancoCarregadas(false);
     setMenuAtivo({ tipo: 'excel', coluna });
 
     if (onFetchColumnOptions) {
       setLoadingOpcoes(true);
-      const opcoes = await onFetchColumnOptions(coluna, filtrosGlobais);
-      setOpcoesBancoColuna(opcoes || []);
-      setLoadingOpcoes(false);
+      try {
+        const opcoes = await onFetchColumnOptions(coluna, filtrosGlobais);
+        setOpcoesBancoColuna(Array.isArray(opcoes) ? opcoes : []);
+        setOpcoesBancoCarregadas(true);
+      } catch (err) {
+        console.error("Erro ao carregar opções da coluna:", err);
+        setOpcoesBancoColuna([]);
+        setOpcoesBancoCarregadas(true);
+      } finally {
+        setLoadingOpcoes(false);
+      }
     }
   };
 
@@ -302,7 +313,7 @@ export default function DataTable({
   const opcoesFiltroAtual = useMemo(() => {
     let baseOpcoes = [];
 
-    if (opcoesBancoColuna.length > 0) {
+    if (opcoesBancoCarregadas) {
       baseOpcoes = opcoesBancoColuna;
     } else {
       const coluna = menuAtivo?.coluna;
@@ -329,7 +340,7 @@ export default function DataTable({
     // Se o usuário digitou algo e não encontrou localmente nas opções carregadas, podemos simular ou garantir que o banco cubra.
     // Como `opcoesBancoColuna` já puxa todos os distintos do banco, se não achar nem lá, retornará vazio.
     return filtradasLocal.sort((a, b) => a.exibicao.localeCompare(b.exibicao));
-  }, [opcoesBancoColuna, menuAtivo, data, termoBuscaFiltro]);
+  }, [opcoesBancoColuna, opcoesBancoCarregadas, menuAtivo, data, termoBuscaFiltro]);
 
   const temFiltroNaColunaAtual = menuAtivo && menuAtivo.tipo === 'excel' && filtrosGlobais[menuAtivo.coluna] && filtrosGlobais[menuAtivo.coluna].length > 0;
   const temQualquerFiltroAtivo = Object.keys(filtrosGlobais).some(col => filtrosGlobais[col] && filtrosGlobais[col].length > 0);
@@ -373,7 +384,6 @@ export default function DataTable({
                       setDraggedColIdx(null);
                     }}
                     className={`draggable-th ${filtrosGlobais[col] && filtrosGlobais[col].length > 0 ? "th-filter-active" : ""}`}
-                    style={filtrosGlobais[col] && filtrosGlobais[col].length > 0 ? { backgroundColor: "#eff6ff", boxShadow: "inset 0 -2px 0 #2563eb" } : undefined}
                   >
                     <div className="th-cell-container" onClick={(e) => abrirMenuExcel(col, e)}>
                       <span className="th-title-text" title={nomeExibicao}>
@@ -382,8 +392,7 @@ export default function DataTable({
                       <div className="th-actions-group">
                         <button 
                           id={`btn_col_${col}`}
-                          className={`excel-filter-btn ${ativo ? 'active' : ''}`}
-                          style={filtrosGlobais[col] && filtrosGlobais[col].length > 0 ? { color: "#2563eb", background: "#dbeafe", borderColor: "#93c5fd" } : undefined}
+                          className={`excel-filter-btn ${ativo ? 'active' : ''} ${filtrosGlobais[col] && filtrosGlobais[col].length > 0 ? 'filter-applied' : ''}`}
                         >
                           <ChevronDown size={14} />
                         </button>
@@ -577,7 +586,7 @@ export default function DataTable({
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '2px 0', fontSize: '0.7rem' }}>
                   <span className="excel-filter-header-acoes" onClick={() => setTempFiltrosCheckbox(new Set(opcoesFiltroAtual.map(o => o.chave)))}>Selecionar Todos</span>
-                  <span className="excel-filter-header-acoes" onClick={() => limparFiltroColuna(menuAtivo.coluna)} title="Limpar somente o filtro desta coluna">Limpar</span>
+                  <span className="excel-filter-header-acoes" onClick={() => setTempFiltrosCheckbox(new Set())}>Limpar</span>
                 </div>
 
                 <div className="excel-filter-list-valores">

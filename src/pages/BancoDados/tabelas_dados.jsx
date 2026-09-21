@@ -255,8 +255,8 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
     const normalizarOpcao = (valor) => {
-      const isNull = valor === null || valor === undefined || String(valor).trim() === "";
-      return { chave: isNull ? "##NULL##" : String(valor), exibicao: isNull ? "-" : String(valor) };
+      const vazio = valor === null || valor === undefined || String(valor).trim() === "";
+      return { chave: vazio ? "##NULL##" : String(valor), exibicao: vazio ? "-" : String(valor) };
     };
 
     if (coluna.startsWith('VALOR_')) {
@@ -269,7 +269,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       });
       return Array.from(unicos.values())
         .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
-        .sort((a, b) => a.exibicao.localeCompare(b.exibicao));
+        .sort((a, b) => a.exibicao.localeCompare(b.exibicao, 'pt-BR', { numeric: true, sensitivity: 'base' }));
     }
 
     try {
@@ -277,11 +277,10 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       const filtrosOutrasColunas = { ...(filtrosAtuais || {}) };
       delete filtrosOutrasColunas[coluna];
 
-      let queryBase = supabase.from(tabelaDistintos).select(coluna);
+      let query = supabase.from(tabelaDistintos).select(coluna);
 
       Object.keys(filtrosOutrasColunas).forEach(col => {
         if (col.startsWith('VALOR_')) return;
-
         const regras = filtrosOutrasColunas[col];
         if (!Array.isArray(regras) || regras.length === 0) return;
 
@@ -292,38 +291,30 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         if (exatos.length > 0) {
           const temNull = exatos.includes("##NULL##");
           const vals = exatos.filter(v => v !== "##NULL##");
-
           if (temNull && vals.length > 0) {
-            const valoresIn = vals
-              .map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
-              .join(",");
-            queryBase = queryBase.or(`${col}.in.(${valoresIn}),${col}.is.null`);
+            const valores = vals.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(',');
+            query = query.or(`${col}.in.(${valores}),${col}.is.null`);
           } else if (temNull) {
-            queryBase = queryBase.is(col, null);
+            query = query.is(col, null);
           } else {
-            queryBase = queryBase.in(col, vals);
+            query = query.in(col, vals);
           }
         }
-
-        if (maiorQue !== undefined && maiorQue !== "") queryBase = queryBase.gte(col, Number(maiorQue));
-        if (menorQue !== undefined && menorQue !== "") queryBase = queryBase.lte(col, Number(menorQue));
+        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
       });
 
       const unicos = new Map();
       let inicio = 0;
       const limite = 1000;
-      let continuar = true;
-
-      while (continuar) {
-        const { data, error } = await queryBase.range(inicio, inicio + limite - 1);
+      while (true) {
+        const { data, error } = await query.range(inicio, inicio + limite - 1);
         if (error) throw error;
-
         (data || []).forEach(item => {
           const op = normalizarOpcao(item[coluna]);
           unicos.set(op.chave, op);
         });
-
-        continuar = (data || []).length === limite;
+        if (!data || data.length < limite) break;
         inicio += limite;
       }
 
