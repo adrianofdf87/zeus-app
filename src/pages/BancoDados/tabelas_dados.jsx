@@ -215,17 +215,23 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
       
       let dadosTratados = data || [];
 
-      // Se for a view de produtividade, transforma o objeto JSON "Meses" em colunas diretas na linha
+      // Expande dinamicamente o objeto JSON "Meses" para colunas planas na tabela
       if (tabelaBd === 'view_dados_produtividade') {
         dadosTratados = dadosTratados.map(row => {
-          const mesesObj = row.Meses || {};
-          const novaLinha = { ...row };
-          delete novaLinha.Meses; // Remove o objeto JSON original
+          const mesesObj = row.Meses || row.meses || {};
+          const novaLinha = { 
+            id: row.id,
+            coordenador: row.coordenador,
+            supervisor: row.supervisor,
+            Ordem: row.Ordem || row.ordem,
+            valor_prod: row.valor_prod
+          };
 
-          // Expande cada chave do mês (ex: "2026-09") para uma propriedade direta da linha
-          Object.keys(mesesObj).forEach(mesKey => {
-            novaLinha[mesKey] = mesesObj[mesKey];
-          });
+          if (typeof mesesObj === 'object' && mesesObj !== null) {
+            Object.keys(mesesObj).forEach(mesKey => {
+              novaLinha[mesKey] = mesesObj[mesKey];
+            });
+          }
 
           return novaLinha;
         });
