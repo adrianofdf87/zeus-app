@@ -104,7 +104,7 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// NOVO PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (CORRIGIDO)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -116,10 +116,40 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     const rows = await readRows(file, { defval: "", cellDates: true });
     if (rows.length < 2) throw new Error("A planilha está vazia.");
 
+    // Função interna blindada para formatar datas da planilha (suporta serial do Excel, Date objects e strings pt-BR ou ISO)
+    const formatarDataSegura = (val) => {
+      if (!val) return null;
+      if (val instanceof Date) {
+        if (isNaN(val.getTime())) return null;
+        return val.toISOString().split('T')[0];
+      }
+      if (typeof val === 'number') {
+        // Converte número serial do Excel para data
+        const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+        return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+      }
+      const str = String(val).trim();
+      if (!str || str.toLowerCase() === 'null' || str === 'undefined') return null;
+
+      // Se já estiver no formato AAAA-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      if (/^\d{4}-\d{2}-\d{2}T/.test(str)) return str.split('T')[0];
+
+      // Se estiver no formato DD/MM/AAAA
+      if (str.includes('/')) {
+        const partes = str.split('/');
+        if (partes.length === 3) {
+          const [dia, mes, ano] = partes;
+          if (ano.length === 4) return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+          if (dia.length === 4) return `${dia}-${mes.padStart(2, '0')}-${ano.padStart(2, '0')}`;
+        }
+      }
+      return null;
+    };
+
     update(20, "Mapeando e formatando dados da planilha...");
     const itensPlanilha = [];
 
-    // Mapeamento das colunas com base na ordem dos campos da tabela tabe_imp_prod_jupiter
     for (let i = 1; i < rows.length; i++) {
       const c = rows[i];
       if (!c || c.join("").trim() === "") continue;
@@ -127,7 +157,7 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       const itemObj = {
         lancamento_servico_id: limpaStr(c[0]),
         id: limpaStr(c[1]) || `JUP-${Date.now()}-${i}`,
-        data: formataDt(c[2]),
+        data: formatarDataSegura(c[2]),
         equipe_id: limpaStr(c[3]),
         equipe: limpaStr(c[4]),
         centro_custo: limpaStr(c[5]),
@@ -150,12 +180,12 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         valor: parseNum(c[22]),
         quantidade: parseNum(c[23]),
         backoffice: limpaStr(c[24]),
-        data_backoffice: formataDt(c[25]),
-        criado_em: formataDt(c[26]) || formataDt(new Date()),
+        data_backoffice: formatarDataSegura(c[25]),
+        criado_em: formatarDataSegura(c[26]) || formatarDataSegura(new Date()),
         criado_por: limpaStr(c[27]) || usuCad,
-        editado_em: formataDt(c[28]),
+        editado_em: formatarDataSegura(c[28]),
         editado_por: limpaStr(c[29]),
-        apagado_em: formataDt(c[30]),
+        apagado_em: formatarDataSegura(c[30]),
         apagado_por: limpaStr(c[31]),
         usu_cada: usuCad
       };
@@ -168,29 +198,33 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     }
 
     if (!itensPlanilha.length) {
-      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (data, equipe_id, ordem_servico, codigo_acao_campo, quantidade) estão preenchidas.");
+      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (data, equipe_id, ordem_servico, codigo_acao_campo, quantidade) estão preenchidas corretamente.");
     }
 
     update(35, "Verificando existência de registros no banco...");
-    const chavesPlanilha = [...new Set(itensPlanilha.map(i => i.chave_composta))];
     const chavesExistentesNoBanco = new Set();
-
-    // Consulta em lotes para checar conflitos nas colunas especificadas
-    const chunksChaves = chunkArr(chavesPlanilha, 100);
-    for (let i = 0; i < chunksChaves.length; i++) {
-      update(35 + Math.floor(((i + 1) / chunksChaves.length) * 20), `Checando duplicidades (${i + 1}/${chunksChaves.length})...`);
-      
+    
+    // Busca paginada para evitar estouro de requisição no Supabase ao verificar duplicidades
+    let pagina = 0;
+    let buscarMais = true;
+    while (buscarMais) {
       const { data: registrosBanco, error: errBusca } = await sb
         .from('tabe_imp_prod_jupiter')
-        .select('data, equipe_id, ordem_servico, codigo_acao_campo, quantidade');
+        .select('data, equipe_id, ordem_servico, codigo_acao_campo, quantidade')
+        .range(pagina * 1000, (pagina + 1) * 1000 - 1);
 
       if (errBusca) throw errBusca;
 
-      if (registrosBanco) {
+      if (registrosBanco && registrosBanco.length > 0) {
         registrosBanco.forEach(r => {
-          const chaveDb = `${formataDt(r.data)}|${r.equipe_id}|${r.ordem_servico}|${r.codigo_acao_campo}|${parseNum(r.quantidade)}`;
+          const dtDb = formatarDataSegura(r.data);
+          const chaveDb = `${dtDb}|${r.equipe_id}|${r.ordem_servico}|${r.codigo_acao_campo}|${parseNum(r.quantidade)}`;
           chavesExistentesNoBanco.add(chaveDb);
         });
+        if (registrosBanco.length < 1000) buscarMais = false;
+        else pagina++;
+      } else {
+        buscarMais = false;
       }
     }
 
@@ -208,7 +242,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     if (acao === 'APENAS_NOVAS') {
       dadosParaSalvar = itensPlanilha.filter(item => !chavesExistentesNoBanco.has(item.chave_composta));
     } else {
-      // Se a opção for substituir, removemos do banco os registros conflitantes antes de inserir os novos atualizados
       update(65, "Removendo registros antigos conflitantes...");
       for (const conflito of conflitos) {
         await sb.from('tabe_imp_prod_jupiter')
@@ -229,7 +262,7 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     update(75, "Gravando dados na tabela tabe_imp_prod_jupiter...");
     let inseridos = 0;
 
-    // Limpa a propriedade temporária de chave composta antes do insert
+    // Remove a propriedade temporária de chave composta antes de enviar o payload para o Supabase
     const payloadFinal = dadosParaSalvar.map(({ chave_composta, ...resto }) => resto);
 
     for (const lote of chunkArr(payloadFinal, 500)) {
