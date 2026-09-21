@@ -104,7 +104,7 @@ const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConf
 const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (COM REMOÇÃO DE ACENTOS NA CIDADE)
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (SEM ACENTOS EM NENHUMA COLUNA DE TEXTO)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -115,6 +115,13 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     update(10, "Lendo arquivo...");
     const rows = await readRows(file, { defval: "", cellDates: true });
     if (rows.length < 2) throw new Error("A planilha está vazia.");
+
+    // Função para remover acentos e diacríticos de strings
+    const removerAcentos = (val) => {
+      const limpo = limpaStr(val);
+      if (!limpo) return null;
+      return limpo.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
 
     // Função interna blindada para formatar datas com segurança
     const formatarDataSegura = (val) => {
@@ -151,44 +158,40 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       const c = rows[i];
       if (!c || c.join("").trim() === "") continue;
 
-      // Tratamento da cidade para remover acentos/diacríticos
-      const cidadeRaw = limpaStr(c[8]);
-      const cidadeTratada = cidadeRaw ? cidadeRaw.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : null;
-
       const itemObj = {
-        lancamento_servico_id: limpaStr(c[0]),
-        id: limpaStr(c[1]) || `JUP-${Date.now()}-${i}`,
+        lancamento_servico_id: removerAcentos(c[0]),
+        id: removerAcentos(c[1]) || `JUP-${Date.now()}-${i}`,
         data: formatarDataSegura(c[2]),
-        equipe_id: limpaStr(c[3]),
-        equipe: limpaStr(c[4]),
-        centro_custo: limpaStr(c[5]),
-        processo: limpaStr(c[6]),
-        tipo_equipe: limpaStr(c[7]),
-        cidade: cidadeTratada, // <-- Cidade sem acentos aplicada aqui
-        encarregado: limpaStr(c[9]),
-        supervisor: limpaStr(c[10]),
-        coordenador: limpaStr(c[11]),
-        ordem_servico: limpaStr(c[12]),
+        equipe_id: removerAcentos(c[3]),
+        equipe: removerAcentos(c[4]),
+        centro_custo: removerAcentos(c[5]),
+        processo: removerAcentos(c[6]),
+        tipo_equipe: removerAcentos(c[7]),
+        cidade: removerAcentos(c[8]),
+        encarregado: removerAcentos(c[9]),
+        supervisor: removerAcentos(c[10]),
+        coordenador: removerAcentos(c[11]),
+        ordem_servico: removerAcentos(c[12]),
         hora_inicio: formatHora(c[13]),
         hora_fim: formatHora(c[14]),
         km_inicio: parseNum(c[15]),
         km_fim: parseNum(c[16]),
-        observacao: limpaStr(c[17]),
-        acao_campo: limpaStr(c[18]),
-        tipo_acao_campo: limpaStr(c[19]),
-        codigo_acao_campo: limpaStr(c[20]),
-        tipo_servico: limpaStr(c[21]),
+        observacao: removerAcentos(c[17]),
+        acao_campo: removerAcentos(c[18]),
+        tipo_acao_campo: removerAcentos(c[19]),
+        codigo_acao_campo: removerAcentos(c[20]),
+        tipo_servico: removerAcentos(c[21]),
         valor: parseNum(c[22]),
         quantidade: parseNum(c[23]),
-        backoffice: limpaStr(c[24]),
+        backoffice: removerAcentos(c[24]),
         data_backoffice: formatarDataSegura(c[25]),
         criado_em: formatarDataSegura(c[26]) || formatarDataSegura(new Date()),
-        criado_por: limpaStr(c[27]) || usuCad,
+        criado_por: removerAcentos(c[27]) || removerAcentos(usuCad),
         editado_em: formatarDataSegura(c[28]),
-        editado_por: limpaStr(c[29]),
+        editado_por: removerAcentos(c[29]),
         apagado_em: formatarDataSegura(c[30]),
-        apagado_por: limpaStr(c[31]),
-        usu_cada: usuCad
+        apagado_por: removerAcentos(c[31]),
+        usu_cada: removerAcentos(usuCad)
       };
 
       // Validação mínima das colunas de checagem exigidas
