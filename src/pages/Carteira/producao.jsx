@@ -27,11 +27,9 @@ export default function Producao() {
   const dropdownColunaRef = useRef(null);
   const dropdownValorRef = useRef(null);
 
-  const [ordenacaoCampo, setOrdenacaoCampo] = useState("soma_valor_proj");
-  const [ordenacaoDirecao, setOrdenacaoDirecao] = useState("desc");
-
-  const [ordenacaoNumOsCampo, setOrdenacaoNumOsCampo] = useState("num_os");
-  const [ordenacaoNumOsDirecao, setOrdenacaoNumOsDirecao] = useState("asc");
+  // Estados de ordenação independentes para cada tabela
+  const [ordenacaoTabela1, setOrdenacaoTabela1] = useState({ campo: "soma_valor_proj", direcao: "desc" });
+  const [ordenacaoTabela2, setOrdenacaoTabela2] = useState({ campo: "num_os", direcao: "asc" });
 
   const [totaisGerais, setTotaisGerais] = useState({
     qtdOs: 0,
@@ -297,7 +295,10 @@ export default function Producao() {
           supervisor: item.supervisor || "N/I",
           valor_proj: valProj,
           valor_prod: valProd,
-          valor_fatu: valFatu
+          valor_fatu: valFatu,
+          perc_valor_proj: 0,
+          perc_valor_prod: 0,
+          perc_valor_fatu: 0
         };
       } else {
         agrupadoNumOs[numOs].valor_proj += valProj;
@@ -349,52 +350,44 @@ export default function Producao() {
     setDadosIndividuaisNumOs(resultadoTabela2);
   };
 
-  const dadosTabelaOrdenados = [...dadosProcessadosTabela].sort((a, b) => {
-    let valorA = a[ordenacaoCampo];
-    let valorB = b[ordenacaoCampo];
+  // Funções de Ordenação Genérica para qualquer campo
+  const ordenarDados = (dados, campo, direcao) => {
+    return [...dados].sort((a, b) => {
+      let valorA = a[campo];
+      let valorB = b[campo];
 
-    if (valorA === undefined || valorA === null) valorA = "";
-    if (valorB === undefined || valorB === null) valorB = "";
+      if (valorA === undefined || valorA === null) valorA = "";
+      if (valorB === undefined || valorB === null) valorB = "";
 
-    if (typeof valorA === "string") valorA = valorA.toLowerCase();
-    if (typeof valorB === "string") valorB = valorB.toLowerCase();
+      if (typeof valorA === "string") valorA = valorA.toLowerCase();
+      if (typeof valorB === "string") valorB = valorB.toLowerCase();
 
-    if (valorA < valorB) return ordenacaoDirecao === "asc" ? -1 : 1;
-    if (valorA > valorB) return ordenacaoDirecao === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const dadosNumOsOrdenados = [...dadosIndividuaisNumOs].sort((a, b) => {
-    let valorA = a[ordenacaoNumOsCampo];
-    let valorB = b[ordenacaoNumOsCampo];
-
-    if (valorA === undefined || valorA === null) valorA = "";
-    if (valorB === undefined || valorB === null) valorB = "";
-
-    if (typeof valorA === "string") valorA = valorA.toLowerCase();
-    if (typeof valorB === "string") valorB = valorB.toLowerCase();
-
-    if (valorA < valorB) return ordenacaoNumOsDirecao === "asc" ? -1 : 1;
-    if (valorA > valorB) return ordenacaoNumOsDirecao === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const alternarOrdenacao = (campo) => {
-    if (ordenacaoCampo === campo) {
-      setOrdenacaoDirecao(prev => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setOrdenacaoCampo(campo);
-      setOrdenacaoDirecao("asc");
-    }
+      if (valorA < valorB) return direcao === "asc" ? -1 : 1;
+      if (valorA > valorB) return direcao === "asc" ? 1 : -1;
+      return 0;
+    });
   };
 
-  const alternarOrdenacaoNumOs = (campo) => {
-    if (ordenacaoNumOsCampo === campo) {
-      setOrdenacaoNumOsDirecao(prev => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setOrdenacaoNumOsCampo(campo);
-      setOrdenacaoNumOsDirecao("asc");
-    }
+  const dadosTabela1Ordenados = ordenarDados(dadosProcessadosTabela, ordenacaoTabela1.campo, ordenacaoTabela1.direcao);
+  const dadosTabela2Ordenados = ordenarDados(dadosIndividuaisNumOs, ordenacaoTabela2.campo, ordenacaoTabela2.direcao);
+
+  const alternarOrdenacaoTabela1 = (campo) => {
+    setOrdenacaoTabela1(prev => ({
+      campo,
+      direcao: prev.campo === campo && prev.direcao === "asc" ? "desc" : "asc"
+    }));
+  };
+
+  const alternarOrdenacaoTabela2 = (campo) => {
+    setOrdenacaoTabela2(prev => ({
+      campo,
+      direcao: prev.campo === campo && prev.direcao === "asc" ? "desc" : "asc"
+    }));
+  };
+
+  const renderSetaOrdenacao = (campoAtual, campoAlvo, direcao) => {
+    if (campoAtual !== campoAlvo) return null;
+    return direcao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />;
   };
 
   const formatarMoeda = (valor) => {
@@ -605,7 +598,7 @@ export default function Producao() {
         </div>
       </div>
 
-      {/* CONTAINER COM SCROLL GERAL DA PÁGINA (A PARTIR DAQUI PARA BAIXO) */}
+      {/* CONTAINER COM SCROLL GERAL DA PÁGINA */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '2px' }}>
 
         {/* CARD 1: RESUMO POR TIPO DE OS */}
@@ -615,7 +608,7 @@ export default function Producao() {
             <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
           </div>
 
-          {dadosProcessadosTabela.length === 0 ? (
+          {dadosTabela1Ordenados.length === 0 ? (
             <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
               Nenhum registro encontrado para os filtros selecionados.
             </div>
@@ -624,53 +617,58 @@ export default function Producao() {
               <table className="tabela-apoio-estilizada" style={{ width: "100%" }}>
                 <thead>
                   <tr>
-                    <th onClick={() => alternarOrdenacao("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Tipo de OS</span>
-                        {ordenacaoCampo === "tipo_os" && (
-                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "tipo_os", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacao("qtd_os")} style={{ textAlign: "center", cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("qtd_os")} style={{ textAlign: "center", cursor: "pointer", userSelect: "none" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", justifyContent: "center", width: "100%" }}>
                         <span>Qtd OS</span>
-                        {ordenacaoCampo === "qtd_os" && (
-                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "qtd_os", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacao("soma_valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Projetado</span>
-                        {ordenacaoCampo === "soma_valor_proj" && (
-                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_proj", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th style={{ width: "130px" }}>% Part. Proj.</th>
-                    <th onClick={() => alternarOrdenacao("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_proj")} style={{ cursor: "pointer", userSelect: "none", width: "130px" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>% Part. Proj.</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_proj", ordenacaoTabela1.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Produzido</span>
-                        {ordenacaoCampo === "soma_valor_prod" && (
-                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_prod", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th style={{ width: "130px" }}>% Part. Prod.</th>
-                    <th onClick={() => alternarOrdenacao("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_prod")} style={{ cursor: "pointer", userSelect: "none", width: "130px" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>% Part. Prod.</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_prod", ordenacaoTabela1.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
-                        {ordenacaoCampo === "soma_valor_fatu" && (
-                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_fatu", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th style={{ width: "130px" }}>% Part. Fatu.</th>
+                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_fatu")} style={{ cursor: "pointer", userSelect: "none", width: "130px" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>% Part. Fatu.</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_fatu", ordenacaoTabela1.direcao)}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dadosTabelaOrdenados.map((item, index) => (
+                  {dadosTabela1Ordenados.map((item, index) => (
                     <tr key={index} style={{ transition: "background 0.15s" }}>
                       <td style={{ fontWeight: "600", color: "#0f172a" }}>
                         <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
@@ -733,21 +731,15 @@ export default function Producao() {
                     <td style={{ fontSize: "12px", color: "#005596" }}>
                       {formatarMoeda(totaisGerais.valorProjTotal)}
                     </td>
-                    <td style={{ fontSize: "11px", color: "#64748b" }}>
-                      100%
-                    </td>
+                    <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
                     <td style={{ fontSize: "12px", color: "#10b981" }}>
                       {formatarMoeda(totaisGerais.valorProdTotal)}
                     </td>
-                    <td style={{ fontSize: "11px", color: "#64748b" }}>
-                      100%
-                    </td>
+                    <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
                     <td style={{ fontSize: "12px", color: "#d97706" }}>
                       {formatarMoeda(totaisGerais.valorFatuTotal)}
                     </td>
-                    <td style={{ fontSize: "11px", color: "#64748b" }}>
-                      100%
-                    </td>
+                    <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
                   </tr>
                 </tfoot>
               </table>
@@ -755,14 +747,14 @@ export default function Producao() {
           )}
         </div>
 
-        {/* CARD 2: LISTAGEM INDIVIDUAL DE CADA NUM_OS COM SCROLL INTERNO E CABEÇALHO FIXO */}
+        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO */}
         <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "350px", flexShrink: 0 }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc", flexShrink: 0 }}>
             <Table size={15} color="#005596" />
-            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais com Scroll Interno)</h3>
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais)</h3>
           </div>
 
-          {dadosNumOsOrdenados.length === 0 ? (
+          {dadosTabela2Ordenados.length === 0 ? (
             <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
               Nenhum registro encontrado para os filtros selecionados.
             </div>
@@ -771,69 +763,70 @@ export default function Producao() {
               <table className="tabela-apoio-estilizada" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
                   <tr>
-                    <th onClick={() => alternarOrdenacaoNumOs("num_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("num_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Num OS</span>
-                        {ordenacaoNumOsCampo === "num_os" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "num_os", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoNumOs("tipo_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("tipo_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Tipo OS</span>
-                        {ordenacaoNumOsCampo === "tipo_os" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "tipo_os", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoNumOs("pep")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("pep")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>PEP</span>
-                        {ordenacaoNumOsCampo === "pep" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "pep", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoNumOs("status")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("status")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Status</span>
-                        {ordenacaoNumOsCampo === "status" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "status", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoNumOs("valor_proj")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_proj")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Projetado</span>
-                        {ordenacaoNumOsCampo === "valor_proj" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th style={{ width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>% Part. Proj.</th>
-                    <th onClick={() => alternarOrdenacaoNumOs("valor_prod")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_proj")} style={{ cursor: "pointer", userSelect: "none", width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>% Part. Proj.</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_proj", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Produzido</span>
-                        {ordenacaoNumOsCampo === "valor_prod" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th style={{ width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>% Part. Prod.</th>
-                    <th onClick={() => alternarOrdenacaoNumOs("valor_fatu")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ cursor: "pointer", userSelect: "none", width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>% Part. Prod.</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_prod", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
-                        {ordenacaoNumOsCampo === "valor_fatu" && (
-                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                        )}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th style={{ width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>% Part. Fatu.</th>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_fatu")} style={{ cursor: "pointer", userSelect: "none", width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>% Part. Fatu.</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_fatu", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dadosNumOsOrdenados.map((item, index) => (
+                  {dadosTabela2Ordenados.map((item, index) => (
                     <tr key={index} style={{ transition: "background 0.15s" }}>
                       <td style={{ fontWeight: "700", color: "#005596" }}>
                         {item.num_os}
@@ -891,11 +884,11 @@ export default function Producao() {
             </div>
           )}
 
-          {/* RODAPÉ DA TABELA 2 FIXO NO FIM DO CARD */}
-          {dadosNumOsOrdenados.length > 0 && (
+          {/* RODAPÉ DA TABELA 2 FIXO */}
+          {dadosTabela2Ordenados.length > 0 && (
             <div style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", flexShrink: 0 }}>
               <div>
-                TOTAL GERAL ({dadosNumOsOrdenados.length} Ordens) {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
+                TOTAL GERAL ({dadosTabela2Ordenados.length} Ordens) {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
               </div>
               <div style={{ display: "flex", gap: "16px" }}>
                 <div>Projetado: <span style={{ color: "#005596" }}>{formatarMoeda(totaisGerais.valorProjTotal)}</span></div>
