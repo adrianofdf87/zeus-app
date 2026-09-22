@@ -499,10 +499,10 @@ export default function Producao() {
   }
 
   return (
-    <div style={{ width: '100%', minHeight: '100vh', boxSizing: 'border-box', paddingBottom: '40px', overflowY: 'auto' }}>
+    <div style={{ width: '100%', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden' }}>
       
-      {/* HEADER E FILTROS FIXOS NO TOPO (STICKY) */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '6px', paddingTop: '4px' }}>
+      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (NÃO ROLAM) */}
+      <div style={{ flexShrink: 0, background: '#f8fafc', paddingBottom: '6px', paddingTop: '2px', zIndex: 50 }}>
         
         {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
@@ -683,11 +683,11 @@ export default function Producao() {
 
       </div>
 
-      {/* CONTAINER COM CONTEÚDO SCROLLÁVEL DA PÁGINA */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+      {/* CONTAINER COM SCROLL INTERNO INDEPENDENTE PARA AS TABELAS */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '30px' }}>
 
         {/* CARD 1: RESUMO POR TIPO DE OS */}
-        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", flexShrink: 0 }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
             <Table size={15} color="#005596" />
             <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS <span style={{ fontWeight: '400', fontSize: '11px', color: '#64748b' }}>(Clique em uma linha para filtrar a tabela abaixo)</span></h3>
@@ -845,11 +845,11 @@ export default function Producao() {
           )}
         </div>
 
-        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM SCROLL INTERNO E ORDEM DE COLUNAS EXATA */}
-        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "380px" }}>
+        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM ORDEM CORRETA E SCROLL INTERNO */}
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "380px", flexShrink: 0 }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc", flexShrink: 0 }}>
             <Table size={15} color="#005596" />
-            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais com Scroll Interno)</h3>
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais)</h3>
           </div>
 
           {dadosTabela2Ordenados.length === 0 ? (
@@ -910,7 +910,7 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    {/* AS TRÊS COLUNAS DE PERCENTUAL REQUISITADAS */}
+                    {/* AS 3 COLUNAS DE PERCENTUAL REQUISITADAS */}
                     <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%ProdXProj</span>
@@ -965,7 +965,7 @@ export default function Producao() {
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_prod)}
                         </td>
-                        {/* VALOR FATURADO LOGO APÓS O PRODUZIDO (MÊS) */}
+                        {/* VALOR FATURADO LOGO APÓS O VALOR PRODUZIDO (MÊS) */}
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_fatu)}
                         </td>
