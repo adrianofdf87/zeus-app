@@ -32,10 +32,12 @@ export default function Producao() {
 
   const [totaisGerais, setTotaisGerais] = useState({
     qtdOs: 0,
+    numOsTotal: 0,
     valorProjTotal: 0,
     valorProdTotal: 0,
     valorFatuTotal: 0
   });
+
   const [dadosProcessadosTabela, setDadosProcessadosTabela] = useState([]);
 
   const AlertaLimpo = Swal.mixin({
@@ -247,10 +249,12 @@ export default function Producao() {
     let somaGeralProd = 0;
     let somaGeralFatu = 0;
     let qtdOsTotal = 0;
+    const numOsGeralSet = new Set();
     const agrupado = {};
 
     filtrados.forEach((item) => {
       const tipo = item.tipo_os || "Não Definido";
+      const numOs = item.num_os || item.ordem_servico || "";
       const valProj = Number(item.valor_proj) || 0;
       const valProd = Number(item.valor_prod) || 0;
       const valFatu = Number(item.valor_fatu) || 0;
@@ -259,11 +263,13 @@ export default function Producao() {
       somaGeralProd += valProd;
       somaGeralFatu += valFatu;
       qtdOsTotal += 1;
+      if (numOs) numOsGeralSet.add(numOs);
 
       if (!agrupado[tipo]) {
         agrupado[tipo] = {
           tipo_os: tipo,
           qtd_os: 0,
+          numOsSet: new Set(),
           soma_valor_proj: 0,
           soma_valor_prod: 0,
           soma_valor_fatu: 0
@@ -271,6 +277,7 @@ export default function Producao() {
       }
 
       agrupado[tipo].qtd_os += 1;
+      if (numOs) agrupado[tipo].numOsSet.add(numOs);
       agrupado[tipo].soma_valor_proj += valProj;
       agrupado[tipo].soma_valor_prod += valProd;
       agrupado[tipo].soma_valor_fatu += valFatu;
@@ -278,6 +285,7 @@ export default function Producao() {
 
     setTotaisGerais({
       qtdOs: qtdOsTotal,
+      numOsTotal: numOsGeralSet.size,
       valorProjTotal: somaGeralProj,
       valorProdTotal: somaGeralProd,
       valorFatuTotal: somaGeralFatu
@@ -289,9 +297,14 @@ export default function Producao() {
       const percFatu = somaGeralFatu > 0 ? (grupo.soma_valor_fatu / somaGeralFatu) * 100 : 0;
 
       return {
-        ...grupo,
+        tipo_os: grupo.tipo_os,
+        qtd_os: grupo.qtd_os,
+        num_os: grupo.numOsSet.size, // Quantidade distinta de num_os
+        soma_valor_proj: grupo.soma_valor_proj,
         perc_valor_proj: percProj,
+        soma_valor_prod: grupo.soma_valor_prod,
         perc_valor_prod: percProd,
+        soma_valor_fatu: grupo.soma_valor_fatu,
         perc_valor_fatu: percFatu
       };
     });
@@ -531,11 +544,11 @@ export default function Producao() {
         </div>
       </div>
 
-      {/* TABELA */}
+      {/* CARD 1: COM QTD_OS */}
       <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
         <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
           <Table size={15} color="#005596" />
-          <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
+          <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS (Qtd de Registros / OS)</h3>
         </div>
 
         {dadosProcessadosTabela.length === 0 ? (
@@ -677,6 +690,154 @@ export default function Producao() {
           </div>
         )}
       </div>
+
+      {/* CARD 2: COM NUM_OS (CONTAGEM DISTINTA DE ORDENS DE SERVIÇO) */}
+      <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", marginTop: "6px" }}>
+        <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
+          <Table size={15} color="#005596" />
+          <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS (Qtd de Ordens de Serviço Únicas - Num OS)</h3>
+        </div>
+
+        {dadosProcessadosTabela.length === 0 ? (
+          <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+            Nenhum registro encontrado para os filtros selecionados.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="tabela-apoio-estilizada" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th onClick={() => alternarOrdenacao("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <span>Tipo de OS</span>
+                      {ordenacaoCampo === "tipo_os" && (
+                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => alternarOrdenacao("num_os")} style={{ textAlign: "center", cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", justifyContent: "center", width: "100%" }}>
+                      <span>Num OS</span>
+                      {ordenacaoCampo === "num_os" && (
+                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                      )}
+                    </div>
+                  </th>
+                  <th onClick={() => alternarOrdenacao("soma_valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <span>Valor Projetado</span>
+                      {ordenacaoCampo === "soma_valor_proj" && (
+                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ width: "130px" }}>% Part. Proj.</th>
+                  <th onClick={() => alternarOrdenacao("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <span>Valor Produzido</span>
+                      {ordenacaoCampo === "soma_valor_prod" && (
+                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ width: "130px" }}>% Part. Prod.</th>
+                  <th onClick={() => alternarOrdenacao("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <span>Valor Faturado</span>
+                      {ordenacaoCampo === "soma_valor_fatu" && (
+                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ width: "130px" }}>% Part. Fatu.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dadosTabelaOrdenados.map((item, index) => (
+                  <tr key={index} style={{ transition: "background 0.15s" }}>
+                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                      <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                        {item.tipo_os}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
+                      {item.num_os.toLocaleString()}
+                    </td>
+                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                      {formatarMoeda(item.soma_valor_proj)}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
+                          {item.perc_valor_proj.toFixed(1)}%
+                        </span>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                      {formatarMoeda(item.soma_valor_prod)}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
+                          {item.perc_valor_prod.toFixed(1)}%
+                        </span>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                      {formatarMoeda(item.soma_valor_fatu)}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
+                          {item.perc_valor_fatu.toFixed(1)}%
+                        </span>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
+                  <td style={{ padding: "8px 12px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
+                    Total Geral {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
+                  </td>
+                  <td style={{ textAlign: "center", fontSize: "12px" }}>
+                    {totaisGerais.numOsTotal.toLocaleString()}
+                  </td>
+                  <td style={{ fontSize: "12px", color: "#005596" }}>
+                    {formatarMoeda(totaisGerais.valorProjTotal)}
+                  </td>
+                  <td style={{ fontSize: "11px", color: "#64748b" }}>
+                    100%
+                  </td>
+                  <td style={{ fontSize: "12px", color: "#10b981" }}>
+                    {formatarMoeda(totaisGerais.valorProdTotal)}
+                  </td>
+                  <td style={{ fontSize: "11px", color: "#64748b" }}>
+                    100%
+                  </td>
+                  <td style={{ fontSize: "12px", color: "#d97706" }}>
+                    {formatarMoeda(totaisGerais.valorFatuTotal)}
+                  </td>
+                  <td style={{ fontSize: "11px", color: "#64748b" }}>
+                    100%
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
