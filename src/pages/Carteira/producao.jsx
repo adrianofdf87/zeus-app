@@ -324,7 +324,8 @@ export default function Producao() {
           valor_prod_total: valProdTotalGeral,
           valor_prod: valProd,
           prod_x_proj: 0,
-          fatu_x_prod: 0,
+          fatu_x_proj: 0,
+          fatu_x_proj_calc: 0,
           valor_fatu: valFatu
         };
       } else {
@@ -362,14 +363,15 @@ export default function Producao() {
     });
 
     const resultadoTabela2 = Object.values(agrupadoNumOs).map((item) => {
-      // Cálculo atualizado: %ProdXProj considerando o Produzido Total (em vez do mês)
       const prodXproj = item.valor_proj > 0 ? (item.valor_prod_total / item.valor_proj) * 100 : 0;
       const fatuXprod = item.valor_prod > 0 ? (item.valor_fatu / item.valor_prod) * 100 : 0;
+      const fatuXproj = item.valor_proj > 0 ? (item.valor_fatu / item.valor_proj) * 100 : 0;
 
       return {
         ...item,
         prod_x_proj: prodXproj,
-        fatu_x_prod: fatuXprod
+        fatu_x_prod: fatuXprod,
+        fatu_x_proj_calc: fatuXproj
       };
     });
 
@@ -497,187 +499,192 @@ export default function Producao() {
   }
 
   return (
-    <div style={{ width: '100%', minHeight: 'auto', boxSizing: 'border-box', paddingBottom: '40px', overflowY: 'visible' }}>
+    <div style={{ width: '100%', minHeight: '100vh', boxSizing: 'border-box', paddingBottom: '40px', overflowY: 'auto' }}>
       
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div style={{ backgroundColor: "#0284c7", color: "#fff", width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,85,150,0.2)" }}>
-            <TrendingUp size={15} />
+      {/* HEADER E FILTROS FIXOS NO TOPO (STICKY) */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: '#f8fafc', paddingBottom: '6px' }}>
+        
+        {/* HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ backgroundColor: "#0284c7", color: "#fff", width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,85,150,0.2)" }}>
+              <TrendingUp size={15} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "0.9rem", color: "#0f172a", fontWeight: "700", lineHeight: "1.2" }}>Dashboard de Produtividade</h2>
+              <p style={{ margin: "0px", fontSize: "0.7rem", color: "#64748b" }}>Visão consolidada por Tipo de OS (view_dados_produtividade).</p>
+            </div>
           </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "0.9rem", color: "#0f172a", fontWeight: "700", lineHeight: "1.2" }}>Dashboard de Produtividade</h2>
-            <p style={{ margin: "0px", fontSize: "0.7rem", color: "#64748b" }}>Visão consolidada por Tipo de OS (view_dados_produtividade).</p>
-          </div>
+
+          <button 
+            className="btn-adicionar-card-global" 
+            style={{ ...alturaUnificadaEstilo, position: "relative", top: "auto", right: "auto", padding: "0 12px", fontSize: "0.8rem" }} 
+            onClick={carregarTodosDadosProdutividade}
+          >
+            <RefreshCw size={13} />
+            <span>Atualizar Dados</span>
+          </button>
         </div>
 
-        <button 
-          className="btn-adicionar-card-global" 
-          style={{ ...alturaUnificadaEstilo, position: "relative", top: "auto", right: "auto", padding: "0 12px", fontSize: "0.8rem" }} 
-          onClick={carregarTodosDadosProdutividade}
-        >
-          <RefreshCw size={13} />
-          <span>Atualizar Dados</span>
-        </button>
-      </div>
-
-      {/* BARRA DE FILTROS */}
-      <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', marginBottom: '6px' }}>
-        <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          
-          <div style={{ display: "flex", alignItems: "center", gap: "3px", flexWrap: "wrap" }}>
+        {/* BARRA DE FILTROS */}
+        <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
             
-            {/* SELECT 1: COLUNAS */}
-            <div ref={dropdownColunaRef} style={{ position: 'relative', display: 'inline-block', minWidth: '200px' }}>
-              <div 
-                style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: tipoFiltroAtual ? '#1e293b' : '#64748b' }}
-                onClick={() => setDropdownColunaAberto(prev => !prev)}
-              >
-                <span>{tipoFiltroAtual ? tipoFiltroAtual.toUpperCase() : "Selecionar coluna..."}</span>
-                <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "3px", flexWrap: "wrap" }}>
+              
+              {/* SELECT 1: COLUNAS */}
+              <div ref={dropdownColunaRef} style={{ position: 'relative', display: 'inline-block', minWidth: '200px' }}>
+                <div 
+                  style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: tipoFiltroAtual ? '#1e293b' : '#64748b' }}
+                  onClick={() => setDropdownColunaAberto(prev => !prev)}
+                >
+                  <span>{tipoFiltroAtual ? tipoFiltroAtual.toUpperCase() : "Selecionar coluna..."}</span>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
+                </div>
+
+                {dropdownColunaAberto && (
+                  <div style={{ position: 'absolute', top: '34px', left: 0, width: '240px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '8px' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ position: 'relative', marginBottom: '3px' }}>
+                      <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                      <input 
+                        type="text" 
+                        placeholder="Pesquisar coluna..." 
+                        value={termoPesquisaColuna}
+                        onChange={(e) => setTermoPesquisaColuna(e.target.value)}
+                        style={{ width: '100%', height: '26px', padding: '0 6px 0 26px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+
+                    <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      {colunasFiltradasPelaBusca.length === 0 ? (
+                        <div style={{ padding: '6px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
+                      ) : (
+                        colunasFiltradasPelaBusca.map(col => (
+                          <div 
+                            key={col} 
+                            onClick={() => {
+                              setTipoFiltroAtual(col);
+                              setTermoPesquisaColuna("");
+                              setDropdownColunaAberto(false);
+                            }}
+                            style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
+                            onMouseEnter={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            {col.toUpperCase()}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {dropdownColunaAberto && (
-                <div style={{ position: 'absolute', top: '34px', left: 0, width: '240px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '8px' }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ position: 'relative', marginBottom: '3px' }}>
-                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input 
-                      type="text" 
-                      placeholder="Pesquisar coluna..." 
-                      value={termoPesquisaColuna}
-                      onChange={(e) => setTermoPesquisaColuna(e.target.value)}
-                      style={{ width: '100%', height: '26px', padding: '0 6px 0 26px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
-                    />
-                  </div>
-
-                  <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {colunasFiltradasPelaBusca.length === 0 ? (
-                      <div style={{ padding: '6px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
-                    ) : (
-                      colunasFiltradasPelaBusca.map(col => (
-                        <div 
-                          key={col} 
-                          onClick={() => {
-                            setTipoFiltroAtual(col);
-                            setTermoPesquisaColuna("");
-                            setDropdownColunaAberto(false);
-                          }}
-                          style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
-                          onMouseEnter={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = '#f1f5f9'; }}
-                          onMouseLeave={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          {col.toUpperCase()}
-                        </div>
-                      ))
-                    )}
-                  </div>
+              {/* SELECT 2: VALORES */}
+              <div ref={dropdownValorRef} style={{ position: 'relative', display: 'inline-block', minWidth: '240px' }}>
+                <div 
+                  style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
+                  onClick={() => setDropdownValorAberto(prev => !prev)}
+                >
+                  <span>
+                    {valoresSelecionadosTemp.length === 0 
+                      ? "Selecione os valores..." 
+                      : `${valoresSelecionadosTemp.length} selecionado(s)`}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
                 </div>
-              )}
-            </div>
 
-            {/* SELECT 2: VALORES */}
-            <div ref={dropdownValorRef} style={{ position: 'relative', display: 'inline-block', minWidth: '240px' }}>
-              <div 
-                style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
-                onClick={() => setDropdownValorAberto(prev => !prev)}
-              >
-                <span>
-                  {valoresSelecionadosTemp.length === 0 
-                    ? "Selecione os valores..." 
-                    : `${valoresSelecionadosTemp.length} selecionado(s)`}
-                </span>
-                <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
+                {dropdownValorAberto && (
+                  <div style={{ position: 'absolute', top: '34px', left: 0, width: '280px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '8px' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ position: 'relative', marginBottom: '3px' }}>
+                      <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                      <input 
+                        type="text" 
+                        placeholder="Pesquisar valor..." 
+                        value={termoPesquisaValor}
+                        onChange={(e) => setTermoPesquisaValor(e.target.value)}
+                        style={{ width: '100%', height: '26px', padding: '0 6px 0 26px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px', color: '#005596', fontWeight: '600', cursor: 'pointer' }}>
+                      <span onClick={selecionarTodosValoresVisiveis}>Selecionar Visíveis</span>
+                      <span onClick={() => setValoresSelecionadosTemp([])} style={{ color: '#ef4444' }}>Limpar</span>
+                    </div>
+
+                    <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      {valoresFiltradosPelaBusca.length === 0 ? (
+                        <div style={{ padding: '6px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhum valor encontrado</div>
+                      ) : (
+                        valoresFiltradosPelaBusca.map(val => (
+                          <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', padding: '3px 5px', borderRadius: '4px', cursor: 'pointer', background: valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent'}>
+                            <input 
+                              type="checkbox" 
+                              checked={valoresSelecionadosTemp.includes(val)}
+                              onChange={() => toggleValorTemp(val)}
+                              style={{ accentColor: '#005596', cursor: 'pointer' }}
+                            />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#334155' }}>{val}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+
+                    <button 
+                      type="button" 
+                      onClick={adicionarFiltroDinamico}
+                      style={{ width: '100%', marginTop: '5px', background: '#005596', color: '#fff', border: 'none', borderRadius: '4px', height: '26px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      Aplicar Seleção
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {dropdownValorAberto && (
-                <div style={{ position: 'absolute', top: '34px', left: 0, width: '280px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '8px' }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ position: 'relative', marginBottom: '3px' }}>
-                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input 
-                      type="text" 
-                      placeholder="Pesquisar valor..." 
-                      value={termoPesquisaValor}
-                      onChange={(e) => setTermoPesquisaValor(e.target.value)}
-                      style={{ width: '100%', height: '26px', padding: '0 6px 0 26px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px', color: '#005596', fontWeight: '600', cursor: 'pointer' }}>
-                    <span onClick={selecionarTodosValoresVisiveis}>Selecionar Visíveis</span>
-                    <span onClick={() => setValoresSelecionadosTemp([])} style={{ color: '#ef4444' }}>Limpar</span>
-                  </div>
-
-                  <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {valoresFiltradosPelaBusca.length === 0 ? (
-                      <div style={{ padding: '6px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhum valor encontrado</div>
-                    ) : (
-                      valoresFiltradosPelaBusca.map(val => (
-                        <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', padding: '3px 5px', borderRadius: '4px', cursor: 'pointer', background: valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent'}>
-                          <input 
-                            type="checkbox" 
-                            checked={valoresSelecionadosTemp.includes(val)}
-                            onChange={() => toggleValorTemp(val)}
-                            style={{ accentColor: '#005596', cursor: 'pointer' }}
-                          />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#334155' }}>{val}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-
-                  <button 
-                    type="button" 
-                    onClick={adicionarFiltroDinamico}
-                    style={{ width: '100%', marginTop: '5px', background: '#005596', color: '#fff', border: 'none', borderRadius: '4px', height: '26px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
-                  >
-                    Aplicar Seleção
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <button type="button" className="filter-btn-aplicar" style={alturaUnificadaEstilo} onClick={adicionarFiltroDinamico}>
-              Adicionar Filtro
-            </button>
-
-            {temFiltroAtivo && (
-              <button type="button" className="filter-btn-limpar-todos" style={alturaUnificadaEstilo} onClick={limparTodosFiltros} title="Limpar todos os filtros">
-                <X size={11} /> Limpar Todos
+              <button type="button" className="filter-btn-aplicar" style={alturaUnificadaEstilo} onClick={adicionarFiltroDinamico}>
+                Adicionar Filtro
               </button>
-            )}
-          </div>
 
-          {/* CHIPS */}
-          <div className="filter-badges-container" style={{ display: "flex", gap: "3px", flexWrap: "wrap", alignItems: "center" }}>
-            {Object.keys(filtrosAtivos).map(campo => (
-              filtrosAtivos[campo].map(valor => (
-                <div key={`${campo}-${valor}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 500, border: "1px solid #bae6fd" }}>
-                  <span>{campo}: <strong>{valor}</strong></span>
-                  <button onClick={() => removerFiltroItem(campo, valor)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#0369a1", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
+              {temFiltroAtivo && (
+                <button type="button" className="filter-btn-limpar-todos" style={alturaUnificadaEstilo} onClick={limparTodosFiltros} title="Limpar todos os filtros">
+                  <X size={11} /> Limpar Todos
+                </button>
+              )}
+            </div>
+
+            {/* CHIPS */}
+            <div className="filter-badges-container" style={{ display: "flex", gap: "3px", flexWrap: "wrap", alignItems: "center" }}>
+              {Object.keys(filtrosAtivos).map(campo => (
+                filtrosAtivos[campo].map(valor => (
+                  <div key={`${campo}-${valor}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 500, border: "1px solid #bae6fd" }}>
+                    <span>{campo}: <strong>{valor}</strong></span>
+                    <button onClick={() => removerFiltroItem(campo, valor)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#0369a1", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
+                  </div>
+                ))
+              ))}
+
+              {filtroCruzadoTipoOs && (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
+                  <Filter size={11} />
+                  <span>Tipo OS (Selecionado): <strong>{filtroCruzadoTipoOs}</strong></span>
+                  <button onClick={limparFiltroCruzado} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065f46", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
                 </div>
-              ))
-            ))}
-
-            {filtroCruzadoTipoOs && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
-                <Filter size={11} />
-                <span>Tipo OS (Selecionado): <strong>{filtroCruzadoTipoOs}</strong></span>
-                <button onClick={limparFiltroCruzado} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065f46", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
-              </div>
-            )}
-            {filtroCruzadoNumOs && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
-                <Filter size={11} />
-                <span>Num OS (Selecionado): <strong>{filtroCruzadoNumOs}</strong></span>
-                <button onClick={limparFiltroCruzado} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065f46", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
-              </div>
-            )}
+              )}
+              {filtroCruzadoNumOs && (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
+                  <Filter size={11} />
+                  <span>Num OS (Selecionado): <strong>{filtroCruzadoNumOs}</strong></span>
+                  <button onClick={limparFiltroCruzado} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065f46", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
       </div>
 
-      {/* CONTAINER COM CONTEÚDO */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* CONTAINER COM CONTEÚDO SCROLLÁVEL DA PÁGINA */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
 
         {/* CARD 1: RESUMO POR TIPO DE OS */}
         <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
@@ -902,16 +909,22 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "prod_x_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 10 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Faturado</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
                     <th onClick={() => alternarOrdenacaoTabela2("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_prod"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%FatuXProd</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_proj_calc")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_proj_calc"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>Valor Faturado</span>
-                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
+                        <span>%FatuXProj</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_proj_calc", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                   </tr>
@@ -960,6 +973,9 @@ export default function Producao() {
                             </div>
                           </div>
                         </td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.valor_fatu)}
+                        </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
@@ -970,8 +986,15 @@ export default function Producao() {
                             </div>
                           </div>
                         </td>
-                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                          {formatarMoeda(item.valor_fatu)}
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#7c3aed" }}>
+                              {Number(item.fatu_x_proj_calc || 0).toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(Number(item.fatu_x_proj_calc || 0), 100)}%`, background: "#7c3aed", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     );
