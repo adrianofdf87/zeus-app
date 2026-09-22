@@ -499,10 +499,10 @@ export default function Producao() {
   }
 
   return (
-    <div style={{ width: '100%', minHeight: '100%', boxSizing: 'border-box', paddingBottom: '40px' }}>
+    <div style={{ width: '100%', minHeight: '100vh', boxSizing: 'border-box', paddingBottom: '40px', overflowY: 'auto' }}>
       
-      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (STICKY) */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '6px', paddingTop: '4px' }}>
+      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (COM FUNDO SÓLIDO PARA COBRIR O SCROLL) */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '8px', paddingTop: '4px', borderBottom: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
         
         {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
@@ -684,7 +684,7 @@ export default function Producao() {
       </div>
 
       {/* CONTAINER COM CONTEÚDO */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
 
         {/* CARD 1: RESUMO POR TIPO DE OS */}
         <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
@@ -903,14 +903,12 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    {/* VALOR FATURADO LOGO APÓS O VALOR PRODUZIDO (MÊS) */}
                     <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    {/* AS 3 COLUNAS DE PERCENTUAL REQUISITADAS */}
                     <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%ProdXProj</span>
@@ -965,11 +963,9 @@ export default function Producao() {
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_prod)}
                         </td>
-                        {/* VALOR FATURADO LOGO APÓS O VALOR PRODUZIDO (MÊS) */}
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_fatu)}
                         </td>
-                        {/* %ProdXProj */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
@@ -980,7 +976,6 @@ export default function Producao() {
                             </div>
                           </div>
                         </td>
-                        {/* %FatuXProd */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
@@ -991,7 +986,6 @@ export default function Producao() {
                             </div>
                           </div>
                         </td>
-                        {/* %FatuXProj */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#7c3aed" }}>
