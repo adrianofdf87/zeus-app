@@ -21,7 +21,6 @@ export default function Producao() {
   const [valoresSelecionadosTemp, setValoresSelecionadosTemp] = useState([]);
   const [filtrosAtivos, setFiltrosAtivos] = useState({});
 
-  // Estado para o Filtro Cruzado ao clicar nas linhas das tabelas
   const [filtroCruzadoTipoOs, setFiltroCruzadoTipoOs] = useState(null);
   const [filtroCruzadoNumOs, setFiltroCruzadoNumOs] = useState(null);
 
@@ -150,7 +149,7 @@ export default function Producao() {
         setColunasDisponiveis(cols);
       }
 
-      processarDados(allData, filtrosAtivos, filtroCruzadoTipoOs, filtroCruzadoNumOs);
+      processarDados(allData, {}, null, null);
     } catch (error) {
       console.error("Erro ao carregar view_dados_produtividade:", error);
       AlertaLimpo.fire({ icon: "error", title: "Erro", text: "Não foi possível carregar os dados: " + (error.message || error) });
@@ -188,7 +187,7 @@ export default function Producao() {
   const limparTodosFiltros = () => {
     setFiltrosAtivos({});
     setTipoFiltroAtual("");
-    setValoresSelecionadosTemp("");
+    setValoresSelecionadosTemp([]);
     setTermoPesquisaValor("");
     setTermoPesquisaColuna("");
     setFiltroCruzadoTipoOs(null);
@@ -211,7 +210,6 @@ export default function Producao() {
       if (!item) return;
       let atendeTodos = true;
 
-      // Filtros padrão da barra superior
       Object.keys(filtros).forEach(campo => {
         const valoresPermitidos = filtros[campo];
         if (!valoresPermitidos || valoresPermitidos.length === 0) return;
@@ -240,7 +238,6 @@ export default function Producao() {
         }
       });
 
-      // Filtros cruzados ao clicar nas linhas
       if (cruzadoTipo && item.tipo_os !== cruzadoTipo) {
         atendeTodos = false;
       }
@@ -324,12 +321,11 @@ export default function Producao() {
           pep: item.pep || "N/I",
           status: item.status || "N/I",
           valor_proj: valProj,
-          valor_prod: valProd,
           valor_prod_total: valProdTotalGeral,
+          valor_prod: valProd,
+          prod_x_proj: 0,
           valor_fatu: valFatu,
-          perc_valor_proj: 0,
-          perc_valor_prod: 0,
-          perc_valor_fatu: 0
+          fatu_x_prod: 0
         };
       } else {
         agrupadoNumOs[numOs].valor_proj += valProj;
@@ -366,15 +362,13 @@ export default function Producao() {
     });
 
     const resultadoTabela2 = Object.values(agrupadoNumOs).map((item) => {
-      const percProj = somaGeralProj > 0 ? (item.valor_proj / somaGeralProj) * 100 : 0;
-      const percProd = somaGeralProd > 0 ? (item.valor_prod / somaGeralProd) * 100 : 0;
-      const percFatu = somaGeralFatu > 0 ? (item.valor_fatu / somaGeralFatu) * 100 : 0;
+      const prodXproj = item.valor_proj > 0 ? (item.valor_prod / item.valor_proj) * 100 : 0;
+      const fatuXprod = item.valor_prod > 0 ? (item.valor_fatu / item.valor_prod) * 100 : 0;
 
       return {
         ...item,
-        perc_valor_proj: percProj,
-        perc_valor_prod: percProd,
-        perc_valor_fatu: percFatu
+        prod_x_proj: prodXproj,
+        fatu_x_prod: fatuXprod
       };
     });
 
@@ -385,7 +379,7 @@ export default function Producao() {
   const handleLinhaTabela1Click = (tipoOs) => {
     const novoFiltro = filtroCruzadoTipoOs === tipoOs ? null : tipoOs;
     setFiltroCruzadoTipoOs(novoFiltro);
-    setFiltroCruzadoNumOs(null); // Limpa o outro cruzamento se houver
+    setFiltroCruzadoNumOs(null);
     processarDados(todosDados, filtrosAtivos, novoFiltro, null);
   };
 
@@ -502,10 +496,10 @@ export default function Producao() {
   }
 
   return (
-    <div className="data-apoio-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+    <div className="data-apoio-container" style={{ width: '100%', minHeight: '100%', boxSizing: 'border-box', paddingBottom: '30px' }}>
       
-      {/* HEADER FIXO */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", flexShrink: 0 }}>
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div style={{ backgroundColor: "#0284c7", color: "#fff", width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,85,150,0.2)" }}>
             <TrendingUp size={15} />
@@ -526,8 +520,8 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* BARRA DE FILTROS FIXA */}
-      <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', flexShrink: 0, marginBottom: '3px' }}>
+      {/* BARRA DE FILTROS */}
+      <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', marginBottom: '6px' }}>
         <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           
           <div style={{ display: "flex", alignItems: "center", gap: "3px", flexWrap: "wrap" }}>
@@ -663,7 +657,6 @@ export default function Producao() {
               ))
             ))}
 
-            {/* Chip de Filtro Cruzado */}
             {filtroCruzadoTipoOs && (
               <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
                 <Filter size={11} />
@@ -682,11 +675,11 @@ export default function Producao() {
         </div>
       </div>
 
-      {/* CONTAINER COM SCROLL GERAL DA PÁGINA */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '2px' }}>
+      {/* CONTAINER COM CONTEÚDO */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
         {/* CARD 1: RESUMO POR TIPO DE OS */}
-        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", flexShrink: 0 }}>
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
             <Table size={15} color="#005596" />
             <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS <span style={{ fontWeight: '400', fontSize: '11px', color: '#64748b' }}>(Clique em uma linha para filtrar a tabela abaixo)</span></h3>
@@ -844,11 +837,11 @@ export default function Producao() {
           )}
         </div>
 
-        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO */}
-        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "350px", flexShrink: 0 }}>
+        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM SCROLL INTERNO */}
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "380px" }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc", flexShrink: 0 }}>
             <Table size={15} color="#005596" />
-            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais)</h3>
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais com Scroll Interno)</h3>
           </div>
 
           {dadosTabela2Ordenados.length === 0 ? (
@@ -890,12 +883,6 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_proj"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>% Part. Proj.</span>
-                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_proj", ordenacaoTabela2.direcao)}
-                      </div>
-                    </th>
                     <th onClick={() => alternarOrdenacaoTabela2("valor_prod_total")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod_total"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Produzido Total</span>
@@ -908,7 +895,13 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_prod"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>%ProdXProj</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "prod_x_proj", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_prod"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Prod.</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_prod", ordenacaoTabela2.direcao)}
@@ -920,10 +913,10 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_fatu"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_prod"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>% Part. Fatu.</span>
-                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_fatu", ordenacaoTabela2.direcao)}
+                        <span>%FatuXProd</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                   </tr>
@@ -956,21 +949,21 @@ export default function Producao() {
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_proj)}
                         </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
-                              {item.perc_valor_proj.toFixed(1)}%
-                            </span>
-                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
-                            </div>
-                          </div>
-                        </td>
                         <td style={{ fontWeight: "700", color: "#10b981", background: "#f8fafc" }}>
                           {formatarMoeda(item.valor_prod_total)}
                         </td>
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_prod)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
+                              {item.prod_x_proj.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.prod_x_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
+                          </div>
                         </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -988,10 +981,10 @@ export default function Producao() {
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
-                              {item.perc_valor_fatu.toFixed(1)}%
+                              {item.fatu_x_prod.toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(item.fatu_x_prod, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
