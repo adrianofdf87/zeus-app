@@ -3,7 +3,7 @@ import { supabase } from "../../services/supabase";
 import Swal from "sweetalert2";
 import { 
   TrendingUp, Table, X, 
-  ArrowUp, ArrowDown, ArrowUpDown, RefreshCw, Search 
+  ArrowUp, ArrowDown, ArrowUpDown, RefreshCw, Search, Filter 
 } from "lucide-react";
 import "../BancoDados/tabelas_internas.css";
 
@@ -21,13 +21,16 @@ export default function Producao() {
   const [valoresSelecionadosTemp, setValoresSelecionadosTemp] = useState([]);
   const [filtrosAtivos, setFiltrosAtivos] = useState({});
 
+  // Estado para o Filtro Cruzado ao clicar nas linhas das tabelas
+  const [filtroCruzadoTipoOs, setFiltroCruzadoTipoOs] = useState(null);
+  const [filtroCruzadoNumOs, setFiltroCruzadoNumOs] = useState(null);
+
   const [dropdownColunaAberto, setDropdownColunaAberto] = useState(false);
   const [dropdownValorAberto, setDropdownValorAberto] = useState(false);
 
   const dropdownColunaRef = useRef(null);
   const dropdownValorRef = useRef(null);
 
-  // Estados de ordenação independentes para cada tabela
   const [ordenacaoTabela1, setOrdenacaoTabela1] = useState({ campo: "soma_valor_proj", direcao: "desc" });
   const [ordenacaoTabela2, setOrdenacaoTabela2] = useState({ campo: "num_os", direcao: "asc" });
 
@@ -147,7 +150,7 @@ export default function Producao() {
         setColunasDisponiveis(cols);
       }
 
-      processarDados(allData, {});
+      processarDados(allData, filtrosAtivos, filtroCruzadoTipoOs, filtroCruzadoNumOs);
     } catch (error) {
       console.error("Erro ao carregar view_dados_produtividade:", error);
       AlertaLimpo.fire({ icon: "error", title: "Erro", text: "Não foi possível carregar os dados: " + (error.message || error) });
@@ -161,7 +164,7 @@ export default function Producao() {
 
     setFiltrosAtivos(prev => {
       const novosFiltros = { ...prev, [tipoFiltroAtual]: [...valoresSelecionadosTemp] };
-      processarDados(todosDados, novosFiltros);
+      processarDados(todosDados, novosFiltros, filtroCruzadoTipoOs, filtroCruzadoNumOs);
       return novosFiltros;
     });
     setValoresSelecionadosTemp([]);
@@ -177,7 +180,7 @@ export default function Producao() {
           delete novosFiltros[campo];
         }
       }
-      processarDados(todosDados, novosFiltros);
+      processarDados(todosDados, novosFiltros, filtroCruzadoTipoOs, filtroCruzadoNumOs);
       return novosFiltros;
     });
   };
@@ -185,15 +188,17 @@ export default function Producao() {
   const limparTodosFiltros = () => {
     setFiltrosAtivos({});
     setTipoFiltroAtual("");
-    setValoresSelecionadosTemp([]);
+    setValoresSelecionadosTemp("");
     setTermoPesquisaValor("");
     setTermoPesquisaColuna("");
+    setFiltroCruzadoTipoOs(null);
+    setFiltroCruzadoNumOs(null);
     setDropdownColunaAberto(false);
     setDropdownValorAberto(false);
-    processarDados(todosDados, {});
+    processarDados(todosDados, {}, null, null);
   };
 
-  const processarDados = (dados, filtros) => {
+  const processarDados = (dados, filtros, cruzadoTipo, cruzadoNumOs) => {
     if (!Array.isArray(dados)) {
       setDadosProcessadosTabela([]);
       setDadosIndividuaisNumOs([]);
@@ -206,6 +211,7 @@ export default function Producao() {
       if (!item) return;
       let atendeTodos = true;
 
+      // Filtros padrão da barra superior
       Object.keys(filtros).forEach(campo => {
         const valoresPermitidos = filtros[campo];
         if (!valoresPermitidos || valoresPermitidos.length === 0) return;
@@ -234,9 +240,16 @@ export default function Producao() {
         }
       });
 
+      // Filtros cruzados ao clicar nas linhas
+      if (cruzadoTipo && item.tipo_os !== cruzadoTipo) {
+        atendeTodos = false;
+      }
+      if (cruzadoNumOs && (item.num_os !== cruzadoNumOs && item.ordem_servico !== cruzadoNumOs)) {
+        atendeTodos = false;
+      }
+
       if (atendeTodos) {
         let itemProcessado = { ...item };
-        // Para a Tabela 1, se filtro de mês estiver ativo, ajusta o valor produzido do mês filtrado
         if (filtros.meses && Array.isArray(filtros.meses) && filtros.meses.length > 0 && item.meses && typeof item.meses === 'object') {
           let somaProdMesesFiltrados = 0;
           filtros.meses.forEach(mes => {
@@ -259,7 +272,6 @@ export default function Producao() {
     const agrupadoTipo = {};
     const agrupadoNumOs = {};
 
-    // Primeiro passo: calcula o somatório total de todos os meses para cada OS (independente de filtro de mês)
     const somaTotalMesesPorOs = {};
     dados.forEach(item => {
       const numOs = item.num_os || item.ordem_servico || "N/I";
@@ -278,7 +290,7 @@ export default function Producao() {
       const tipo = item.tipo_os || "Não Definido";
       const numOs = item.num_os || item.ordem_servico || "N/I";
       const valProj = Number(item.valor_proj) || 0;
-      const valProd = Number(item.valor_prod) || 0; // Valor filtrado (do mês ou geral)
+      const valProd = Number(item.valor_prod) || 0;
       const valProdTotalGeral = somaTotalMesesPorOs[numOs] !== undefined ? somaTotalMesesPorOs[numOs] : valProd;
       const valFatu = Number(item.valor_fatu) || 0;
 
@@ -289,7 +301,6 @@ export default function Producao() {
       qtdOsTotal += 1;
       if (numOs) numOsGeralSet.add(numOs);
 
-      // Agrupamento Tabela 1
       if (!agrupadoTipo[tipo]) {
         agrupadoTipo[tipo] = {
           tipo_os: tipo,
@@ -306,7 +317,6 @@ export default function Producao() {
       agrupadoTipo[tipo].soma_valor_prod += valProd;
       agrupadoTipo[tipo].soma_valor_fatu += valFatu;
 
-      // Agrupamento Tabela 2 (Num OS Individuais)
       if (!agrupadoNumOs[numOs]) {
         agrupadoNumOs[numOs] = {
           num_os: numOs,
@@ -315,7 +325,7 @@ export default function Producao() {
           status: item.status || "N/I",
           valor_proj: valProj,
           valor_prod: valProd,
-          valor_prod_total: valProdTotalGeral, // Produzido Total de todos os meses
+          valor_prod_total: valProdTotalGeral,
           valor_fatu: valFatu,
           perc_valor_proj: 0,
           perc_valor_prod: 0,
@@ -370,6 +380,26 @@ export default function Producao() {
 
     setDadosProcessadosTabela(resultadoTabela1);
     setDadosIndividuaisNumOs(resultadoTabela2);
+  };
+
+  const handleLinhaTabela1Click = (tipoOs) => {
+    const novoFiltro = filtroCruzadoTipoOs === tipoOs ? null : tipoOs;
+    setFiltroCruzadoTipoOs(novoFiltro);
+    setFiltroCruzadoNumOs(null); // Limpa o outro cruzamento se houver
+    processarDados(todosDados, filtrosAtivos, novoFiltro, null);
+  };
+
+  const handleLinhaTabela2Click = (numOs) => {
+    const novoFiltro = filtroCruzadoNumOs === numOs ? null : numOs;
+    setFiltroCruzadoNumOs(novoFiltro);
+    setFiltroCruzadoTipoOs(null);
+    processarDados(todosDados, filtrosAtivos, null, novoFiltro);
+  };
+
+  const limparFiltroCruzado = () => {
+    setFiltroCruzadoTipoOs(null);
+    setFiltroCruzadoNumOs(null);
+    processarDados(todosDados, filtrosAtivos, null, null);
   };
 
   const ordenarDados = (dados, campo, direcao) => {
@@ -458,7 +488,7 @@ export default function Producao() {
     }
   };
 
-  const temFiltroAtivo = Object.keys(filtrosAtivos).length > 0;
+  const temFiltroAtivo = Object.keys(filtrosAtivos).length > 0 || filtroCruzadoTipoOs !== null || filtroCruzadoNumOs !== null;
   const alturaUnificadaEstilo = { height: "32px", boxSizing: "border-box" };
 
   if (loading) {
@@ -623,7 +653,7 @@ export default function Producao() {
           </div>
 
           {/* CHIPS */}
-          <div className="filter-badges-container" style={{ display: "flex", gap: "3px", flexWrap: "wrap" }}>
+          <div className="filter-badges-container" style={{ display: "flex", gap: "3px", flexWrap: "wrap", alignItems: "center" }}>
             {Object.keys(filtrosAtivos).map(campo => (
               filtrosAtivos[campo].map(valor => (
                 <div key={`${campo}-${valor}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 500, border: "1px solid #bae6fd" }}>
@@ -632,6 +662,22 @@ export default function Producao() {
                 </div>
               ))
             ))}
+
+            {/* Chip de Filtro Cruzado */}
+            {filtroCruzadoTipoOs && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
+                <Filter size={11} />
+                <span>Tipo OS (Selecionado): <strong>{filtroCruzadoTipoOs}</strong></span>
+                <button onClick={limparFiltroCruzado} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065f46", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
+              </div>
+            )}
+            {filtroCruzadoNumOs && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#d1fae5", color: "#065f46", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 600, border: "1px solid #a7f3d0" }}>
+                <Filter size={11} />
+                <span>Num OS (Selecionado): <strong>{filtroCruzadoNumOs}</strong></span>
+                <button onClick={limparFiltroCruzado} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#065f46", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -643,7 +689,7 @@ export default function Producao() {
         <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", flexShrink: 0 }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
             <Table size={15} color="#005596" />
-            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS <span style={{ fontWeight: '400', fontSize: '11px', color: '#64748b' }}>(Clique em uma linha para filtrar a tabela abaixo)</span></h3>
           </div>
 
           {dadosTabela1Ordenados.length === 0 ? (
@@ -706,57 +752,70 @@ export default function Producao() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dadosTabela1Ordenados.map((item, index) => (
-                    <tr key={index} style={{ transition: "background 0.15s" }}>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
-                          {item.tipo_os}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
-                        {item.qtd_os.toLocaleString()}
-                      </td>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {formatarMoeda(item.soma_valor_proj)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                          <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
-                            {item.perc_valor_proj.toFixed(1)}%
+                  {dadosTabela1Ordenados.map((item, index) => {
+                    const selecionado = filtroCruzadoTipoOs === item.tipo_os;
+                    return (
+                      <tr 
+                        key={index} 
+                        onClick={() => handleLinhaTabela1Click(item.tipo_os)}
+                        style={{ 
+                          cursor: "pointer", 
+                          backgroundColor: selecionado ? "#e0f2fe" : "transparent",
+                          transition: "background 0.15s" 
+                        }}
+                        onMouseEnter={(e) => { if (!selecionado) e.currentTarget.style.background = "#f8fafc"; }}
+                        onMouseLeave={(e) => { if (!selecionado) e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                            {item.tipo_os}
                           </span>
-                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                        </td>
+                        <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
+                          {item.qtd_os.toLocaleString()}
+                        </td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.soma_valor_proj)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
+                              {item.perc_valor_proj.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {formatarMoeda(item.soma_valor_prod)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                          <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
-                            {item.perc_valor_prod.toFixed(1)}%
-                          </span>
-                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                        </td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.soma_valor_prod)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
+                              {item.perc_valor_prod.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {formatarMoeda(item.soma_valor_fatu)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                          <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
-                            {item.perc_valor_fatu.toFixed(1)}%
-                          </span>
-                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                        </td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.soma_valor_fatu)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
+                              {item.perc_valor_fatu.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
@@ -837,16 +896,16 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod"), position: "sticky", top: 0, zIndex: 10 }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>Valor Produzido (Mês)</span>
-                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
-                      </div>
-                    </th>
                     <th onClick={() => alternarOrdenacaoTabela2("valor_prod_total")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod_total"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Produzido Total</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod_total", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod"), position: "sticky", top: 0, zIndex: 10 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Produzido (Mês)</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                     <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_prod"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
@@ -870,62 +929,75 @@ export default function Producao() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dadosTabela2Ordenados.map((item, index) => (
-                    <tr key={index} style={{ transition: "background 0.15s" }}>
-                      <td style={{ fontWeight: "700", color: "#005596" }}>
-                        {item.num_os}
-                      </td>
-                      <td>
-                        <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
-                          {item.tipo_os}
-                        </span>
-                      </td>
-                      <td style={{ color: "#334155" }}>{item.pep}</td>
-                      <td style={{ color: "#334155" }}>{item.status}</td>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {formatarMoeda(item.valor_proj)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                          <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
-                            {item.perc_valor_proj.toFixed(1)}%
+                  {dadosTabela2Ordenados.map((item, index) => {
+                    const selecionado = filtroCruzadoNumOs === item.num_os;
+                    return (
+                      <tr 
+                        key={index} 
+                        onClick={() => handleLinhaTabela2Click(item.num_os)}
+                        style={{ 
+                          cursor: "pointer", 
+                          backgroundColor: selecionado ? "#e0f2fe" : "transparent",
+                          transition: "background 0.15s" 
+                        }}
+                        onMouseEnter={(e) => { if (!selecionado) e.currentTarget.style.background = "#f8fafc"; }}
+                        onMouseLeave={(e) => { if (!selecionado) e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <td style={{ fontWeight: "700", color: "#005596" }}>
+                          {item.num_os}
+                        </td>
+                        <td>
+                          <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                            {item.tipo_os}
                           </span>
-                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                        </td>
+                        <td style={{ color: "#334155" }}>{item.pep}</td>
+                        <td style={{ color: "#334155" }}>{item.status}</td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.valor_proj)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
+                              {item.perc_valor_proj.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {formatarMoeda(item.valor_prod)}
-                      </td>
-                      <td style={{ fontWeight: "700", color: "#10b981", background: "#f8fafc" }}>
-                        {formatarMoeda(item.valor_prod_total)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                          <span style={{ fontSize: "10px", fontWeight: "600", color: "#10b981" }}>
-                            {item.perc_valor_prod.toFixed(1)}%
-                          </span>
-                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                        </td>
+                        <td style={{ fontWeight: "700", color: "#10b981", background: "#f8fafc" }}>
+                          {formatarMoeda(item.valor_prod_total)}
+                        </td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.valor_prod)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#10b981" }}>
+                              {item.perc_valor_prod.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                        {formatarMoeda(item.valor_fatu)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                          <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
-                            {item.perc_valor_fatu.toFixed(1)}%
-                          </span>
-                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                        </td>
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.valor_fatu)}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
+                              {item.perc_valor_fatu.toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -939,8 +1011,8 @@ export default function Producao() {
               </div>
               <div style={{ display: "flex", gap: "16px" }}>
                 <div>Projetado: <span style={{ color: "#005596" }}>{formatarMoeda(totaisGerais.valorProjTotal)}</span></div>
-                <div>Produzido (Mês): <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotal)}</span></div>
                 <div>Produzido Total: <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotalGeral)}</span></div>
+                <div>Produzido (Mês): <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotal)}</span></div>
                 <div>Faturado: <span style={{ color: "#d97706" }}>{formatarMoeda(totaisGerais.valorFatuTotal)}</span></div>
               </div>
             </div>
