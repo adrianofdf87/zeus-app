@@ -13,11 +13,13 @@ export default function Producao() {
   
   const [colunasDisponiveis, setColunasDisponiveis] = useState([]);
   const [valoresColunaAtual, setValoresColunaAtual] = useState([]);
+  
+  const [termoPesquisaColuna, setTermoPesquisaColuna] = useState("");
   const [termoPesquisaValor, setTermoPesquisaValor] = useState("");
 
   const [tipoFiltroAtual, setTipoFiltroAtual] = useState("");
   const [valoresSelecionadosTemp, setValoresSelecionadosTemp] = useState([]);
-  const [filtrosAtivos, setFiltrosAtivos] = useState({}); // Ex: { tipo_os: ['NOTA_PROJ', 'ORDEM_SAP'] }
+  const [filtrosAtivos, setFiltrosAtivos] = useState({});
 
   const [ordenacaoCampo, setOrdenacaoCampo] = useState("soma_valor_proj");
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState("desc");
@@ -165,6 +167,7 @@ export default function Producao() {
     setFiltrosAtivos({});
     setValoresSelecionadosTemp([]);
     setTermoPesquisaValor("");
+    setTermoPesquisaColuna("");
     processarDados(todosDados, {});
   };
 
@@ -210,7 +213,6 @@ export default function Producao() {
 
       if (atendeTodos) {
         let itemProcessado = { ...item };
-        // Se houver filtro de meses ativo, ajusta o valor_prod somando apenas os meses selecionados
         if (filtros.meses && Array.isArray(filtros.meses) && filtros.meses.length > 0 && item.meses && typeof item.meses === 'object') {
           let somaProdMesesFiltrados = 0;
           filtros.meses.forEach(mes => {
@@ -309,6 +311,12 @@ export default function Producao() {
     return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
+  // Filtragem para o Select 1 (Colunas)
+  const colunasFiltradasPelaBusca = colunasDisponiveis.filter(col => 
+    col.toLowerCase().includes(termoPesquisaColuna.toLowerCase())
+  );
+
+  // Filtragem para o Select 2 (Valores)
   const valoresFiltradosPelaBusca = valoresColunaAtual.filter(val => 
     val.toLowerCase().includes(termoPesquisaValor.toLowerCase())
   );
@@ -366,18 +374,62 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* BARRA DE FILTROS COM SELEÇÃO MÚLTIPLA E PESQUISA INTERNA */}
+      {/* BARRA DE FILTROS COM PESQUISA INTERNA EM AMBOS OS SELECTS */}
       <div className="filter-bar" style={{ padding: '12px 16px', background: '#fff', borderRadius: '8px', marginBottom: '14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           
           <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            <select className="filter-control-field" style={alturaUnificadaEstilo} value={tipoFiltroAtual} onChange={(e) => setTipoFiltroAtual(e.target.value)}>
-              {colunasDisponiveis.map(col => (
-                <option key={col} value={col}>Coluna: {col.toUpperCase()}</option>
-              ))}
-            </select>
+            
+            {/* SELECT 1: ESCOLHER COLUNA COM PESQUISA INTERNA */}
+            <div style={{ position: 'relative', display: 'inline-block', minWidth: '220px' }}>
+              <div 
+                style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
+                onClick={(e) => {
+                  const content = e.currentTarget.nextElementSibling;
+                  content.style.display = content.style.display === 'block' ? 'none' : 'block';
+                }}
+              >
+                <span>{tipoFiltroAtual ? tipoFiltroAtual.toUpperCase() : "Selecione a coluna..."}</span>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
+              </div>
 
-            {/* CONTAINER DROPDOWN DE SELEÇÃO MÚLTIPLA COM PESQUISA INTERNA */}
+              <div style={{ display: 'none', position: 'absolute', top: '36px', left: 0, width: '260px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ position: 'relative', marginBottom: '8px' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <input 
+                    type="text" 
+                    placeholder="Pesquisar coluna..." 
+                    value={termoPesquisaColuna}
+                    onChange={(e) => setTermoPesquisaColuna(e.target.value)}
+                    style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {colunasFiltradasPelaBusca.length === 0 ? (
+                    <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
+                  ) : (
+                    colunasFiltradasPelaBusca.map(col => (
+                      <div 
+                        key={col} 
+                        onClick={(e) => {
+                          setTipoFiltroAtual(col);
+                          setTermoPesquisaColuna("");
+                          e.currentTarget.parentElement.parentElement.style.display = 'none';
+                        }}
+                        style={{ fontSize: '11px', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
+                        onMouseEnter={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = '#f1f5f9'; }}
+                        onMouseLeave={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        {col.toUpperCase()}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SELECT 2: ESCOLHER VALORES COM PESQUISA E SELEÇÃO MÚLTIPLA */}
             <div style={{ position: 'relative', display: 'inline-block', minWidth: '260px' }}>
               <div 
                 style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
@@ -394,14 +446,12 @@ export default function Producao() {
                 <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
               </div>
 
-              {/* PAINEL FLUTUANTE DE CHECKBOXES E BUSCA */}
               <div style={{ display: 'none', position: 'absolute', top: '36px', left: 0, width: '300px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
-                
                 <div style={{ position: 'relative', marginBottom: '8px' }}>
                   <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <input 
                     type="text" 
-                    placeholder="Pesquisar..." 
+                    placeholder="Pesquisar valor..." 
                     value={termoPesquisaValor}
                     onChange={(e) => setTermoPesquisaValor(e.target.value)}
                     style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
@@ -455,7 +505,7 @@ export default function Producao() {
             )}
           </div>
 
-          {/* CHIPS DE FILTRO ATIVOS MÚLTIPLOS */}
+          {/* CHIPS DE FILTRO ATIVOS */}
           <div className="filter-badges-container" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {Object.keys(filtrosAtivos).map(campo => (
               filtrosAtivos[campo].map(valor => (
