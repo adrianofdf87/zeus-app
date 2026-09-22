@@ -24,7 +24,8 @@ export default function Producao() {
   const [totaisGerais, setTotaisGerais] = useState({
     qtdOs: 0,
     valorProjTotal: 0,
-    valorProdTotal: 0
+    valorProdTotal: 0,
+    valorFatuTotal: 0
   });
   const [dadosProcessadosTabela, setDadosProcessadosTabela] = useState([]);
 
@@ -112,7 +113,7 @@ export default function Producao() {
 
       if (allData.length > 0 && allData[0]) {
         const sample = allData[0];
-        const cols = Object.keys(sample).filter(c => !c.includes("id") && c !== "valor_proj" && c !== "valor_prod");
+        const cols = Object.keys(sample).filter(c => !c.includes("id") && c !== "valor_proj" && c !== "valor_prod" && c !== "valor_fatu");
         setColunasDisponiveis(cols);
         
         if (cols.includes("meses")) {
@@ -164,7 +165,6 @@ export default function Producao() {
 
     let filtrados = [];
 
-    // Primeiro passamos filtrando os registros válidos
     dados.forEach(item => {
       if (!item) return;
       let atendeTodos = true;
@@ -194,12 +194,10 @@ export default function Producao() {
       });
 
       if (atendeTodos) {
-        // Clonamos o item para ajustar o valor_prod caso o filtro ativo seja o de meses
         let itemProcessado = { ...item };
         if (filtros.meses && item.meses && typeof item.meses === 'object') {
           const mesSelecionado = filtros.meses;
           if (item.meses[mesSelecionado] !== undefined) {
-            // Substitui o valor_prod pelo valor específico daquele mês selecionado no JSON
             itemProcessado.valor_prod = Number(item.meses[mesSelecionado]) || 0;
           }
         }
@@ -209,6 +207,7 @@ export default function Producao() {
 
     let somaGeralProj = 0;
     let somaGeralProd = 0;
+    let somaGeralFatu = 0;
     let qtdOsTotal = 0;
     const agrupado = {};
 
@@ -216,9 +215,11 @@ export default function Producao() {
       const tipo = item.tipo_os || "Não Definido";
       const valProj = Number(item.valor_proj) || 0;
       const valProd = Number(item.valor_prod) || 0;
+      const valFatu = Number(item.valor_fatu) || 0;
 
       somaGeralProj += valProj;
       somaGeralProd += valProd;
+      somaGeralFatu += valFatu;
       qtdOsTotal += 1;
 
       if (!agrupado[tipo]) {
@@ -226,29 +227,34 @@ export default function Producao() {
           tipo_os: tipo,
           qtd_os: 0,
           soma_valor_proj: 0,
-          soma_valor_prod: 0
+          soma_valor_prod: 0,
+          soma_valor_fatu: 0
         };
       }
 
       agrupado[tipo].qtd_os += 1;
       agrupado[tipo].soma_valor_proj += valProj;
       agrupado[tipo].soma_valor_prod += valProd;
+      agrupado[tipo].soma_valor_fatu += valFatu;
     });
 
     setTotaisGerais({
       qtdOs: qtdOsTotal,
       valorProjTotal: somaGeralProj,
-      valorProdTotal: somaGeralProd
+      valorProdTotal: somaGeralProd,
+      valorFatuTotal: somaGeralFatu
     });
 
     const resultadoFinal = Object.values(agrupado).map((grupo) => {
       const percProj = somaGeralProj > 0 ? (grupo.soma_valor_proj / somaGeralProj) * 100 : 0;
       const percProd = somaGeralProd > 0 ? (grupo.soma_valor_prod / somaGeralProd) * 100 : 0;
+      const percFatu = somaGeralFatu > 0 ? (grupo.soma_valor_fatu / somaGeralFatu) * 100 : 0;
 
       return {
         ...grupo,
         perc_valor_proj: percProj,
-        perc_valor_prod: percProd
+        perc_valor_prod: percProd,
+        perc_valor_fatu: percFatu
       };
     });
 
@@ -397,7 +403,7 @@ export default function Producao() {
                       )}
                     </div>
                   </th>
-                  <th style={{ width: "160px" }}>% Part. Proj.</th>
+                  <th style={{ width: "140px" }}>% Part. Proj.</th>
                   <th onClick={() => alternarOrdenacao("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                       <span>Valor Produzido</span>
@@ -406,7 +412,16 @@ export default function Producao() {
                       )}
                     </div>
                   </th>
-                  <th style={{ width: "160px" }}>% Part. Prod.</th>
+                  <th style={{ width: "140px" }}>% Part. Prod.</th>
+                  <th onClick={() => alternarOrdenacao("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <span>Valor Faturado</span>
+                      {ordenacaoCampo === "soma_valor_fatu" && (
+                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                      )}
+                    </div>
+                  </th>
+                  <th style={{ width: "140px" }}>% Part. Fatu.</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,7 +440,7 @@ export default function Producao() {
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "36px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "34px" }}>
                           {item.perc_valor_proj.toFixed(1)}%
                         </span>
                         <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
@@ -438,11 +453,24 @@ export default function Producao() {
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "36px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "34px" }}>
                           {item.perc_valor_prod.toFixed(1)}%
                         </span>
                         <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
                           <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "3px" }}></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                      {formatarMoeda(item.soma_valor_fatu)}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "34px" }}>
+                          {item.perc_valor_fatu.toFixed(1)}%
+                        </span>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "3px" }}></div>
                         </div>
                       </div>
                     </td>
@@ -465,6 +493,12 @@ export default function Producao() {
                   </td>
                   <td style={{ fontSize: "13px", color: "#10b981" }}>
                     {formatarMoeda(totaisGerais.valorProdTotal)}
+                  </td>
+                  <td style={{ fontSize: "11px", color: "#64748b" }}>
+                    100%
+                  </td>
+                  <td style={{ fontSize: "13px", color: "#d97706" }}>
+                    {formatarMoeda(totaisGerais.valorFatuTotal)}
                   </td>
                   <td style={{ fontSize: "11px", color: "#64748b" }}>
                     100%
