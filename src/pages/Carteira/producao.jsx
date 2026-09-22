@@ -21,7 +21,6 @@ export default function Producao() {
   const [valoresSelecionadosTemp, setValoresSelecionadosTemp] = useState([]);
   const [filtrosAtivos, setFiltrosAtivos] = useState({});
 
-  // Estados de controle para abrir/fechar os dropdowns customizados
   const [dropdownColunaAberto, setDropdownColunaAberto] = useState(false);
   const [dropdownValorAberto, setDropdownValorAberto] = useState(false);
 
@@ -57,7 +56,6 @@ export default function Producao() {
     carregarTodosDadosProdutividade();
   }, []);
 
-  // Fecha os dropdowns ao clicar fora deles
   useEffect(() => {
     const handleClickFora = (e) => {
       if (dropdownColunaRef.current && !dropdownColunaRef.current.contains(e.target)) {
@@ -369,36 +367,38 @@ export default function Producao() {
   }
 
   return (
-    <div className="data-apoio-container">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", background: "#ffffff", padding: "10px 16px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ backgroundColor: "#0284c7", color: "#fff", width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,85,150,0.2)" }}>
-            <TrendingUp size={16} />
+    <div className="data-apoio-container" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ backgroundColor: "#0284c7", color: "#fff", width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,85,150,0.2)" }}>
+            <TrendingUp size={15} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: "0.95rem", color: "#0f172a", fontWeight: "700", lineHeight: "1.2" }}>Dashboard de Produtividade</h2>
-            <p style={{ margin: "1px 0 0 0", fontSize: "0.72rem", color: "#64748b" }}>Visão consolidada por Tipo de OS (view_dados_produtividade).</p>
+            <h2 style={{ margin: 0, fontSize: "0.9rem", color: "#0f172a", fontWeight: "700", lineHeight: "1.2" }}>Dashboard de Produtividade</h2>
+            <p style={{ margin: "0px", fontSize: "0.7rem", color: "#64748b" }}>Visão consolidada por Tipo de OS (view_dados_produtividade).</p>
           </div>
         </div>
 
         <button 
           className="btn-adicionar-card-global" 
-          style={{ ...alturaUnificadaEstilo, position: "relative", top: "auto", right: "auto", padding: "0 14px", fontSize: "0.85rem" }} 
+          style={{ ...alturaUnificadaEstilo, position: "relative", top: "auto", right: "auto", padding: "0 12px", fontSize: "0.8rem" }} 
           onClick={carregarTodosDadosProdutividade}
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={13} />
           <span>Atualizar Dados</span>
         </button>
       </div>
 
-      {/* BARRA DE FILTROS COM DROPDOWNS CUSTOMIZADOS E FECHAMENTO AO CLICAR FORA */}
-      <div className="filter-bar" style={{ padding: '12px 16px', background: '#fff', borderRadius: '8px', marginBottom: '14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-        <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* BARRA DE FILTROS */}
+      <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+        <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "3px", flexWrap: "wrap" }}>
             
-            {/* SELECT 1: ESCOLHER COLUNA COM PESQUISA E PLACEHOLDER */}
-            <div ref={dropdownColunaRef} style={{ position: 'relative', display: 'inline-block', minWidth: '220px' }}>
+            {/* SELECT 1: COLUNAS */}
+            <div ref={dropdownColunaRef} style={{ position: 'relative', display: 'inline-block', minWidth: '200px' }}>
               <div 
                 style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: tipoFiltroAtual ? '#1e293b' : '#64748b' }}
                 onClick={() => setDropdownColunaAberto(prev => !prev)}
@@ -408,21 +408,21 @@ export default function Producao() {
               </div>
 
               {dropdownColunaAberto && (
-                <div style={{ position: 'absolute', top: '36px', left: 0, width: '260px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ position: 'relative', marginBottom: '8px' }}>
-                    <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <div style={{ position: 'absolute', top: '34px', left: 0, width: '240px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '8px' }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ position: 'relative', marginBottom: '3px' }}>
+                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input 
                       type="text" 
                       placeholder="Pesquisar coluna..." 
                       value={termoPesquisaColuna}
                       onChange={(e) => setTermoPesquisaColuna(e.target.value)}
-                      style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: '26px', padding: '0 6px 0 26px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
 
-                  <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     {colunasFiltradasPelaBusca.length === 0 ? (
-                      <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
+                      <div style={{ padding: '6px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
                     ) : (
                       colunasFiltradasPelaBusca.map(col => (
                         <div 
@@ -432,7 +432,7 @@ export default function Producao() {
                             setTermoPesquisaColuna("");
                             setDropdownColunaAberto(false);
                           }}
-                          style={{ fontSize: '11px', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
+                          style={{ fontSize: '11px', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
                           onMouseEnter={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = '#f1f5f9'; }}
                           onMouseLeave={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = 'transparent'; }}
                         >
@@ -445,8 +445,8 @@ export default function Producao() {
               )}
             </div>
 
-            {/* SELECT 2: ESCOLHER VALORES COM PESQUISA E SELEÇÃO MÚLTIPLA */}
-            <div ref={dropdownValorRef} style={{ position: 'relative', display: 'inline-block', minWidth: '260px' }}>
+            {/* SELECT 2: VALORES */}
+            <div ref={dropdownValorRef} style={{ position: 'relative', display: 'inline-block', minWidth: '240px' }}>
               <div 
                 style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
                 onClick={() => setDropdownValorAberto(prev => !prev)}
@@ -460,29 +460,29 @@ export default function Producao() {
               </div>
 
               {dropdownValorAberto && (
-                <div style={{ position: 'absolute', top: '36px', left: 0, width: '300px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ position: 'relative', marginBottom: '8px' }}>
-                    <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <div style={{ position: 'absolute', top: '34px', left: 0, width: '280px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '8px' }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ position: 'relative', marginBottom: '3px' }}>
+                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input 
                       type="text" 
                       placeholder="Pesquisar valor..." 
                       value={termoPesquisaValor}
                       onChange={(e) => setTermoPesquisaValor(e.target.value)}
-                      style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: '26px', padding: '0 6px 0 26px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px', color: '#005596', fontWeight: '600', cursor: 'pointer' }}>
-                    <span onClick={selecionarTodosValoresVisiveis}>Selecionar/Desselecionar Visíveis</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px', color: '#005596', fontWeight: '600', cursor: 'pointer' }}>
+                    <span onClick={selecionarTodosValoresVisiveis}>Selecionar Visíveis</span>
                     <span onClick={() => setValoresSelecionadosTemp([])} style={{ color: '#ef4444' }}>Limpar</span>
                   </div>
 
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ maxHeight: '130px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     {valoresFiltradosPelaBusca.length === 0 ? (
-                      <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhum valor encontrado</div>
+                      <div style={{ padding: '6px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhum valor encontrado</div>
                     ) : (
                       valoresFiltradosPelaBusca.map(val => (
-                        <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '3px 6px', borderRadius: '4px', cursor: 'pointer', background: valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent'}>
+                        <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', padding: '3px 5px', borderRadius: '4px', cursor: 'pointer', background: valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent'}>
                           <input 
                             type="checkbox" 
                             checked={valoresSelecionadosTemp.includes(val)}
@@ -498,7 +498,7 @@ export default function Producao() {
                   <button 
                     type="button" 
                     onClick={adicionarFiltroDinamico}
-                    style={{ width: '100%', marginTop: '8px', background: '#005596', color: '#fff', border: 'none', borderRadius: '4px', height: '28px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                    style={{ width: '100%', marginTop: '5px', background: '#005596', color: '#fff', border: 'none', borderRadius: '4px', height: '26px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
                   >
                     Aplicar Seleção
                   </button>
@@ -517,13 +517,13 @@ export default function Producao() {
             )}
           </div>
 
-          {/* CHIPS DE FILTRO ATIVOS */}
-          <div className="filter-badges-container" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {/* CHIPS */}
+          <div className="filter-badges-container" style={{ display: "flex", gap: "3px", flexWrap: "wrap" }}>
             {Object.keys(filtrosAtivos).map(campo => (
               filtrosAtivos[campo].map(valor => (
-                <div key={`${campo}-${valor}`} style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#e0f2fe", color: "#0369a1", padding: "3px 10px", borderRadius: "16px", fontSize: "0.78rem", fontWeight: 500, border: "1px solid #bae6fd" }}>
+                <div key={`${campo}-${valor}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "12px", fontSize: "0.72rem", fontWeight: 500, border: "1px solid #bae6fd" }}>
                   <span>{campo}: <strong>{valor}</strong></span>
-                  <button onClick={() => removerFiltroItem(campo, valor)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#0369a1", display: "flex", alignItems: "center", padding: 0 }}><X size={12} /></button>
+                  <button onClick={() => removerFiltroItem(campo, valor)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#0369a1", display: "flex", alignItems: "center", padding: 0 }}><X size={11} /></button>
                 </div>
               ))
             ))}
@@ -531,14 +531,15 @@ export default function Producao() {
         </div>
       </div>
 
-      <div style={{ background: "#fff", borderRadius: "10px", boxShadow: "0 2px 4px -1px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", marginTop: "12px" }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc" }}>
-          <Table size={16} color="#005596" />
-          <h3 style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
+      {/* TABELA */}
+      <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
+          <Table size={15} color="#005596" />
+          <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
         </div>
 
         {dadosProcessadosTabela.length === 0 ? (
-          <div style={{ padding: "24px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+          <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
             Nenhum registro encontrado para os filtros selecionados.
           </div>
         ) : (
@@ -570,7 +571,7 @@ export default function Producao() {
                       )}
                     </div>
                   </th>
-                  <th style={{ width: "140px" }}>% Part. Proj.</th>
+                  <th style={{ width: "130px" }}>% Part. Proj.</th>
                   <th onClick={() => alternarOrdenacao("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                       <span>Valor Produzido</span>
@@ -579,7 +580,7 @@ export default function Producao() {
                       )}
                     </div>
                   </th>
-                  <th style={{ width: "140px" }}>% Part. Prod.</th>
+                  <th style={{ width: "130px" }}>% Part. Prod.</th>
                   <th onClick={() => alternarOrdenacao("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                       <span>Valor Faturado</span>
@@ -588,7 +589,7 @@ export default function Producao() {
                       )}
                     </div>
                   </th>
-                  <th style={{ width: "140px" }}>% Part. Fatu.</th>
+                  <th style={{ width: "130px" }}>% Part. Fatu.</th>
                 </tr>
               </thead>
               <tbody>
@@ -606,12 +607,12 @@ export default function Producao() {
                       {formatarMoeda(item.soma_valor_proj)}
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "34px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
                           {item.perc_valor_proj.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "3px" }}></div>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
                         </div>
                       </div>
                     </td>
@@ -619,12 +620,12 @@ export default function Producao() {
                       {formatarMoeda(item.soma_valor_prod)}
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "34px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
                           {item.perc_valor_prod.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "3px" }}></div>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
                         </div>
                       </div>
                     </td>
@@ -632,12 +633,12 @@ export default function Producao() {
                       {formatarMoeda(item.soma_valor_fatu)}
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "34px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
                           {item.perc_valor_fatu.toFixed(1)}%
                         </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "5px", borderRadius: "3px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "3px" }}></div>
+                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
                         </div>
                       </div>
                     </td>
@@ -646,25 +647,25 @@ export default function Producao() {
               </tbody>
               <tfoot>
                 <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
-                  <td style={{ padding: "11px 16px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
+                  <td style={{ padding: "8px 12px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
                     Total Geral {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
                   </td>
-                  <td style={{ textAlign: "center", fontSize: "13px" }}>
+                  <td style={{ textAlign: "center", fontSize: "12px" }}>
                     {totaisGerais.qtdOs.toLocaleString()}
                   </td>
-                  <td style={{ fontSize: "13px", color: "#005596" }}>
+                  <td style={{ fontSize: "12px", color: "#005596" }}>
                     {formatarMoeda(totaisGerais.valorProjTotal)}
                   </td>
                   <td style={{ fontSize: "11px", color: "#64748b" }}>
                     100%
                   </td>
-                  <td style={{ fontSize: "13px", color: "#10b981" }}>
+                  <td style={{ fontSize: "12px", color: "#10b981" }}>
                     {formatarMoeda(totaisGerais.valorProdTotal)}
                   </td>
                   <td style={{ fontSize: "11px", color: "#64748b" }}>
                     100%
                   </td>
-                  <td style={{ fontSize: "13px", color: "#d97706" }}>
+                  <td style={{ fontSize: "12px", color: "#d97706" }}>
                     {formatarMoeda(totaisGerais.valorFatuTotal)}
                   </td>
                   <td style={{ fontSize: "11px", color: "#64748b" }}>
