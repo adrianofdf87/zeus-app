@@ -46,7 +46,6 @@ export default function Producao() {
     carregarTodosDadosProdutividade();
   }, []);
 
-  // Lógica inteligente para carregar os valores da coluna selecionada (incluindo tratamento para o JSON de 'meses')
   useEffect(() => {
     if (!tipoFiltroAtual || !Array.isArray(todosDados) || todosDados.length === 0) {
       setValoresColunaAtual([]);
@@ -58,7 +57,6 @@ export default function Producao() {
       if (item && typeof item === 'object') {
         const val = item[tipoFiltroAtual];
 
-        // Se a coluna escolhida for o JSON 'meses', extrai todas as chaves (YYYY-MM)
         if (tipoFiltroAtual === "meses" && val && typeof val === 'object') {
           Object.keys(val).forEach(mesChave => {
             if (mesChave) valoresSet.add(mesChave);
@@ -74,7 +72,7 @@ export default function Producao() {
       }
     });
 
-    const listaValores = Array.from(valoresSet).sort().reverse(); // Ordena decrescente para mostrar os meses mais recentes primeiro
+    const listaValores = Array.from(valoresSet).sort().reverse();
     setValoresColunaAtual(listaValores);
     setValorFiltroSelect("TODOS");
   }, [tipoFiltroAtual, todosDados]);
@@ -114,11 +112,9 @@ export default function Producao() {
 
       if (allData.length > 0 && allData[0]) {
         const sample = allData[0];
-        // Filtra colunas indesejadas e garante que 'meses' apareça como opção de filtro
         const cols = Object.keys(sample).filter(c => !c.includes("id") && c !== "valor_proj" && c !== "valor_prod");
         setColunasDisponiveis(cols);
         
-        // Se a coluna 'meses' existir, define ela como padrão inicial para facilitar o filtro mensal
         if (cols.includes("meses")) {
           setTipoFiltroAtual("meses");
         } else if (cols.length > 0 && cols[0]) {
@@ -166,27 +162,49 @@ export default function Producao() {
       return;
     }
 
-    let filtrados = [...dados];
+    let filtrados = [];
 
-    // Aplicação de filtros em cascata (suportando validação especial para o objeto JSON 'meses')
-    Object.keys(filtros).forEach(campo => {
-      const valorFiltro = filtros[campo];
-      filtrados = filtrados.filter(item => {
-        if (!item) return false;
+    // Primeiro passamos filtrando os registros válidos
+    dados.forEach(item => {
+      if (!item) return;
+      let atendeTodos = true;
+
+      Object.keys(filtros).forEach(campo => {
+        const valorFiltro = filtros[campo];
         const valItem = item[campo];
-        if (valItem === undefined || valItem === null) return false;
+
+        if (valItem === undefined || valItem === null) {
+          atendeTodos = false;
+          return;
+        }
 
         if (campo === "meses" && typeof valItem === 'object') {
-          // Verifica se o mês selecionado existe nas chaves do JSON e possui valor maior que zero
-          return valItem.hasOwnProperty(valorFiltro) && Number(valItem[valorFiltro]) > 0;
+          if (!valItem.hasOwnProperty(valorFiltro) || Number(valItem[valorFiltro]) <= 0) {
+            atendeTodos = false;
+          }
+        } else if (campo.includes("data")) {
+          if (!String(valItem).startsWith(valorFiltro)) {
+            atendeTodos = false;
+          }
+        } else {
+          if (String(valItem) !== valorFiltro) {
+            atendeTodos = false;
+          }
         }
-
-        if (campo.includes("data")) {
-          return String(valItem).startsWith(valorFiltro);
-        }
-
-        return String(valItem) === valorFiltro;
       });
+
+      if (atendeTodos) {
+        // Clonamos o item para ajustar o valor_prod caso o filtro ativo seja o de meses
+        let itemProcessado = { ...item };
+        if (filtros.meses && item.meses && typeof item.meses === 'object') {
+          const mesSelecionado = filtros.meses;
+          if (item.meses[mesSelecionado] !== undefined) {
+            // Substitui o valor_prod pelo valor específico daquele mês selecionado no JSON
+            itemProcessado.valor_prod = Number(item.meses[mesSelecionado]) || 0;
+          }
+        }
+        filtrados.push(itemProcessado);
+      }
     });
 
     let somaGeralProj = 0;
@@ -195,7 +213,6 @@ export default function Producao() {
     const agrupado = {};
 
     filtrados.forEach((item) => {
-      if (!item) return;
       const tipo = item.tipo_os || "Não Definido";
       const valProj = Number(item.valor_proj) || 0;
       const valProd = Number(item.valor_prod) || 0;
@@ -420,7 +437,7 @@ export default function Producao() {
                       {formatarMoeda(item.soma_valor_prod)}
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "1px", gap: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "36px" }}>
                           {item.perc_valor_prod.toFixed(1)}%
                         </span>
