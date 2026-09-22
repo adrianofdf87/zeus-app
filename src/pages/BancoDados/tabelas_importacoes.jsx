@@ -306,9 +306,10 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
     if (rows.length < 2) throw new Error("A planilha está vazia.");
 
     const removerAcentos = (val) => {
+      if (val === 0 || val === '0') return '0';
       const limpo = limpaStr(val);
-      if (!limpo) return null;
-      return limpo.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (limpo === null || limpo === undefined || limpo === '') return null;
+      return String(limpo).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
 
     const formatarDataSegura = (val) => {
@@ -381,7 +382,14 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         usu_cada: removerAcentos(usuCad)
       };
 
-      if (itemObj.data && itemObj.equipe_id && itemObj.ordem_servico && itemObj.codigo_acao_campo !== null) {
+      if (
+        itemObj.data && 
+        itemObj.equipe_id && 
+        itemObj.ordem_servico !== null && 
+        itemObj.ordem_servico !== undefined && 
+        itemObj.ordem_servico !== '' && 
+        itemObj.codigo_acao_campo !== null
+      ) {
         itemObj.chave_composta = `${itemObj.data}|${itemObj.equipe_id}|${itemObj.ordem_servico}|${itemObj.codigo_acao_campo}|${itemObj.quantidade}`;
         itensPlanilha.push(itemObj);
       }
