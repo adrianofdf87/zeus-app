@@ -499,10 +499,10 @@ export default function Producao() {
   }
 
   return (
-    <div style={{ width: '100%', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div style={{ width: '100%', minHeight: '100%', boxSizing: 'border-box', paddingBottom: '40px' }}>
       
-      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (NÃO ROLAM) */}
-      <div style={{ flexShrink: 0, background: '#f8fafc', paddingBottom: '6px', paddingTop: '2px', zIndex: 50 }}>
+      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (STICKY) */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '6px', paddingTop: '4px' }}>
         
         {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
@@ -683,11 +683,11 @@ export default function Producao() {
 
       </div>
 
-      {/* CONTAINER COM SCROLL INTERNO INDEPENDENTE PARA AS TABELAS */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '30px' }}>
+      {/* CONTAINER COM CONTEÚDO */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
 
         {/* CARD 1: RESUMO POR TIPO DE OS */}
-        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", flexShrink: 0 }}>
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
             <Table size={15} color="#005596" />
             <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS <span style={{ fontWeight: '400', fontSize: '11px', color: '#64748b' }}>(Clique em uma linha para filtrar a tabela abaixo)</span></h3>
@@ -845,11 +845,11 @@ export default function Producao() {
           )}
         </div>
 
-        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM ORDEM CORRETA E SCROLL INTERNO */}
-        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "380px", flexShrink: 0 }}>
+        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM SCROLL INTERNO E ORDEM DE COLUNAS EXATA */}
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "380px" }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc", flexShrink: 0 }}>
             <Table size={15} color="#005596" />
-            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais)</h3>
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais com Scroll Interno)</h3>
           </div>
 
           {dadosTabela2Ordenados.length === 0 ? (
