@@ -324,8 +324,8 @@ export default function Producao() {
           valor_prod_total: valProdTotalGeral,
           valor_prod: valProd,
           prod_x_proj: 0,
+          fatu_x_prod: 0,
           fatu_x_proj: 0,
-          fatu_x_proj_calc: 0,
           valor_fatu: valFatu
         };
       } else {
@@ -371,7 +371,7 @@ export default function Producao() {
         ...item,
         prod_x_proj: prodXproj,
         fatu_x_prod: fatuXprod,
-        fatu_x_proj_calc: fatuXproj
+        fatu_x_proj: fatuXproj
       };
     });
 
@@ -502,7 +502,7 @@ export default function Producao() {
     <div style={{ width: '100%', minHeight: '100vh', boxSizing: 'border-box', paddingBottom: '40px', overflowY: 'auto' }}>
       
       {/* HEADER E FILTROS FIXOS NO TOPO (STICKY) */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: '#f8fafc', paddingBottom: '6px' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '6px', paddingTop: '4px' }}>
         
         {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
@@ -845,7 +845,7 @@ export default function Producao() {
           )}
         </div>
 
-        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM SCROLL INTERNO */}
+        {/* CARD 2: DETALHAMENTO INDIVIDUAL POR ORDEM DE SERVIÇO COM SCROLL INTERNO E ORDEM DE COLUNAS EXATA */}
         <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "380px" }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc", flexShrink: 0 }}>
             <Table size={15} color="#005596" />
@@ -903,28 +903,30 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>%ProdXProj</span>
-                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "prod_x_proj", ordenacaoTabela2.direcao)}
-                      </div>
-                    </th>
+                    {/* VALOR FATURADO LOGO APÓS O VALOR PRODUZIDO (MÊS) */}
                     <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_prod"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
+                    {/* AS TRÊS COLUNAS DE PERCENTUAL REQUISITADAS */}
+                    <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>%ProdXProj</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "prod_x_proj", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_prod"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%FatuXProd</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_proj_calc")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_proj_calc"), width: "110px", position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%FatuXProj</span>
-                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_proj_calc", ordenacaoTabela2.direcao)}
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                   </tr>
@@ -963,6 +965,11 @@ export default function Producao() {
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.valor_prod)}
                         </td>
+                        {/* VALOR FATURADO LOGO APÓS O PRODUZIDO (MÊS) */}
+                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                          {formatarMoeda(item.valor_fatu)}
+                        </td>
+                        {/* %ProdXProj */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
@@ -973,9 +980,7 @@ export default function Producao() {
                             </div>
                           </div>
                         </td>
-                        <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                          {formatarMoeda(item.valor_fatu)}
-                        </td>
+                        {/* %FatuXProd */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
@@ -986,13 +991,14 @@ export default function Producao() {
                             </div>
                           </div>
                         </td>
+                        {/* %FatuXProj */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <span style={{ fontSize: "10px", fontWeight: "600", color: "#7c3aed" }}>
-                              {Number(item.fatu_x_proj_calc || 0).toFixed(1)}%
+                              {Number(item.fatu_x_proj || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.fatu_x_proj_calc || 0), 100)}%`, background: "#7c3aed", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.fatu_x_proj || 0), 100)}%`, background: "#7c3aed", height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
