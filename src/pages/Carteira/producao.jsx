@@ -30,7 +30,6 @@ export default function Producao() {
   const [ordenacaoCampo, setOrdenacaoCampo] = useState("soma_valor_proj");
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState("desc");
 
-  // Ordenação específica para a segunda tabela de Num OS individuais
   const [ordenacaoNumOsCampo, setOrdenacaoNumOsCampo] = useState("num_os");
   const [ordenacaoNumOsDirecao, setOrdenacaoNumOsDirecao] = useState("asc");
 
@@ -272,7 +271,6 @@ export default function Producao() {
       qtdOsTotal += 1;
       if (numOs) numOsGeralSet.add(numOs);
 
-      // Agrupamento para a Tabela 1 (por Tipo de OS)
       if (!agrupadoTipo[tipo]) {
         agrupadoTipo[tipo] = {
           tipo_os: tipo,
@@ -289,7 +287,6 @@ export default function Producao() {
       agrupadoTipo[tipo].soma_valor_prod += valProd;
       agrupadoTipo[tipo].soma_valor_fatu += valFatu;
 
-      // Agrupamento para a Tabela 2 (por Num OS Individual)
       if (!agrupadoNumOs[numOs]) {
         agrupadoNumOs[numOs] = {
           num_os: numOs,
@@ -303,7 +300,6 @@ export default function Producao() {
           valor_fatu: valFatu
         };
       } else {
-        // Caso haja múltiplos registros para a mesma OS, acumula os valores
         agrupadoNumOs[numOs].valor_proj += valProj;
         agrupadoNumOs[numOs].valor_prod += valProd;
         agrupadoNumOs[numOs].valor_fatu += valFatu;
@@ -445,10 +441,10 @@ export default function Producao() {
   }
 
   return (
-    <div className="data-apoio-container" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+    <div className="data-apoio-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
       
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+      {/* HEADER FIXO */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div style={{ backgroundColor: "#0284c7", color: "#fff", width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,85,150,0.2)" }}>
             <TrendingUp size={15} />
@@ -469,8 +465,8 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* BARRA DE FILTROS */}
-      <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+      {/* BARRA DE FILTROS FIXA */}
+      <div className="filter-bar" style={{ padding: '8px 12px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', flexShrink: 0, marginBottom: '3px' }}>
         <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           
           <div style={{ display: "flex", alignItems: "center", gap: "3px", flexWrap: "wrap" }}>
@@ -609,307 +605,307 @@ export default function Producao() {
         </div>
       </div>
 
-      {/* CARD 1: RESUMO POR TIPO DE OS */}
-      <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-        <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
-          <Table size={15} color="#005596" />
-          <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
-        </div>
+      {/* CONTAINER COM SCROLL GERAL DA PÁGINA (A PARTIR DAQUI PARA BAIXO) */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '2px' }}>
 
-        {dadosProcessadosTabela.length === 0 ? (
-          <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
-            Nenhum registro encontrado para os filtros selecionados.
+        {/* CARD 1: RESUMO POR TIPO DE OS */}
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
+            <Table size={15} color="#005596" />
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Resumo de Produtividade por Tipo de OS</h3>
           </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="tabela-apoio-estilizada" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th onClick={() => alternarOrdenacao("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Tipo de OS</span>
-                      {ordenacaoCampo === "tipo_os" && (
-                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => alternarOrdenacao("qtd_os")} style={{ textAlign: "center", cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", justifyContent: "center", width: "100%" }}>
-                      <span>Qtd OS</span>
-                      {ordenacaoCampo === "qtd_os" && (
-                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => alternarOrdenacao("soma_valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Valor Projetado</span>
-                      {ordenacaoCampo === "soma_valor_proj" && (
-                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ width: "130px" }}>% Part. Proj.</th>
-                  <th onClick={() => alternarOrdenacao("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Valor Produzido</span>
-                      {ordenacaoCampo === "soma_valor_prod" && (
-                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ width: "130px" }}>% Part. Prod.</th>
-                  <th onClick={() => alternarOrdenacao("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Valor Faturado</span>
-                      {ordenacaoCampo === "soma_valor_fatu" && (
-                        ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ width: "130px" }}>% Part. Fatu.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dadosTabelaOrdenados.map((item, index) => (
-                  <tr key={index} style={{ transition: "background 0.15s" }}>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
-                        {item.tipo_os}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
-                      {item.qtd_os.toLocaleString()}
-                    </td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatarMoeda(item.soma_valor_proj)}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
-                          {item.perc_valor_proj.toFixed(1)}%
-                        </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
-                        </div>
+
+          {dadosProcessadosTabela.length === 0 ? (
+            <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+              Nenhum registro encontrado para os filtros selecionados.
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="tabela-apoio-estilizada" style={{ width: "100%" }}>
+                <thead>
+                  <tr>
+                    <th onClick={() => alternarOrdenacao("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Tipo de OS</span>
+                        {ordenacaoCampo === "tipo_os" && (
+                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
                       </div>
-                    </td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatarMoeda(item.soma_valor_prod)}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
-                          {item.perc_valor_prod.toFixed(1)}%
-                        </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
-                        </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacao("qtd_os")} style={{ textAlign: "center", cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", justifyContent: "center", width: "100%" }}>
+                        <span>Qtd OS</span>
+                        {ordenacaoCampo === "qtd_os" && (
+                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
                       </div>
-                    </td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatarMoeda(item.soma_valor_fatu)}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
-                          {item.perc_valor_fatu.toFixed(1)}%
-                        </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
-                        </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacao("soma_valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Projetado</span>
+                        {ordenacaoCampo === "soma_valor_proj" && (
+                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
                       </div>
+                    </th>
+                    <th style={{ width: "130px" }}>% Part. Proj.</th>
+                    <th onClick={() => alternarOrdenacao("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Produzido</span>
+                        {ordenacaoCampo === "soma_valor_prod" && (
+                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
+                      </div>
+                    </th>
+                    <th style={{ width: "130px" }}>% Part. Prod.</th>
+                    <th onClick={() => alternarOrdenacao("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Faturado</span>
+                        {ordenacaoCampo === "soma_valor_fatu" && (
+                          ordenacaoDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
+                      </div>
+                    </th>
+                    <th style={{ width: "130px" }}>% Part. Fatu.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dadosTabelaOrdenados.map((item, index) => (
+                    <tr key={index} style={{ transition: "background 0.15s" }}>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                          {item.tipo_os}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
+                        {item.qtd_os.toLocaleString()}
+                      </td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatarMoeda(item.soma_valor_proj)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
+                            {item.perc_valor_proj.toFixed(1)}%
+                          </span>
+                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatarMoeda(item.soma_valor_prod)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
+                            {item.perc_valor_prod.toFixed(1)}%
+                          </span>
+                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatarMoeda(item.soma_valor_fatu)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
+                            {item.perc_valor_fatu.toFixed(1)}%
+                          </span>
+                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
+                    <td style={{ padding: "8px 12px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
+                      Total Geral {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
+                    </td>
+                    <td style={{ textAlign: "center", fontSize: "12px" }}>
+                      {totaisGerais.qtdOs.toLocaleString()}
+                    </td>
+                    <td style={{ fontSize: "12px", color: "#005596" }}>
+                      {formatarMoeda(totaisGerais.valorProjTotal)}
+                    </td>
+                    <td style={{ fontSize: "11px", color: "#64748b" }}>
+                      100%
+                    </td>
+                    <td style={{ fontSize: "12px", color: "#10b981" }}>
+                      {formatarMoeda(totaisGerais.valorProdTotal)}
+                    </td>
+                    <td style={{ fontSize: "11px", color: "#64748b" }}>
+                      100%
+                    </td>
+                    <td style={{ fontSize: "12px", color: "#d97706" }}>
+                      {formatarMoeda(totaisGerais.valorFatuTotal)}
+                    </td>
+                    <td style={{ fontSize: "11px", color: "#64748b" }}>
+                      100%
                     </td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
-                  <td style={{ padding: "8px 12px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
-                    Total Geral {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
-                  </td>
-                  <td style={{ textAlign: "center", fontSize: "12px" }}>
-                    {totaisGerais.qtdOs.toLocaleString()}
-                  </td>
-                  <td style={{ fontSize: "12px", color: "#005596" }}>
-                    {formatarMoeda(totaisGerais.valorProjTotal)}
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#64748b" }}>
-                    100%
-                  </td>
-                  <td style={{ fontSize: "12px", color: "#10b981" }}>
-                    {formatarMoeda(totaisGerais.valorProdTotal)}
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#64748b" }}>
-                    100%
-                  </td>
-                  <td style={{ fontSize: "12px", color: "#d97706" }}>
-                    {formatarMoeda(totaisGerais.valorFatuTotal)}
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#64748b" }}>
-                    100%
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* CARD 2: LISTAGEM INDIVIDUAL DE CADA NUM_OS COM SEUS VALORES */}
-      <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", marginTop: "6px" }}>
-        <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
-          <Table size={15} color="#005596" />
-          <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais)</h3>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </div>
 
-        {dadosNumOsOrdenados.length === 0 ? (
-          <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
-            Nenhum registro encontrado para os filtros selecionados.
+        {/* CARD 2: LISTAGEM INDIVIDUAL DE CADA NUM_OS COM SCROLL INTERNO E CABEÇALHO FIXO */}
+        <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", height: "350px", flexShrink: 0 }}>
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc", flexShrink: 0 }}>
+            <Table size={15} color="#005596" />
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "#0f172a", margin: 0 }}>Detalhamento por Ordem de Serviço (Num OS Individuais com Scroll Interno)</h3>
           </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="tabela-apoio-estilizada" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th onClick={() => alternarOrdenacaoNumOs("num_os")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Num OS</span>
-                      {ordenacaoNumOsCampo === "num_os" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => alternarOrdenacaoNumOs("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Tipo OS</span>
-                      {ordenacaoNumOsCampo === "tipo_os" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => alternarOrdenacaoNumOs("pep")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>PEP</span>
-                      {ordenacaoNumOsCampo === "pep" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => alternarOrdenacaoNumOs("status")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Status</span>
-                      {ordenacaoNumOsCampo === "status" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th onClick={() => alternarOrdenacaoNumOs("valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Valor Projetado</span>
-                      {ordenacaoNumOsCampo === "valor_proj" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ width: "120px" }}>% Part. Proj.</th>
-                  <th onClick={() => alternarOrdenacaoNumOs("valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Valor Produzido</span>
-                      {ordenacaoNumOsCampo === "valor_prod" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ width: "120px" }}>% Part. Prod.</th>
-                  <th onClick={() => alternarOrdenacaoNumOs("valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <span>Valor Faturado</span>
-                      {ordenacaoNumOsCampo === "valor_fatu" && (
-                        ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
-                      )}
-                    </div>
-                  </th>
-                  <th style={{ width: "120px" }}>% Part. Fatu.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dadosNumOsOrdenados.map((item, index) => (
-                  <tr key={index} style={{ transition: "background 0.15s" }}>
-                    <td style={{ fontWeight: "700", color: "#005596" }}>
-                      {item.num_os}
-                    </td>
-                    <td>
-                      <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
-                        {item.tipo_os}
-                      </span>
-                    </td>
-                    <td style={{ color: "#334155" }}>{item.pep}</td>
-                    <td style={{ color: "#334155" }}>{item.status}</td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatarMoeda(item.valor_proj)}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
-                          {item.perc_valor_proj.toFixed(1)}%
-                        </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
-                        </div>
+
+          {dadosNumOsOrdenados.length === 0 ? (
+            <div style={{ padding: "18px", textAlign: "center", color: "#64748b", fontSize: "12px" }}>
+              Nenhum registro encontrado para os filtros selecionados.
+            </div>
+          ) : (
+            <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+              <table className="tabela-apoio-estilizada" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th onClick={() => alternarOrdenacaoNumOs("num_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Num OS</span>
+                        {ordenacaoNumOsCampo === "num_os" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
                       </div>
-                    </td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatarMoeda(item.valor_prod)}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <span style={{ fontSize: "10px", fontWeight: "600", color: "#10b981" }}>
-                          {item.perc_valor_prod.toFixed(1)}%
-                        </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
-                        </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoNumOs("tipo_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Tipo OS</span>
+                        {ordenacaoNumOsCampo === "tipo_os" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
                       </div>
-                    </td>
-                    <td style={{ fontWeight: "600", color: "#0f172a" }}>
-                      {formatarMoeda(item.valor_fatu)}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
-                          {item.perc_valor_fatu.toFixed(1)}%
-                        </span>
-                        <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                          <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
-                        </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoNumOs("pep")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>PEP</span>
+                        {ordenacaoNumOsCampo === "pep" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
                       </div>
-                    </td>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoNumOs("status")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Status</span>
+                        {ordenacaoNumOsCampo === "status" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoNumOs("valor_proj")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Projetado</span>
+                        {ordenacaoNumOsCampo === "valor_proj" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
+                      </div>
+                    </th>
+                    <th style={{ width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>% Part. Proj.</th>
+                    <th onClick={() => alternarOrdenacaoNumOs("valor_prod")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Produzido</span>
+                        {ordenacaoNumOsCampo === "valor_prod" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
+                      </div>
+                    </th>
+                    <th style={{ width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>% Part. Prod.</th>
+                    <th onClick={() => alternarOrdenacaoNumOs("valor_fatu")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Valor Faturado</span>
+                        {ordenacaoNumOsCampo === "valor_fatu" && (
+                          ordenacaoNumOsDirecao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+                        )}
+                      </div>
+                    </th>
+                    <th style={{ width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>% Part. Fatu.</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
-                  <td colSpan={4} style={{ padding: "8px 12px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
-                    Total Geral ({dadosNumOsOrdenados.length} Ordens) {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
-                  </td>
-                  <td style={{ fontSize: "12px", color: "#005596" }}>
-                    {formatarMoeda(totaisGerais.valorProjTotal)}
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
-                  <td style={{ fontSize: "12px", color: "#10b981" }}>
-                    {formatarMoeda(totaisGerais.valorProdTotal)}
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
-                  <td style={{ fontSize: "12px", color: "#d97706" }}>
-                    {formatarMoeda(totaisGerais.valorFatuTotal)}
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {dadosNumOsOrdenados.map((item, index) => (
+                    <tr key={index} style={{ transition: "background 0.15s" }}>
+                      <td style={{ fontWeight: "700", color: "#005596" }}>
+                        {item.num_os}
+                      </td>
+                      <td>
+                        <span style={{ background: "#e0f2fe", color: "#005596", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                          {item.tipo_os}
+                        </span>
+                      </td>
+                      <td style={{ color: "#334155" }}>{item.pep}</td>
+                      <td style={{ color: "#334155" }}>{item.status}</td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatarMoeda(item.valor_proj)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
+                            {item.perc_valor_proj.toFixed(1)}%
+                          </span>
+                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(item.perc_valor_proj, 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatarMoeda(item.valor_prod)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "10px", fontWeight: "600", color: "#10b981" }}>
+                            {item.perc_valor_prod.toFixed(1)}%
+                          </span>
+                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(item.perc_valor_prod, 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: "600", color: "#0f172a" }}>
+                        {formatarMoeda(item.valor_fatu)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
+                            {item.perc_valor_fatu.toFixed(1)}%
+                          </span>
+                          <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(item.perc_valor_fatu, 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* RODAPÉ DA TABELA 2 FIXO NO FIM DO CARD */}
+          {dadosNumOsOrdenados.length > 0 && (
+            <div style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", flexShrink: 0 }}>
+              <div>
+                TOTAL GERAL ({dadosNumOsOrdenados.length} Ordens) {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
+              </div>
+              <div style={{ display: "flex", gap: "16px" }}>
+                <div>Projetado: <span style={{ color: "#005596" }}>{formatarMoeda(totaisGerais.valorProjTotal)}</span></div>
+                <div>Produzido: <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotal)}</span></div>
+                <div>Faturado: <span style={{ color: "#d97706" }}>{formatarMoeda(totaisGerais.valorFatuTotal)}</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
 
     </div>
