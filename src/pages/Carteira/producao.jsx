@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../services/supabase";
 import Swal from "sweetalert2";
 import { 
@@ -20,6 +20,13 @@ export default function Producao() {
   const [tipoFiltroAtual, setTipoFiltroAtual] = useState("");
   const [valoresSelecionadosTemp, setValoresSelecionadosTemp] = useState([]);
   const [filtrosAtivos, setFiltrosAtivos] = useState({});
+
+  // Estados de controle para abrir/fechar os dropdowns customizados
+  const [dropdownColunaAberto, setDropdownColunaAberto] = useState(false);
+  const [dropdownValorAberto, setDropdownValorAberto] = useState(false);
+
+  const dropdownColunaRef = useRef(null);
+  const dropdownValorRef = useRef(null);
 
   const [ordenacaoCampo, setOrdenacaoCampo] = useState("soma_valor_proj");
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState("desc");
@@ -48,6 +55,20 @@ export default function Producao() {
 
   useEffect(() => {
     carregarTodosDadosProdutividade();
+  }, []);
+
+  // Fecha os dropdowns ao clicar fora deles
+  useEffect(() => {
+    const handleClickFora = (e) => {
+      if (dropdownColunaRef.current && !dropdownColunaRef.current.contains(e.target)) {
+        setDropdownColunaAberto(false);
+      }
+      if (dropdownValorRef.current && !dropdownValorRef.current.contains(e.target)) {
+        setDropdownValorAberto(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickFora);
+    return () => document.removeEventListener("mousedown", handleClickFora);
   }, []);
 
   useEffect(() => {
@@ -121,12 +142,6 @@ export default function Producao() {
         const sample = allData[0];
         const cols = Object.keys(sample).filter(c => !c.includes("id") && c !== "valor_proj" && c !== "valor_prod" && c !== "valor_fatu");
         setColunasDisponiveis(cols);
-        
-        if (cols.includes("meses")) {
-          setTipoFiltroAtual("meses");
-        } else if (cols.length > 0 && cols[0]) {
-          setTipoFiltroAtual(cols[0]);
-        }
       }
 
       processarDados(allData, {});
@@ -147,6 +162,7 @@ export default function Producao() {
       return novosFiltros;
     });
     setValoresSelecionadosTemp([]);
+    setDropdownValorAberto(false);
   };
 
   const removerFiltroItem = (campo, valorParaRemover) => {
@@ -165,9 +181,12 @@ export default function Producao() {
 
   const limparTodosFiltros = () => {
     setFiltrosAtivos({});
+    setTipoFiltroAtual("");
     setValoresSelecionadosTemp([]);
     setTermoPesquisaValor("");
     setTermoPesquisaColuna("");
+    setDropdownColunaAberto(false);
+    setDropdownValorAberto(false);
     processarDados(todosDados, {});
   };
 
@@ -311,12 +330,10 @@ export default function Producao() {
     return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
-  // Filtragem para o Select 1 (Colunas)
   const colunasFiltradasPelaBusca = colunasDisponiveis.filter(col => 
     col.toLowerCase().includes(termoPesquisaColuna.toLowerCase())
   );
 
-  // Filtragem para o Select 2 (Valores)
   const valoresFiltradosPelaBusca = valoresColunaAtual.filter(val => 
     val.toLowerCase().includes(termoPesquisaValor.toLowerCase())
   );
@@ -374,69 +391,65 @@ export default function Producao() {
         </button>
       </div>
 
-      {/* BARRA DE FILTROS COM PESQUISA INTERNA EM AMBOS OS SELECTS */}
+      {/* BARRA DE FILTROS COM DROPDOWNS CUSTOMIZADOS E FECHAMENTO AO CLICAR FORA */}
       <div className="filter-bar" style={{ padding: '12px 16px', background: '#fff', borderRadius: '8px', marginBottom: '14px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
         <div className="filter-controls-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           
           <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             
-            {/* SELECT 1: ESCOLHER COLUNA COM PESQUISA INTERNA */}
-            <div style={{ position: 'relative', display: 'inline-block', minWidth: '220px' }}>
+            {/* SELECT 1: ESCOLHER COLUNA COM PESQUISA E PLACEHOLDER */}
+            <div ref={dropdownColunaRef} style={{ position: 'relative', display: 'inline-block', minWidth: '220px' }}>
               <div 
-                style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
-                onClick={(e) => {
-                  const content = e.currentTarget.nextElementSibling;
-                  content.style.display = content.style.display === 'block' ? 'none' : 'block';
-                }}
+                style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: tipoFiltroAtual ? '#1e293b' : '#64748b' }}
+                onClick={() => setDropdownColunaAberto(prev => !prev)}
               >
-                <span>{tipoFiltroAtual ? tipoFiltroAtual.toUpperCase() : "Selecione a coluna..."}</span>
+                <span>{tipoFiltroAtual ? tipoFiltroAtual.toUpperCase() : "Selecionar coluna..."}</span>
                 <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
               </div>
 
-              <div style={{ display: 'none', position: 'absolute', top: '36px', left: 0, width: '260px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ position: 'relative', marginBottom: '8px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Pesquisar coluna..." 
-                    value={termoPesquisaColuna}
-                    onChange={(e) => setTermoPesquisaColuna(e.target.value)}
-                    style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
-                  />
-                </div>
+              {dropdownColunaAberto && (
+                <div style={{ position: 'absolute', top: '36px', left: 0, width: '260px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ position: 'relative', marginBottom: '8px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input 
+                      type="text" 
+                      placeholder="Pesquisar coluna..." 
+                      value={termoPesquisaColuna}
+                      onChange={(e) => setTermoPesquisaColuna(e.target.value)}
+                      style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
 
-                <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {colunasFiltradasPelaBusca.length === 0 ? (
-                    <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
-                  ) : (
-                    colunasFiltradasPelaBusca.map(col => (
-                      <div 
-                        key={col} 
-                        onClick={(e) => {
-                          setTipoFiltroAtual(col);
-                          setTermoPesquisaColuna("");
-                          e.currentTarget.parentElement.parentElement.style.display = 'none';
-                        }}
-                        style={{ fontSize: '11px', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
-                        onMouseEnter={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = '#f1f5f9'; }}
-                        onMouseLeave={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        {col.toUpperCase()}
-                      </div>
-                    ))
-                  )}
+                  <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {colunasFiltradasPelaBusca.length === 0 ? (
+                      <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhuma coluna encontrada</div>
+                    ) : (
+                      colunasFiltradasPelaBusca.map(col => (
+                        <div 
+                          key={col} 
+                          onClick={() => {
+                            setTipoFiltroAtual(col);
+                            setTermoPesquisaColuna("");
+                            setDropdownColunaAberto(false);
+                          }}
+                          style={{ fontSize: '11px', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', background: tipoFiltroAtual === col ? '#e0f2fe' : 'transparent', color: tipoFiltroAtual === col ? '#0369a1' : '#334155', fontWeight: tipoFiltroAtual === col ? '600' : '500' }}
+                          onMouseEnter={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = '#f1f5f9'; }}
+                          onMouseLeave={(e) => { if (tipoFiltroAtual !== col) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {col.toUpperCase()}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* SELECT 2: ESCOLHER VALORES COM PESQUISA E SELEÇÃO MÚLTIPLA */}
-            <div style={{ position: 'relative', display: 'inline-block', minWidth: '260px' }}>
+            <div ref={dropdownValorRef} style={{ position: 'relative', display: 'inline-block', minWidth: '260px' }}>
               <div 
                 style={{ ...alturaUnificadaEstilo, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontSize: '12px', color: '#1e293b' }}
-                onClick={(e) => {
-                  const content = e.currentTarget.nextElementSibling;
-                  content.style.display = content.style.display === 'block' ? 'none' : 'block';
-                }}
+                onClick={() => setDropdownValorAberto(prev => !prev)}
               >
                 <span>
                   {valoresSelecionadosTemp.length === 0 
@@ -446,52 +459,51 @@ export default function Producao() {
                 <span style={{ fontSize: '10px', color: '#64748b' }}>▼</span>
               </div>
 
-              <div style={{ display: 'none', position: 'absolute', top: '36px', left: 0, width: '300px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ position: 'relative', marginBottom: '8px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Pesquisar valor..." 
-                    value={termoPesquisaValor}
-                    onChange={(e) => setTermoPesquisaValor(e.target.value)}
-                    style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
-                  />
-                </div>
+              {dropdownValorAberto && (
+                <div style={{ position: 'absolute', top: '36px', left: 0, width: '300px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, padding: '10px' }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ position: 'relative', marginBottom: '8px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input 
+                      type="text" 
+                      placeholder="Pesquisar valor..." 
+                      value={termoPesquisaValor}
+                      onChange={(e) => setTermoPesquisaValor(e.target.value)}
+                      style={{ width: '100%', height: '28px', padding: '0 8px 0 28px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px', color: '#005596', fontWeight: '600', cursor: 'pointer' }}>
-                  <span onClick={selecionarTodosValoresVisiveis}>Selecionar/Desselecionar Visíveis</span>
-                  <span onClick={() => setValoresSelecionadosTemp([])} style={{ color: '#ef4444' }}>Limpar</span>
-                </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px', color: '#005596', fontWeight: '600', cursor: 'pointer' }}>
+                    <span onClick={selecionarTodosValoresVisiveis}>Selecionar/Desselecionar Visíveis</span>
+                    <span onClick={() => setValoresSelecionadosTemp([])} style={{ color: '#ef4444' }}>Limpar</span>
+                  </div>
 
-                <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {valoresFiltradosPelaBusca.length === 0 ? (
-                    <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhum valor encontrado</div>
-                  ) : (
-                    valoresFiltradosPelaBusca.map(val => (
-                      <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '3px 6px', borderRadius: '4px', cursor: 'pointer', background: valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent'}>
-                        <input 
-                          type="checkbox" 
-                          checked={valoresSelecionadosTemp.includes(val)}
-                          onChange={() => toggleValorTemp(val)}
-                          style={{ accentColor: '#005596', cursor: 'pointer' }}
-                        />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#334155' }}>{val}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
+                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '4px', padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {valoresFiltradosPelaBusca.length === 0 ? (
+                      <div style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Nenhum valor encontrado</div>
+                    ) : (
+                      valoresFiltradosPelaBusca.map(val => (
+                        <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '3px 6px', borderRadius: '4px', cursor: 'pointer', background: valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.background = valoresSelecionadosTemp.includes(val) ? '#e0f2fe' : 'transparent'}>
+                          <input 
+                            type="checkbox" 
+                            checked={valoresSelecionadosTemp.includes(val)}
+                            onChange={() => toggleValorTemp(val)}
+                            style={{ accentColor: '#005596', cursor: 'pointer' }}
+                          />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#334155' }}>{val}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
 
-                <button 
-                  type="button" 
-                  onClick={(e) => {
-                    e.currentTarget.parentElement.style.display = 'none';
-                    adicionarFiltroDinamico();
-                  }}
-                  style={{ width: '100%', marginTop: '8px', background: '#005596', color: '#fff', border: 'none', borderRadius: '4px', height: '28px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
-                >
-                  Aplicar Seleção
-                </button>
-              </div>
+                  <button 
+                    type="button" 
+                    onClick={adicionarFiltroDinamico}
+                    style={{ width: '100%', marginTop: '8px', background: '#005596', color: '#fff', border: 'none', borderRadius: '4px', height: '28px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Aplicar Seleção
+                  </button>
+                </div>
+              )}
             </div>
 
             <button type="button" className="filter-btn-aplicar" style={alturaUnificadaEstilo} onClick={adicionarFiltroDinamico}>
