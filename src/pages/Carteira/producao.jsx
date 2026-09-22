@@ -305,6 +305,7 @@ export default function Producao() {
           numOsSet: new Set(),
           soma_valor_proj: 0,
           soma_valor_prod: 0,
+          soma_valor_prod_total: 0,
           soma_valor_fatu: 0
         };
       }
@@ -312,6 +313,7 @@ export default function Producao() {
       if (numOs) agrupadoTipo[tipo].numOsSet.add(numOs);
       agrupadoTipo[tipo].soma_valor_proj += valProj;
       agrupadoTipo[tipo].soma_valor_prod += valProd;
+      agrupadoTipo[tipo].soma_valor_prod_total += valProdTotalGeral;
       agrupadoTipo[tipo].soma_valor_fatu += valFatu;
 
       if (!agrupadoNumOs[numOs]) {
@@ -345,20 +347,21 @@ export default function Producao() {
     });
 
     const resultadoTabela1 = Object.values(agrupadoTipo).map((grupo) => {
-      const percProj = somaGeralProj > 0 ? (grupo.soma_valor_proj / somaGeralProj) * 100 : 0;
-      const percProd = somaGeralProd > 0 ? (grupo.soma_valor_prod / somaGeralProd) * 100 : 0;
-      const percFatu = somaGeralFatu > 0 ? (grupo.soma_valor_fatu / somaGeralFatu) * 100 : 0;
+      const prodXproj = grupo.soma_valor_proj > 0 ? (grupo.soma_valor_prod_total / grupo.soma_valor_proj) * 100 : 0;
+      const fatuXprod = grupo.soma_valor_prod > 0 ? (grupo.soma_valor_fatu / grupo.soma_valor_prod) * 100 : 0;
+      const fatuXproj = grupo.soma_valor_proj > 0 ? (grupo.soma_valor_fatu / grupo.soma_valor_proj) * 100 : 0;
 
       return {
         tipo_os: grupo.tipo_os,
         qtd_os: grupo.qtd_os,
         num_os: grupo.numOsSet.size,
         soma_valor_proj: grupo.soma_valor_proj,
-        perc_valor_proj: percProj,
+        soma_valor_prod_total: grupo.soma_valor_prod_total,
         soma_valor_prod: grupo.soma_valor_prod,
-        perc_valor_prod: percProd,
         soma_valor_fatu: grupo.soma_valor_fatu,
-        perc_valor_fatu: percFatu
+        prod_x_proj: prodXproj,
+        fatu_x_prod: fatuXprod,
+        fatu_x_proj: fatuXproj
       };
     });
 
@@ -461,7 +464,6 @@ export default function Producao() {
     return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
-  // Regra exata: vermelho se < 100%, verde se >= 100%
   const getCorPercentual = (valor) => {
     const num = Number(valor) || 0;
     return num < 100 ? "#ef4444" : "#10b981";
@@ -508,7 +510,7 @@ export default function Producao() {
   return (
     <div style={{ width: '100%', minHeight: '100%', boxSizing: 'border-box', paddingBottom: '40px' }}>
       
-      {/* CABEÇALHO E FILTROS FIXOS NO TOPO COM FUNDO TOTALMENTE SÓLIDO E BOX-SHADOW FORTE */}
+      {/* CABEÇALHO E FILTROS FIXOS NO TOPO */}
       <div style={{ position: 'sticky', top: 0, zIndex: 9999, background: '#ffffff', paddingBottom: '8px', paddingTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
         
         {/* HEADER */}
@@ -719,28 +721,28 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "qtd_os", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
+                    <th onClick={() => alternarOrdenacaoTabela1("num_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "num_os"), textAlign: "center" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", justifyContent: "center", width: "100%" }}>
+                        <span>Qtd Num OS</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "num_os", ordenacaoTabela1.direcao)}
+                      </div>
+                    </th>
                     <th onClick={() => alternarOrdenacaoTabela1("soma_valor_proj")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_proj")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Projetado</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_proj", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "perc_valor_proj"), width: "130px" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_prod_total")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_prod_total")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>% Part. Proj.</span>
-                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_proj", ordenacaoTabela1.direcao)}
+                        <span>Produzido Total</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_prod_total", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
                     <th onClick={() => alternarOrdenacaoTabela1("soma_valor_prod")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_prod")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>Valor Produzido</span>
+                        <span>Valor Produzido (Mês)</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_prod", ordenacaoTabela1.direcao)}
-                      </div>
-                    </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "perc_valor_prod"), width: "130px" }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>% Part. Prod.</span>
-                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_prod", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
                     <th onClick={() => alternarOrdenacaoTabela1("soma_valor_fatu")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_fatu")}>
@@ -749,10 +751,22 @@ export default function Producao() {
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_fatu", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "perc_valor_fatu"), width: "130px" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "prod_x_proj"), width: "100px" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>% Part. Fatu.</span>
-                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_fatu", ordenacaoTabela1.direcao)}
+                        <span>%ProdXProj</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "prod_x_proj", ordenacaoTabela1.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela1("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "fatu_x_prod"), width: "100px" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>%FatuXProd</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "fatu_x_prod", ordenacaoTabela1.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela1("fatu_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "fatu_x_proj"), width: "100px" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>%FatuXProj</span>
+                        {renderSetaOrdenacao(ordenacaoTabela1.campo, "fatu_x_proj", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
                   </tr>
@@ -778,42 +792,51 @@ export default function Producao() {
                         <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
                           {item.qtd_os.toLocaleString()}
                         </td>
+                        <td style={{ textAlign: "center", fontWeight: "600", color: "#334155" }}>
+                          {item.num_os.toLocaleString()}
+                        </td>
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.soma_valor_proj)}
                         </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "600", color: getCorPercentual(item.perc_valor_proj), minWidth: "32px" }}>
-                              {Number(item.perc_valor_proj || 0).toFixed(1)}%
-                            </span>
-                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.perc_valor_proj || 0), 100)}%`, background: getCorPercentual(item.perc_valor_proj), height: "100%", borderRadius: "2px" }}></div>
-                            </div>
-                          </div>
+                        <td style={{ fontWeight: "700", color: "#10b981", background: "#f8fafc" }}>
+                          {formatarMoeda(item.soma_valor_prod_total)}
                         </td>
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.soma_valor_prod)}
                         </td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "600", color: getCorPercentual(item.perc_valor_prod), minWidth: "32px" }}>
-                              {Number(item.perc_valor_prod || 0).toFixed(1)}%
-                            </span>
-                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.perc_valor_prod || 0), 100)}%`, background: getCorPercentual(item.perc_valor_prod), height: "100%", borderRadius: "2px" }}></div>
-                            </div>
-                          </div>
-                        </td>
                         <td style={{ fontWeight: "600", color: "#0f172a" }}>
                           {formatarMoeda(item.soma_valor_fatu)}
                         </td>
+                        {/* %ProdXProj com cores dinâmicas */}
                         <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "600", color: getCorPercentual(item.perc_valor_fatu), minWidth: "32px" }}>
-                              {Number(item.perc_valor_fatu || 0).toFixed(1)}%
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: getCorPercentual(item.prod_x_proj) }}>
+                              {Number(item.prod_x_proj || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.perc_valor_fatu || 0), 100)}%`, background: getCorPercentual(item.perc_valor_fatu), height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.prod_x_proj || 0), 100)}%`, background: getCorPercentual(item.prod_x_proj), height: "100%", borderRadius: "2px" }}></div>
+                            </div>
+                          </div>
+                        </td>
+                        {/* %FatuXProd com cores dinâmicas */}
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: getCorPercentual(item.fatu_x_prod) }}>
+                              {Number(item.fatu_x_prod || 0).toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(Number(item.fatu_x_prod || 0), 100)}%`, background: getCorPercentual(item.fatu_x_prod), height: "100%", borderRadius: "2px" }}></div>
+                            </div>
+                          </div>
+                        </td>
+                        {/* %FatuXProj com cores dinâmicas */}
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: getCorPercentual(item.fatu_x_proj) }}>
+                              {Number(item.fatu_x_proj || 0).toFixed(1)}%
+                            </span>
+                            <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(Number(item.fatu_x_proj || 0), 100)}%`, background: getCorPercentual(item.fatu_x_proj), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
@@ -821,28 +844,6 @@ export default function Producao() {
                     );
                   })}
                 </tbody>
-                <tfoot>
-                  <tr style={{ background: "#f1f5f9", borderTop: "2px solid #cbd5e1", fontWeight: "700", color: "#0f172a" }}>
-                    <td style={{ padding: "8px 12px", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
-                      Total Geral {temFiltroAtivo && <span style={{ color: "#0284c7", fontWeight: "normal" }}>(Filtrado)</span>}
-                    </td>
-                    <td style={{ textAlign: "center", fontSize: "12px" }}>
-                      {totaisGerais.qtdOs.toLocaleString()}
-                    </td>
-                    <td style={{ fontSize: "12px", color: "#005596" }}>
-                      {formatarMoeda(totaisGerais.valorProjTotal)}
-                    </td>
-                    <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
-                    <td style={{ fontSize: "12px", color: "#10b981" }}>
-                      {formatarMoeda(totaisGerais.valorProdTotal)}
-                    </td>
-                    <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
-                    <td style={{ fontSize: "12px", color: "#d97706" }}>
-                      {formatarMoeda(totaisGerais.valorFatuTotal)}
-                    </td>
-                    <td style={{ fontSize: "11px", color: "#64748b" }}>100%</td>
-                  </tr>
-                </tfoot>
               </table>
             </div>
           )}
