@@ -3,7 +3,7 @@ import { supabase } from "../../services/supabase";
 import Swal from "sweetalert2";
 import { 
   TrendingUp, Table, X, 
-  ArrowUp, ArrowDown, RefreshCw, Search 
+  ArrowUp, ArrowDown, ArrowUpDown, RefreshCw, Search 
 } from "lucide-react";
 import "../BancoDados/tabelas_internas.css";
 
@@ -350,7 +350,6 @@ export default function Producao() {
     setDadosIndividuaisNumOs(resultadoTabela2);
   };
 
-  // Funções de Ordenação Genérica para qualquer campo
   const ordenarDados = (dados, campo, direcao) => {
     return [...dados].sort((a, b) => {
       let valorA = a[campo];
@@ -386,8 +385,25 @@ export default function Producao() {
   };
 
   const renderSetaOrdenacao = (campoAtual, campoAlvo, direcao) => {
-    if (campoAtual !== campoAlvo) return null;
-    return direcao === "asc" ? <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} /> : <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />;
+    if (campoAtual !== campoAlvo) {
+      return <ArrowUpDown size={11} style={{ color: "#94a3b8", opacity: 0.6 }} />;
+    }
+    return direcao === "asc" ? (
+      <ArrowUp size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+    ) : (
+      <ArrowDown size={11} strokeWidth={2.5} style={{ color: "#005596" }} />
+    );
+  };
+
+  const getEstiloCabecalho = (campoAtual, campoAlvo) => {
+    const ativo = campoAtual === campoAlvo;
+    return {
+      cursor: "pointer",
+      userSelect: "none",
+      backgroundColor: ativo ? "#e0f2fe" : "transparent",
+      color: ativo ? "#005596" : "inherit",
+      transition: "background 0.15s, color 0.15s"
+    };
   };
 
   const formatarMoeda = (valor) => {
@@ -617,49 +633,49 @@ export default function Producao() {
               <table className="tabela-apoio-estilizada" style={{ width: "100%" }}>
                 <thead>
                   <tr>
-                    <th onClick={() => alternarOrdenacaoTabela1("tipo_os")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("tipo_os")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "tipo_os")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Tipo de OS</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "tipo_os", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("qtd_os")} style={{ textAlign: "center", cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("qtd_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "qtd_os"), textAlign: "center" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", justifyContent: "center", width: "100%" }}>
                         <span>Qtd OS</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "qtd_os", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_proj")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_proj")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_proj")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Projetado</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_proj", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_proj")} style={{ cursor: "pointer", userSelect: "none", width: "130px" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "perc_valor_proj"), width: "130px" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Proj.</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_proj", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_prod")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_prod")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_prod")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Produzido</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_prod", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_prod")} style={{ cursor: "pointer", userSelect: "none", width: "130px" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "perc_valor_prod"), width: "130px" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Prod.</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_prod", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_fatu")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("soma_valor_fatu")} style={getEstiloCabecalho(ordenacaoTabela1.campo, "soma_valor_fatu")}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "soma_valor_fatu", ordenacaoTabela1.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_fatu")} style={{ cursor: "pointer", userSelect: "none", width: "130px" }}>
+                    <th onClick={() => alternarOrdenacaoTabela1("perc_valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela1.campo, "perc_valor_fatu"), width: "130px" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Fatu.</span>
                         {renderSetaOrdenacao(ordenacaoTabela1.campo, "perc_valor_fatu", ordenacaoTabela1.direcao)}
@@ -763,61 +779,61 @@ export default function Producao() {
               <table className="tabela-apoio-estilizada" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
                   <tr>
-                    <th onClick={() => alternarOrdenacaoTabela2("num_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("num_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "num_os"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Num OS</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "num_os", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("tipo_os")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("tipo_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "tipo_os"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Tipo OS</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "tipo_os", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("pep")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("pep")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "pep"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>PEP</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "pep", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("status")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("status")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "status"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Status</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "status", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_proj")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_proj"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Projetado</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_proj")} style={{ cursor: "pointer", userSelect: "none", width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_proj"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Proj.</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Produzido</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ cursor: "pointer", userSelect: "none", width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_prod"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Prod.</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ cursor: "pointer", userSelect: "none", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_fatu")} style={{ cursor: "pointer", userSelect: "none", width: "120px", position: "sticky", top: 0, zIndex: 10, background: "#f1f5f9" }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("perc_valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_fatu"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>% Part. Fatu.</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "perc_valor_fatu", ordenacaoTabela2.direcao)}
