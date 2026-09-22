@@ -324,9 +324,8 @@ export default function Producao() {
           valor_prod_total: valProdTotalGeral,
           valor_prod: valProd,
           prod_x_proj: 0,
-          perc_valor_prod: 0,
-          valor_fatu: valFatu,
-          fatu_x_prod: 0
+          fatu_x_prod: 0,
+          valor_fatu: valFatu
         };
       } else {
         agrupadoNumOs[numOs].valor_proj += valProj;
@@ -363,14 +362,13 @@ export default function Producao() {
     });
 
     const resultadoTabela2 = Object.values(agrupadoNumOs).map((item) => {
-      const prodXproj = item.valor_proj > 0 ? (item.valor_prod / item.valor_proj) * 100 : 0;
-      const percProd = somaGeralProd > 0 ? (item.valor_prod / somaGeralProd) * 100 : 0;
+      // Cálculo atualizado: %ProdXProj considerando o Produzido Total (em vez do mês)
+      const prodXproj = item.valor_proj > 0 ? (item.valor_prod_total / item.valor_proj) * 100 : 0;
       const fatuXprod = item.valor_prod > 0 ? (item.valor_fatu / item.valor_prod) * 100 : 0;
 
       return {
         ...item,
         prod_x_proj: prodXproj,
-        perc_valor_prod: percProd,
         fatu_x_prod: fatuXprod
       };
     });
@@ -499,7 +497,7 @@ export default function Producao() {
   }
 
   return (
-    <div className="data-apoio-container" style={{ width: '100%', minHeight: '100%', boxSizing: 'border-box', paddingBottom: '30px' }}>
+    <div style={{ width: '100%', minHeight: 'auto', boxSizing: 'border-box', paddingBottom: '40px', overflowY: 'visible' }}>
       
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
