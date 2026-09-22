@@ -449,15 +449,22 @@ export default function Producao() {
     return {
       cursor: "pointer",
       userSelect: "none",
-      backgroundColor: ativo ? "#e0f2fe" : "transparent",
+      backgroundColor: ativo ? "#e0f2fe" : "#ffffff", // Fundo branco opaco para evitar transparência ao rolar
       color: ativo ? "#005596" : "inherit",
-      transition: "background 0.15s, color 0.15s"
+      transition: "background 0.15s, color 0.15s",
+      zIndex: 15
     };
   };
 
   const formatarMoeda = (valor) => {
     const num = Number(valor) || 0;
     return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  // Função auxiliar para definir a cor condicional dos percentuais (< 100% vermelho, >= 100% verde)
+  const getCorPercentual = (valor) => {
+    const num = Number(valor) || 0;
+    return num < 100 ? "#ef4444" : "#10b981";
   };
 
   const colunasFiltradasPelaBusca = colunasDisponiveis.filter(col => 
@@ -501,8 +508,8 @@ export default function Producao() {
   return (
     <div style={{ width: '100%', minHeight: '100%', boxSizing: 'border-box', paddingBottom: '40px' }}>
       
-      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (STICKY) */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '6px', paddingTop: '4px' }}>
+      {/* CABEÇALHO E FILTROS FIXOS NO TOPO (STICKY COM FUNDO SÓLIDO E BOX-SHADOW PARA COBRIR O CONTEÚDO) */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#f8fafc', paddingBottom: '6px', paddingTop: '4px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
         
         {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", background: "#ffffff", padding: "8px 12px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
@@ -780,11 +787,11 @@ export default function Producao() {
                         </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "600", color: "#0284c7", minWidth: "32px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: getCorPercentual(item.perc_valor_proj), minWidth: "32px" }}>
                               {Number(item.perc_valor_proj || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.perc_valor_proj || 0), 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.perc_valor_proj || 0), 100)}%`, background: getCorPercentual(item.perc_valor_proj), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
@@ -793,11 +800,11 @@ export default function Producao() {
                         </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", minWidth: "32px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: getCorPercentual(item.perc_valor_prod), minWidth: "32px" }}>
                               {Number(item.perc_valor_prod || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.perc_valor_prod || 0), 100)}%`, background: "#10b981", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.perc_valor_prod || 0), 100)}%`, background: getCorPercentual(item.perc_valor_prod), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
@@ -806,11 +813,11 @@ export default function Producao() {
                         </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "600", color: "#d97706", minWidth: "32px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: getCorPercentual(item.perc_valor_fatu), minWidth: "32px" }}>
                               {Number(item.perc_valor_fatu || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.perc_valor_fatu || 0), 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.perc_valor_fatu || 0), 100)}%`, background: getCorPercentual(item.perc_valor_fatu), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
@@ -861,69 +868,69 @@ export default function Producao() {
               <table className="tabela-apoio-estilizada" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
                   <tr>
-                    <th onClick={() => alternarOrdenacaoTabela2("num_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "num_os"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("num_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "num_os"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Num OS</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "num_os", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("tipo_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "tipo_os"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("tipo_os")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "tipo_os"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Tipo OS</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "tipo_os", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("pep")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "pep"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("pep")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "pep"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>PEP</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "pep", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("status")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "status"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("status")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "status"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Status</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "status", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_proj"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_proj"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Projetado</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod_total")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod_total"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod_total")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod_total"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Produzido Total</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod_total", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Produzido (Mês)</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                     {/* VALOR FATURADO LOGO APÓS O VALOR PRODUZIDO (MÊS) */}
-                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_fatu")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_fatu"), position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>Valor Faturado</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_fatu", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                     {/* AS 3 COLUNAS DE PERCENTUAL REQUISITADAS */}
-                    <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("prod_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "prod_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%ProdXProj</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "prod_x_proj", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_prod"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_prod"), width: "100px", position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%FatuXProd</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_prod", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
-                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 10 }}>
+                    <th onClick={() => alternarOrdenacaoTabela2("fatu_x_proj")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "fatu_x_proj"), width: "100px", position: "sticky", top: 0, zIndex: 20 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
                         <span>%FatuXProj</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "fatu_x_proj", ordenacaoTabela2.direcao)}
@@ -972,33 +979,33 @@ export default function Producao() {
                         {/* %ProdXProj */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#0284c7" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: getCorPercentual(item.prod_x_proj) }}>
                               {Number(item.prod_x_proj || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.prod_x_proj || 0), 100)}%`, background: "#0284c7", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.prod_x_proj || 0), 100)}%`, background: getCorPercentual(item.prod_x_proj), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
                         {/* %FatuXProd */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#d97706" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: getCorPercentual(item.fatu_x_prod) }}>
                               {Number(item.fatu_x_prod || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.fatu_x_prod || 0), 100)}%`, background: "#d97706", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.fatu_x_prod || 0), 100)}%`, background: getCorPercentual(item.fatu_x_prod), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
                         {/* %FatuXProj */}
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#7c3aed" }}>
+                            <span style={{ fontSize: "10px", fontWeight: "600", color: getCorPercentual(item.fatu_x_proj) }}>
                               {Number(item.fatu_x_proj || 0).toFixed(1)}%
                             </span>
                             <div style={{ flex: 1, background: "#e2e8f0", height: "4px", borderRadius: "2px", overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(Number(item.fatu_x_proj || 0), 100)}%`, background: "#7c3aed", height: "100%", borderRadius: "2px" }}></div>
+                              <div style={{ width: `${Math.min(Number(item.fatu_x_proj || 0), 100)}%`, background: getCorPercentual(item.fatu_x_proj), height: "100%", borderRadius: "2px" }}></div>
                             </div>
                           </div>
                         </td>
