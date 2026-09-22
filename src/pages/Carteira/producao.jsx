@@ -299,7 +299,7 @@ export default function Producao() {
       return {
         tipo_os: grupo.tipo_os,
         qtd_os: grupo.qtd_os,
-        num_os: grupo.numOsSet.size, // Quantidade distinta de num_os
+        num_os: grupo.numOsSet.size, // Quantidade de Num OS únicos
         soma_valor_proj: grupo.soma_valor_proj,
         perc_valor_proj: percProj,
         soma_valor_prod: grupo.soma_valor_prod,
@@ -691,7 +691,7 @@ export default function Producao() {
         )}
       </div>
 
-      {/* CARD 2: COM NUM_OS (CONTAGEM DISTINTA DE ORDENS DE SERVIÇO) */}
+      {/* CARD 2: COM NUM_OS (CONTAGEM ÚNICA / DISTINTA DE ORDENS DE SERVIÇO) */}
       <div style={{ background: "#fff", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", border: "1px solid #e2e8f0", overflow: "hidden", marginTop: "6px" }}>
         <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "5px", background: "#f8fafc" }}>
           <Table size={15} color="#005596" />
