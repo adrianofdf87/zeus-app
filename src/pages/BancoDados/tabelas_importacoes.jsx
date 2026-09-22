@@ -382,21 +382,14 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
         usu_cada: removerAcentos(usuCad)
       };
 
-      if (
-        itemObj.data && 
-        itemObj.equipe_id && 
-        itemObj.ordem_servico !== null && 
-        itemObj.ordem_servico !== undefined && 
-        itemObj.ordem_servico !== '' && 
-        itemObj.codigo_acao_campo !== null
-      ) {
+      if (itemObj.data && itemObj.equipe_id) {
         itemObj.chave_composta = `${itemObj.data}|${itemObj.equipe_id}|${itemObj.ordem_servico}|${itemObj.codigo_acao_campo}|${itemObj.quantidade}`;
         itensPlanilha.push(itemObj);
       }
     }
 
     if (!itensPlanilha.length) {
-      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (data, equipe_id, ordem_servico, codigo_acao_campo, quantidade) estão preenchidas corretamente.");
+      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (data, equipe_id) estão preenchidas corretamente.");
     }
 
     update(35, "Verificando existência de registros no banco...");
