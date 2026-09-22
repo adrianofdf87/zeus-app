@@ -36,6 +36,7 @@ export default function Producao() {
     numOsTotal: 0,
     valorProjTotal: 0,
     valorProdTotal: 0,
+    valorProdTotalGeral: 0,
     valorFatuTotal: 0
   });
 
@@ -235,6 +236,7 @@ export default function Producao() {
 
       if (atendeTodos) {
         let itemProcessado = { ...item };
+        // Para a Tabela 1, se filtro de mês estiver ativo, ajusta o valor produzido do mês filtrado
         if (filtros.meses && Array.isArray(filtros.meses) && filtros.meses.length > 0 && item.meses && typeof item.meses === 'object') {
           let somaProdMesesFiltrados = 0;
           filtros.meses.forEach(mes => {
@@ -250,25 +252,44 @@ export default function Producao() {
 
     let somaGeralProj = 0;
     let somaGeralProd = 0;
+    let somaGeralProdTotal = 0;
     let somaGeralFatu = 0;
     let qtdOsTotal = 0;
     const numOsGeralSet = new Set();
     const agrupadoTipo = {};
     const agrupadoNumOs = {};
 
+    // Primeiro passo: calcula o somatório total de todos os meses para cada OS (independente de filtro de mês)
+    const somaTotalMesesPorOs = {};
+    dados.forEach(item => {
+      const numOs = item.num_os || item.ordem_servico || "N/I";
+      if (item.meses && typeof item.meses === 'object') {
+        let totalOs = 0;
+        Object.values(item.meses).forEach(valMes => {
+          totalOs += Number(valMes) || 0;
+        });
+        somaTotalMesesPorOs[numOs] = totalOs;
+      } else {
+        somaTotalMesesPorOs[numOs] = Number(item.valor_prod) || 0;
+      }
+    });
+
     filtrados.forEach((item) => {
       const tipo = item.tipo_os || "Não Definido";
       const numOs = item.num_os || item.ordem_servico || "N/I";
       const valProj = Number(item.valor_proj) || 0;
-      const valProd = Number(item.valor_prod) || 0;
+      const valProd = Number(item.valor_prod) || 0; // Valor filtrado (do mês ou geral)
+      const valProdTotalGeral = somaTotalMesesPorOs[numOs] !== undefined ? somaTotalMesesPorOs[numOs] : valProd;
       const valFatu = Number(item.valor_fatu) || 0;
 
       somaGeralProj += valProj;
       somaGeralProd += valProd;
+      somaGeralProdTotal += valProdTotalGeral;
       somaGeralFatu += valFatu;
       qtdOsTotal += 1;
       if (numOs) numOsGeralSet.add(numOs);
 
+      // Agrupamento Tabela 1
       if (!agrupadoTipo[tipo]) {
         agrupadoTipo[tipo] = {
           tipo_os: tipo,
@@ -285,16 +306,16 @@ export default function Producao() {
       agrupadoTipo[tipo].soma_valor_prod += valProd;
       agrupadoTipo[tipo].soma_valor_fatu += valFatu;
 
+      // Agrupamento Tabela 2 (Num OS Individuais)
       if (!agrupadoNumOs[numOs]) {
         agrupadoNumOs[numOs] = {
           num_os: numOs,
           tipo_os: tipo,
           pep: item.pep || "N/I",
           status: item.status || "N/I",
-          coordenador: item.coordenador || "N/I",
-          supervisor: item.supervisor || "N/I",
           valor_proj: valProj,
           valor_prod: valProd,
+          valor_prod_total: valProdTotalGeral, // Produzido Total de todos os meses
           valor_fatu: valFatu,
           perc_valor_proj: 0,
           perc_valor_prod: 0,
@@ -312,6 +333,7 @@ export default function Producao() {
       numOsTotal: numOsGeralSet.size,
       valorProjTotal: somaGeralProj,
       valorProdTotal: somaGeralProd,
+      valorProdTotalGeral: somaGeralProdTotal,
       valorFatuTotal: somaGeralFatu
     });
 
@@ -817,8 +839,14 @@ export default function Producao() {
                     </th>
                     <th onClick={() => alternarOrdenacaoTabela2("valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod"), position: "sticky", top: 0, zIndex: 10 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <span>Valor Produzido</span>
+                        <span>Valor Produzido (Mês)</span>
                         {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod", ordenacaoTabela2.direcao)}
+                      </div>
+                    </th>
+                    <th onClick={() => alternarOrdenacaoTabela2("valor_prod_total")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "valor_prod_total"), position: "sticky", top: 0, zIndex: 10 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span>Produzido Total</span>
+                        {renderSetaOrdenacao(ordenacaoTabela2.campo, "valor_prod_total", ordenacaoTabela2.direcao)}
                       </div>
                     </th>
                     <th onClick={() => alternarOrdenacaoTabela2("perc_valor_prod")} style={{ ...getEstiloCabecalho(ordenacaoTabela2.campo, "perc_valor_prod"), width: "120px", position: "sticky", top: 0, zIndex: 10 }}>
@@ -870,6 +898,9 @@ export default function Producao() {
                       <td style={{ fontWeight: "600", color: "#0f172a" }}>
                         {formatarMoeda(item.valor_prod)}
                       </td>
+                      <td style={{ fontWeight: "700", color: "#10b981", background: "#f8fafc" }}>
+                        {formatarMoeda(item.valor_prod_total)}
+                      </td>
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           <span style={{ fontSize: "10px", fontWeight: "600", color: "#10b981" }}>
@@ -908,7 +939,8 @@ export default function Producao() {
               </div>
               <div style={{ display: "flex", gap: "16px" }}>
                 <div>Projetado: <span style={{ color: "#005596" }}>{formatarMoeda(totaisGerais.valorProjTotal)}</span></div>
-                <div>Produzido: <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotal)}</span></div>
+                <div>Produzido (Mês): <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotal)}</span></div>
+                <div>Produzido Total: <span style={{ color: "#10b981" }}>{formatarMoeda(totaisGerais.valorProdTotalGeral)}</span></div>
                 <div>Faturado: <span style={{ color: "#d97706" }}>{formatarMoeda(totaisGerais.valorFatuTotal)}</span></div>
               </div>
             </div>
