@@ -40,9 +40,10 @@ export default function Dashboard() {
         const { data: usr, error } = await supabase.from("tabi_cad_usuarios").select("id_sessao, situacao").eq("id", userObj.id).single();
         if (error || !usr) return;
         
-        if (usr.situacao?.toUpperCase() !== "ATIVO" || (usr.id_sessao && usr.id_sessao !== idL)) {
+        // Controle rigoroso de inatividade ou conflito de sessão ativa
+        if (usr.situacao?.toUpperCase() !== "ATIVO" || !usr.id_sessao || usr.id_sessao !== idL) {
           clearInterval(intervaloVerificacao);
-          encerrarSessao("Sessão inválida, inativada por outro acesso!", true);
+          encerrarSessao("Sessão inválida ou substituída por outro acesso!", true);
         }
       } catch (e) {
         // Silencia erros de rede pontuais
@@ -64,9 +65,14 @@ export default function Dashboard() {
         if (error || !usr) throw new Error("Usuário não encontrado.");
         if (usr.situacao?.toUpperCase() !== "ATIVO") throw new Error("Conta inativa.");
         
-        if (usr.id_sessao !== idL) throw new Error("Atenção|Sessão inválida, acesso inativado por outro acesso!");
+        if (!usr.id_sessao || usr.id_sessao !== idL) throw new Error("Atenção|Sessão inválida, acesso inativado por outro acesso!");
 
-        setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
+        setUserData({ 
+          nome: usr.nome, 
+          id_sessao: usr.id_sessao, 
+          perfil: usr.Perfil || usr.perfil || "Usuário", 
+          foto: localStorage.getItem(`foto_perfil_${userObj.id}`) 
+        });
 
         // Validação ativa rodando via intervalo de segurança a cada 4 segundos
         intervaloVerificacao = setInterval(verificarSeSessaoCaiu, 4000);
@@ -316,6 +322,7 @@ export default function Dashboard() {
                 <span style={{ background: 'linear-gradient(to right, #0f172a, #0284c7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '900', letterSpacing: '-0.5px', fontSize: '20px' }}>ZEUS</span>
                 <span style={{ color: '#64748b', fontWeight: '500', fontSize: '14px', marginLeft: '8px', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px' }}>Gestão Integrada de Obras Elétricas</span>
               </span>
+
             </div>
           </div>
           
@@ -353,9 +360,12 @@ export default function Dashboard() {
 
         <div className="main"><div className="page-container"><div className="page-content" id="mainContent"><Outlet /></div></div></div>
         
-        <div className="footer" style={{ height: '50px' }}>
+        {/* RODAPÉ ATUALIZADO COM O ID DA SESSÃO */}
+        <div className="footer" style={{ height: '50px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px', fontSize: '12px', color: '#64748b' }}>
           <span>© 2026 ZEUS System - Todos os direitos reservados.</span>
-          <span>Sessão ativa</span>
+          <span title={`ID da Sessão: ${userData.id_sessao}`}>
+            Sessão: {userData.id_sessao ? (userData.id_sessao.length > 12 ? `${userData.id_sessao.substring(0, 12)}...` : userData.id_sessao) : "Ativa"}
+          </span>
         </div>
       </div>
     </div>
