@@ -17,19 +17,17 @@ export default function Dashboard() {
   const fileInputRef = useRef(null), menuRef = useRef(null), navigate = useNavigate();
 
   useEffect(() => {
-    // Tenta forçar o modo paisagem ao carregar o dashboard
     if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
       window.screen.orientation.lock("landscape").catch((err) => {
         console.log("Orientação landscape travada ou restrita:", err);
       });
     }
 
-    let tempoInat, canalSessao, intervaloVerificacao;
+    let tempoInat, intervaloVerificacao;
     const eventos = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
     
     const resetTimer = () => {
       clearTimeout(tempoInat);
-      // Ajustado para 30 minutos (1800000 ms)
       tempoInat = setTimeout(() => encerrarSessao("Sessão encerrada por inatividade (30 min).", false), 1800000);
     };
 
@@ -47,7 +45,7 @@ export default function Dashboard() {
           encerrarSessao("Sessão inválida, inativada por outro acesso!", true);
         }
       } catch (e) {
-        // Silencia erros de rede pontuais no intervalo para não pipocar alertas desnecessários
+        // Silencia erros de rede pontuais
       }
     };
 
@@ -55,7 +53,6 @@ export default function Dashboard() {
       try {
         const dadosL = localStorage.getItem("usuario_logado"), idL = localStorage.getItem("id_sessao");
         
-        // Redireciona direto para o login sem disparar alerta se faltarem dados de autenticação
         if (!dadosL || !idL) {
           navigate("/", { replace: true });
           return;
@@ -67,35 +64,11 @@ export default function Dashboard() {
         if (error || !usr) throw new Error("Usuário não encontrado.");
         if (usr.situacao?.toUpperCase() !== "ATIVO") throw new Error("Conta inativa.");
         
-        // Se ao carregar a página o ID do banco já for diferente do local
         if (usr.id_sessao !== idL) throw new Error("Atenção|Sessão inválida, acesso inativado por outro acesso!");
 
         setUserData({ nome: usr.nome, id_sessao: usr.id_sessao, perfil: usr.Perfil || usr.perfil || "Usuário", foto: localStorage.getItem(`foto_perfil_${userObj.id}`) });
 
-        // 1. Canal Realtime do Supabase para captura imediata
-        canalSessao = supabase
-          .channel(`canal-sessao-${userObj.id}`)
-          .on(
-            'postgres_changes', 
-            { 
-              event: 'UPDATE', 
-              schema: 'public', 
-              table: 'tabi_cad_usuarios', 
-              filter: `id=eq.${userObj.id}` 
-            }, 
-            (payload) => {
-              const novoIdSessaoBanco = payload.new.id_sessao;
-              const idAtualLocal = localStorage.getItem("id_sessao");
-              
-              if (novoIdSessaoBanco && novoIdSessaoBanco !== idAtualLocal) {
-                clearInterval(intervaloVerificacao);
-                encerrarSessao("Sessão inválida, acesso inativado por outro acesso!", true);
-              }
-            }
-          )
-          .subscribe();
-
-        // 2. Intervalo de segurança a cada 4 segundos (Garante que se o realtime falhar, o banco é checado ativamente)
+        // Validação ativa rodando via intervalo de segurança a cada 4 segundos
         intervaloVerificacao = setInterval(verificarSeSessaoCaiu, 4000);
 
       } catch (e) { 
@@ -120,7 +93,6 @@ export default function Dashboard() {
       clearInterval(intervaloVerificacao);
       eventos.forEach(e => document.removeEventListener(e, resetTimer));
       document.removeEventListener("mousedown", clickFora);
-      if (canalSessao) supabase.removeChannel(canalSessao);
     };
   }, [navigate]);
 
@@ -292,7 +264,6 @@ export default function Dashboard() {
               <div className="submenu">
                 <Link to="/dashboard/carteira" onClick={() => setSidebarOpen(false)}><Wallet /><span>Carteira</span></Link>
                 <Link to="/dashboard/programacao" onClick={() => setSidebarOpen(false)}><CalendarRange /><span>Programação</span></Link>
-                {/* Rota da Produção atualizada para o novo componente */}
                 <Link to="/dashboard/producao" onClick={() => setSidebarOpen(false)}><TrendingUp /><span>Produção</span></Link>
               </div>
             )}
@@ -384,7 +355,7 @@ export default function Dashboard() {
         
         <div className="footer" style={{ height: '50px' }}>
           <span>© 2026 ZEUS System - Todos os direitos reservados.</span>
-          <span>Sessão: {userData.id_sessao.substring(0, 8)}...</span>
+          <span>Sessão ativa</span>
         </div>
       </div>
     </div>

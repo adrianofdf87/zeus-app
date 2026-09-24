@@ -25,11 +25,21 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [registrosPorPagina, setRegistrosPorPagina] = useState(100);
   const [limparFiltrosTrigger, setLimparFiltrosTrigger] = useState(0); 
+  const [totaisColunas, setTotaisColunas] = useState({});
+  const [totaisProntos, setTotaisProntos] = useState(false);
+  const [filtrosPrecarregando, setFiltrosPrecarregando] = useState(false);
   const isInitialMount = useRef(true);
+  const estruturaCacheRef = useRef(new Map());
+  const estruturaPromiseRef = useRef(null);
+  const opcoesCacheRef = useRef(new Map());
+  const totaisCacheRef = useRef(new Map());
+  const paginaCacheRef = useRef(new Map());
+  const requestIdRef = useRef(0);
+  const buscaDebounceRef = useRef(null);
+  const [buscaConsulta, setBuscaConsulta] = useState("");
 
   const tabelaOuViewQuery = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
 
-  // Identifica se é uma view com base no nome da tabelaBd
   const ehView = String(tabelaBd || '').toLowerCase().includes('view');
 
   const tabelasAvancadasSemCrudManual = [
@@ -133,207 +143,296 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
   const obterEstruturaTabela = async (tabela) => {
     if (!tabela) throw new Error('Nome da tabela não informado.');
-    const tabelaAlvoEstrutura = tabela === 'tabe_imp_pep' ? 'tabe_imp_pep' : tabela;
-    const { data, error } = await supabase.rpc('obter_estrutura_tabela', { p_tabela: tabelaAlvoEstrutura });
-    if (error) throw error;
-    return Array.isArray(data) ? data : [];
+    const cache = estruturaCacheRef.current.get(tabela);
+    if (cache) return cache;
+    if (estruturaPromiseRef.current) return estruturaPromiseRef.current;
+    estruturaPromiseRef.current = supabase.rpc('obter_estrutura_tabela', { p_tabela: tabela }).then(({ data, error }) => {
+      if (error) throw error;
+      const est = Array.isArray(data) ? data : [];
+      estruturaCacheRef.current.set(tabela, est);
+      return est;
+    }).finally(() => { estruturaPromiseRef.current = null; });
+    return estruturaPromiseRef.current;
   };
 
-  const aplicarFiltrosAuxiliares = (query) => {
-    Object.keys(filtrosColunas).forEach(col => {
-      if (col.startsWith('VALOR_')) return;
+  const normalizarOpcao = (valor) => {
+    const vazio = valor === null || valor === undefined || String(valor).trim() === "";
+    return { chave: vazio ? "##NULL##" : String(valor), exibicao: vazio ? "-" : String(valor) };
+  };
 
-      const regras = filtrosColunas[col];
-      if (regras && regras.length > 0) {
-        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
-        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
-        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
-        if (exatos.length > 0) {
-          const temNull = exatos.includes("##NULL##");
-          const vals = exatos.filter(v => v !== "##NULL##");
-          if (temNull && vals.length > 0) query = query.or(`${col}.in.(${vals.join(',')}),${col}.is.null`);
-          else if (temNull) query = query.is(col, null);
-          else query = query.in(col, exatos);
-        }
-        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
-        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
+  const obterColunasTexto = (estData, ehProd = false) => {
+    let cols = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna).filter(Boolean);
+    if (ehProd) cols = ['coordenador', 'supervisor', 'tipo_os', 'num_os', 'pep', 'status'];
+    if (tabelaBd === 'tabe_imp_pep') cols = [...new Set([...cols, 'empresa','ano','regional','municipio','parceiro','area','grupo_atividade','pi','nota','pep','descricao','status','usu_cada'])];
+    return [...new Set(cols)];
+  };
+
+  const aplicarFiltrosAuxiliaresCom = (query, filtros = filtrosColunas) => {
+    Object.keys(filtros || {}).forEach(col => {
+      if (col.startsWith('VALOR_')) return;
+      const regras = filtros[col];
+      if (!Array.isArray(regras) || regras.length === 0) return;
+      const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+      const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+      const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+      if (exatos.length > 0) {
+        const temNull = exatos.includes("##NULL##"), vals = exatos.filter(v => v !== "##NULL##");
+        if (temNull && vals.length > 0) {
+          const valores = vals.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(',');
+          query = query.or(`${col}.in.(${valores}),${col}.is.null`);
+        } else if (temNull) query = query.is(col, null);
+        else query = query.in(col, vals);
       }
+      if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+      if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
     });
     return query;
   };
 
-  const formatarValorExibicao = (val) => {
-    if (!val || typeof val !== 'string') return val || '';
-    const padraoIdComTracos = /^\d{4}-\d{2}-\d{4}$/;
-    if (padraoIdComTracos.test(val)) {
-      return val;
-    }
-    if (val.indexOf('-') > -1 && val.indexOf('T') > -1) {
-      const p = val.split('T')[0].split('-');
-      if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
-    }
-    return val;
+  const aplicarFiltrosAuxiliares = (query) => aplicarFiltrosAuxiliaresCom(query, filtrosColunas);
+
+  const aplicarBuscaCom = (query, termo, colunasTexto) => {
+    const termoLimpo = String(termo || '').replace(/[,;()]/g, '').trim();
+    if (termoLimpo.length >= 2 && colunasTexto.length) query = query.or(colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`).join(','));
+    return query;
   };
 
-  const processarLinhaProdutividade = (row) => {
-    const mesesObj = row.Meses || row.meses || {};
-    const novaLinha = { ...row };
-    delete novaLinha.Meses; 
-    delete novaLinha.meses;
-    if (typeof mesesObj === 'object' && mesesObj !== null) {
-      Object.keys(mesesObj).forEach(mesKey => {
-        novaLinha[`VALOR_${mesKey}`] = mesesObj[mesKey];
+  const aplicarFiltrosValorLocal = (dados, filtros = filtrosColunas) => {
+    const cols = Object.keys(filtros || {}).filter(c => c.startsWith('VALOR_'));
+    if (!cols.length) return dados;
+    return cols.reduce((lista, col) => {
+      const regras = filtros[col];
+      if (!Array.isArray(regras) || !regras.length) return lista;
+      const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+      const maiorQueTxt = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+      const menorQueTxt = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+      const maiorQue = Number(maiorQueTxt), menorQue = Number(menorQueTxt);
+      return lista.filter(row => {
+        const bruto = row[col], valCell = Number(bruto) || 0;
+        if (exatos.length) {
+          const temNull = exatos.includes("##NULL##"), vals = exatos.filter(v => v !== "##NULL##").map(Number);
+          if (temNull && (bruto == null || bruto === '')) return true;
+          if (!vals.includes(valCell)) return false;
+        }
+        if (!Number.isNaN(maiorQue) && valCell < maiorQue) return false;
+        if (!Number.isNaN(menorQue) && valCell > menorQue) return false;
+        return true;
       });
-    }
-    return novaLinha;
+    }, dados);
   };
 
-  const carregarDados = useCallback(async (isBackground = false) => {
-    setLoading(true);
-    if (!isBackground) setRegistros([]);
+  const chaveConsulta = (termo = buscaConsulta, filtros = filtrosColunas) => JSON.stringify([tabelaBd, tabelaOuViewQuery, String(termo || '').trim(), filtros]);
+
+  const calcularSomatorios = (rows, colunas) => {
+    const out = {};
+    colunas.forEach(col => {
+      let soma = 0;
+      rows.forEach(row => {
+        let val = row?.[col];
+        if (typeof val === 'string') val = val.replace(/\./g, '').replace(',', '.');
+        const num = Number(val);
+        if (!Number.isNaN(num)) soma += num;
+      });
+      out[col] = soma;
+    });
+    return out;
+  };
+
+  const carregarTodosDoBanco = async (queryBase, transformar, limite = 1000) => {
+    const rows = [];
+    for (let inicio = 0;; inicio += limite) {
+      const { data, error } = await queryBase.range(inicio, inicio + limite - 1);
+      if (error) throw error;
+      if (!data?.length) break;
+      rows.push(...(transformar ? data.map(transformar) : data));
+      if (data.length < limite) break;
+    }
+    return rows;
+  };
+
+  const carregarTotaisDoBanco = async (estData, chave = chaveConsulta(), colunasPagina = []) => {
+    const cache = totaisCacheRef.current.get(chave);
+    if (cache) { setTotaisColunas(cache); setTotaisProntos(true); return cache; }
+    try {
+      let colunasParaSomar = [...new Set((colunasPagina || []).filter(c => /total|valor/i.test(String(c))))];
+      if (!colunasParaSomar.length) colunasParaSomar = [...new Set((estData || []).map(c => c.nome_coluna).filter(Boolean).filter(c => /total|valor/i.test(String(c))))];
+      const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_totais_dinamicos', {
+        p_tabela: tabelaOuViewQuery, p_colunas: colunasParaSomar, p_filtros: filtrosColunas || {}, p_busca: buscaConsulta || '', p_colunas_busca: obterColunasTexto(estData, tabelaBd === 'view_dados_produtividade')
+      });
+      if (!rpcError && rpcData) {
+        const totais = Array.isArray(rpcData) ? Object.fromEntries(rpcData.map(x => [x.coluna, Number(x.total) || 0])) : (rpcData.totais || rpcData);
+        totaisCacheRef.current.set(chave, totais); setTotaisColunas(totais); setTotaisProntos(true); return totais;
+      }
+      // Fallback: preserva funcionamento sem a RPC nova.
+      if (!colunasParaSomar.length) { setTotaisColunas({}); setTotaisProntos(true); return {}; }
+      let query = supabase.from(tabelaOuViewQuery).select(colunasParaSomar.join(','));
+      query = aplicarFiltrosAuxiliaresCom(query);
+      query = aplicarBuscaCom(query, buscaConsulta, obterColunasTexto(estData, tabelaBd === 'view_dados_produtividade'));
+      const rows = await carregarTodosDoBanco(query, null, 5000);
+      const totais = calcularSomatorios(aplicarFiltrosValorLocal(rows), colunasParaSomar);
+      totaisCacheRef.current.set(chave, totais); setTotaisColunas(totais); setTotaisProntos(true); return totais;
+    } catch (err) {
+      console.error('Erro ao calcular totais do banco:', err);
+      setTotaisColunas({}); setTotaisProntos(true); return {};
+    }
+  };
+
+  const precargarOpcoesFiltros = async (estData, filtros = filtrosColunas, dadosPagina = registros) => {
+    const colunasEstrutura = (estData || []).map(c => c.nome_coluna).filter(Boolean);
+    const colunasPagina = (dadosPagina || []).flatMap(r => Object.keys(r || {}));
+    const colunas = [...new Set([...colunasEstrutura, ...colunasPagina])].filter(c => c !== 'id' && c !== 'created_at');
+    if (!colunas.length) return;
+    const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
+    setFiltrosPrecarregando(true);
+    try {
+      const { data, error } = await supabase.rpc('obter_todos_distintos_dinamicos', {
+        p_tabela: tabelaDistintos, p_colunas: colunas, p_filtros: filtros || {}
+      });
+      if (!error && data) {
+        const itens = Array.isArray(data) ? data : Object.entries(data).map(([coluna, valores]) => ({ coluna, valores }));
+        itens.forEach(item => {
+          const vals = Array.isArray(item.valores) ? item.valores.map(v => normalizarOpcao(v)).sort((a,b) => a.exibicao.localeCompare(b.exibicao,'pt-BR',{numeric:true,sensitivity:'base'})) : [];
+          const outros = { ...(filtros || {}) }; delete outros[item.coluna];
+          opcoesCacheRef.current.set(JSON.stringify([tabelaDistintos, item.coluna, outros]), vals);
+        });
+        return;
+      }
+      // Fallback: mantém a rotina anterior caso a RPC não esteja disponível.
+      const fila = colunas.slice();
+      const workers = Array.from({ length: Math.min(4, fila.length) }, async () => {
+        while (fila.length) {
+          const coluna = fila.shift();
+          if (!coluna) continue;
+          try { await buscarOpcoesColunaBanco(coluna, filtros, ''); } catch (e) { console.warn('Pré-carregamento do filtro:', coluna, e); }
+        }
+      });
+      await Promise.all(workers);
+    } catch (e) { console.warn('Pré-carregamento dos filtros:', e); }
+    finally { setFiltrosPrecarregando(false); }
+  };
+
+  const carregarDados = useCallback(async () => {
+    const reqId = ++requestIdRef.current;
+    setLoading(true); setTotaisProntos(false); setRegistros([]);
     try {
       let estData = estrutura;
       const ehProd = tabelaBd === 'view_dados_produtividade';
-      if (estData.length === 0 && !ehProd) {
-        estData = await obterEstruturaTabela(tabelaBd);
-        setEstrutura(estData);
-      }
-      const termoBruto = busca.trim();
-      let colunasTexto = estData.filter(c => String(c.tipo || c.data_type || '').toLowerCase().match(/char|text|string/)).map(c => c.nome_coluna);
-
-      if (ehProd) colunasTexto = ['coordenador', 'supervisor', 'tipo_os', 'num_os', 'pep', 'status'];
-
-      if (tabelaBd === 'tabe_imp_pep') {
-        const colunasExtrasView = ['empresa','ano','regional','municipio','parceiro','area','grupo_atividade','pi','nota','pep','descricao','status','usu_cada'];
-        colunasTexto = [...new Set([...colunasTexto, ...colunasExtrasView])];
-      }
+      if (!estData.length && !ehProd) { estData = await obterEstruturaTabela(tabelaBd); if (reqId !== requestIdRef.current) return; setEstrutura(estData); }
+      const termo = buscaConsulta.trim();
+      const chave = chaveConsulta(termo, filtrosColunas);
       const from = (paginaAtual - 1) * registrosPorPagina;
-      let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
-      query = aplicarFiltrosAuxiliares(query);
-      if (termoBruto.length >= 2 && colunasTexto.length > 0) {
-        const termoLimpo = termoBruto.replace(/[,;()]/g, '').trim();
-        if (termoLimpo.length > 0) query = query.or(colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`).join(','));
-      }
-      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order('id', { ascending: true });
-      if (error) throw error;
-      setTotalBanco(count || 0);
-      let dadosTratados = data || [];
-      if (ehProd) {
-        dadosTratados = dadosTratados.map(processarLinhaProdutividade);
-      }
+      const colunasBusca = obterColunasTexto(estData, ehProd);
 
-      if (Object.keys(filtrosColunas).some(c => c.startsWith('VALOR_'))) {
-        Object.keys(filtrosColunas).forEach(col => {
-          if (!col.startsWith('VALOR_')) return;
-          const regras = filtrosColunas[col];
-          if (regras && regras.length > 0) {
-            const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
-            const maiorQue = Number(regras.find(f => f.startsWith(">=|"))?.split(">=|")[1]);
-            const menorQue = Number(regras.find(f => f.startsWith("<=|"))?.split("<=|")[1]);
-
-            dadosTratados = dadosTratados.filter(row => {
-              const valCell = Number(row[col]) || 0;
-              if (exatos.length > 0) {
-                const temNull = exatos.includes("##NULL##");
-                const vals = exatos.filter(v => v !== "##NULL##").map(Number);
-                if (temNull && (row[col] == null || row[col] === '')) return true;
-                if (!vals.includes(valCell)) return false;
-              }
-              if (!isNaN(maiorQue) && valCell < maiorQue) return false;
-              if (!isNaN(menorQue) && valCell > menorQue) return false;
-              return true;
-            });
-          }
+      // Caminho rápido: página + count + totais em uma única RPC.
+      try {
+        const { data: inicial, error: rpcError } = await supabase.rpc('carregar_tabela_dinamica', {
+          p_tabela: tabelaOuViewQuery, p_offset: from, p_limite: registrosPorPagina,
+          p_filtros: filtrosColunas || {}, p_busca: termo || '', p_colunas_busca: colunasBusca,
+          p_colunas_totais: [...new Set((estData || []).map(c => c.nome_coluna).filter(Boolean).filter(c => /total|valor/i.test(String(c)) ))]
         });
-      }
+        if (!rpcError && inicial) {
+          const pg = inicial.registros || [];
+          let dadosTratados = ehProd ? pg.map(processarLinhaProdutividade) : pg;
+          dadosTratados = aplicarFiltrosValorLocal(dadosTratados);
+          if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
+            dadosTratados = dadosTratados.map(row => ({ ...row, total_proj: row.total_proj !== null && row.total_proj !== undefined ? Number(row.total_proj).toFixed(2).replace('.', ',') : row.total_proj }));
+          }
+          const totais = inicial.totais || {};
+          const count = Number(inicial.total_registros || 0);
+          paginaCacheRef.current.set(JSON.stringify([chave, paginaAtual, registrosPorPagina]), { data: pg, count });
+          totaisCacheRef.current.set(chave, totais);
+          if (reqId !== requestIdRef.current) return;
+          setTotalBanco(count); setRegistros(dadosTratados); setTotaisColunas(totais); setTotaisProntos(true); setLoading(false);
+          setTimeout(() => { if (reqId === requestIdRef.current) precargarOpcoesFiltros(estData, filtrosColunas, dadosTratados); }, 0);
+          return;
+        }
+      } catch (_) {}
 
-      if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') {
-        dadosTratados = dadosTratados.map(row => ({ ...row, total_proj: row.total_proj !== null && row.total_proj !== undefined ? Number(row.total_proj).toFixed(2).replace('.', ',') : row.total_proj }));
+      // Fallback para compatibilidade caso a RPC nova ainda não esteja criada.
+      const paginaKey = JSON.stringify([chave, paginaAtual, registrosPorPagina]);
+      let pagina = paginaCacheRef.current.get(paginaKey);
+      if (!pagina) {
+        let query = supabase.from(tabelaOuViewQuery).select('*', { count: 'exact' });
+        query = aplicarFiltrosAuxiliaresCom(query);
+        query = aplicarBuscaCom(query, termo, colunasBusca);
+        const temId = (estData || []).some(c => String(c.nome_coluna || '').toLowerCase() === 'id') || Object.prototype.hasOwnProperty.call(pagina?.data?.[0] || {}, 'id');
+        const consultaPagina = temId ? query.range(from, from + registrosPorPagina - 1).order('id', { ascending: true }) : query.range(from, from + registrosPorPagina - 1);
+        const res = await consultaPagina;
+        if (res.error) throw res.error;
+        pagina = { data: res.data || [], count: res.count || 0 };
+        paginaCacheRef.current.set(paginaKey, pagina);
       }
-      setRegistros(dadosTratados);
-    } catch (err) {
-      Swal.fire('Erro', 'Erro ao carregar dados: ' + err.message, 'error');
-    } finally {
+      if (reqId !== requestIdRef.current) return;
+      let dadosTratados = ehProd ? pagina.data.map(processarLinhaProdutividade) : pagina.data;
+      dadosTratados = aplicarFiltrosValorLocal(dadosTratados);
+      if (tabelaBd === 'view_dados_servicos_proj' || titulo === 'Lista de serviços obras') dadosTratados = dadosTratados.map(row => ({ ...row, total_proj: row.total_proj !== null && row.total_proj !== undefined ? Number(row.total_proj).toFixed(2).replace('.', ',') : row.total_proj }));
+      setTotalBanco(pagina.count); setRegistros(dadosTratados);
+      await carregarTotaisDoBanco(estData, chave, Object.keys(dadosTratados[0] || {}));
+      if (reqId !== requestIdRef.current) return;
       setLoading(false);
+      setTimeout(() => { if (reqId === requestIdRef.current) precargarOpcoesFiltros(estData, filtrosColunas, dadosTratados); }, 0);
+    } catch (err) {
+      if (reqId === requestIdRef.current) { setLoading(false); setTotaisProntos(true); Swal.fire('Erro', 'Erro ao carregar dados: ' + err.message, 'error'); }
     }
-  }, [tabelaBd, tabelaOuViewQuery, paginaAtual, registrosPorPagina, busca, filtrosColunas, estrutura, titulo]);
+  }, [tabelaBd, tabelaOuViewQuery, paginaAtual, registrosPorPagina, buscaConsulta, filtrosColunas, estrutura, titulo]);
 
   useEffect(() => {
-    const isBg = !isInitialMount.current;
+    clearTimeout(buscaDebounceRef.current);
+    buscaDebounceRef.current = setTimeout(() => setBuscaConsulta(busca.trim()), 280);
+    return () => clearTimeout(buscaDebounceRef.current);
+  }, [busca]);
+
+  useEffect(() => {
     if (isInitialMount.current) isInitialMount.current = false;
-    carregarDados(isBg);
+    carregarDados();
   }, [carregarDados]);
 
-  const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
-    const normalizarOpcao = (valor) => {
-      const vazio = valor === null || valor === undefined || String(valor).trim() === "";
-      return { chave: vazio ? "##NULL##" : String(valor), exibicao: vazio ? "-" : String(valor) };
-    };
+  // O pré-carregamento é disparado pelo carregamento principal para evitar duas varreduras simultâneas dos filtros.
 
+  const invalidarCaches = () => {
+    setTotaisProntos(false);
+    opcoesCacheRef.current.clear();
+    totaisCacheRef.current.clear();
+    paginaCacheRef.current.clear();
+  };
+
+  const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
     if (coluna.startsWith('VALOR_')) {
       const unicos = new Map();
-      registros.forEach(r => {
-        if (r[coluna] !== undefined && r[coluna] !== null) {
-          const op = normalizarOpcao(r[coluna]);
-          unicos.set(op.chave, op);
-        }
-      });
-      return Array.from(unicos.values())
-        .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
-        .sort((a, b) => a.exibicao.localeCompare(b.exibicao, 'pt-BR', { numeric: true, sensitivity: 'base' }));
+      registros.forEach(r => { if (r[coluna] !== undefined && r[coluna] !== null) { const op = normalizarOpcao(r[coluna]); unicos.set(op.chave, op); } });
+      return Array.from(unicos.values()).filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase())).sort((a,b) => a.exibicao.localeCompare(b.exibicao,'pt-BR',{numeric:true,sensitivity:'base'}));
     }
-
     try {
       const tabelaDistintos = tabelaBd === 'tabe_imp_pep' ? 'view_dados_pep' : tabelaBd;
       const filtrosOutrasColunas = { ...(filtrosAtuais || {}) };
       delete filtrosOutrasColunas[coluna];
-
-      let query = supabase.from(tabelaDistintos).select(coluna);
-
-      Object.keys(filtrosOutrasColunas).forEach(col => {
-        if (col.startsWith('VALOR_')) return;
-        const regras = filtrosOutrasColunas[col];
-        if (!Array.isArray(regras) || regras.length === 0) return;
-
-        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
-        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
-        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
-
-        if (exatos.length > 0) {
-          const temNull = exatos.includes("##NULL##");
-          const vals = exatos.filter(v => v !== "##NULL##");
-          if (temNull && vals.length > 0) {
-            const valores = vals.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(',');
-            query = query.or(`${col}.in.(${valores}),${col}.is.null`);
-          } else if (temNull) {
-            query = query.is(col, null);
-          } else {
-            query = query.in(col, vals);
+      const cacheKey = JSON.stringify([tabelaDistintos, coluna, filtrosOutrasColunas]);
+      let base = opcoesCacheRef.current.get(cacheKey);
+      if (!base) {
+        // Consulta DISTINCT no banco: muito mais rápida que baixar a coluna inteira.
+        try {
+          const { data: rpcData, error: rpcError } = await supabase.rpc('obter_distintos_dinamicos', {
+            p_tabela: tabelaDistintos, p_coluna: coluna, p_filtros: filtrosOutrasColunas || {}
+          });
+          if (!rpcError && Array.isArray(rpcData)) {
+            base = rpcData.map(x => normalizarOpcao(x.valor)).sort((a,b) => a.exibicao.localeCompare(b.exibicao,'pt-BR',{numeric:true,sensitivity:'base'}));
+            opcoesCacheRef.current.set(cacheKey, base);
           }
-        }
-        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
-        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
-      });
-
-      const unicos = new Map();
-      let inicio = 0;
-      const limite = 1000;
-      while (true) {
-        const { data, error } = await query.range(inicio, inicio + limite - 1);
-        if (error) throw error;
-        (data || []).forEach(item => {
-          const op = normalizarOpcao(item[coluna]);
-          unicos.set(op.chave, op);
-        });
-        if (!data || data.length < limite) break;
-        inicio += limite;
+        } catch (_) {}
       }
-
-      return Array.from(unicos.values())
-        .filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase()))
-        .sort((a, b) => a.exibicao.localeCompare(b.exibicao, 'pt-BR', { numeric: true, sensitivity: 'base' }));
+      if (!base) {
+        let query = supabase.from(tabelaDistintos).select(coluna);
+        query = aplicarFiltrosAuxiliaresCom(query, filtrosOutrasColunas);
+        const rows = await carregarTodosDoBanco(query, null, 1000);
+        const unicos = new Map();
+        rows.forEach(item => { const op = normalizarOpcao(item[coluna]); unicos.set(op.chave, op); });
+        base = Array.from(unicos.values()).sort((a,b) => a.exibicao.localeCompare(b.exibicao,'pt-BR',{numeric:true,sensitivity:'base'}));
+        opcoesCacheRef.current.set(cacheKey, base);
+      }
+      const t = String(termo || '').toLowerCase();
+      return t ? base.filter(item => item.exibicao.toLowerCase().includes(t)) : base;
     } catch (err) {
-      console.error("Erro ao buscar opções em cascata:", err);
+      console.error('Erro ao buscar opções em cascata:', err);
       return [];
     }
   };
@@ -526,7 +625,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const importarDadosTabela = async () => {
-    // Bloqueia caso seja view
     if (ehView) return;
 
     let fileSel = null, importStep = 'SELECT', colsImp = [];
@@ -607,7 +705,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
     else Swal.showValidationMessage(msg);
     if(btn) btn.remove();
     const c = Swal.getCloseButton(); if(c) Object.assign(c.style, {pointerEvents:'auto', opacity:'1'});
-    if(success) carregarDados(false);
+    if(success) { invalidarCaches(); carregarDados(false); }
     return false;
   };
 
@@ -782,7 +880,6 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
   };
 
   const excluirRegistrosSelecionados = async () => {
-    // Bloqueia caso seja view
     if (ehView) return;
 
     if (!linhasSelecionadasIds?.length) return;
@@ -806,7 +903,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
 
         const { error } = res.isConfirmed ? await supabase.from(tabelaBd).delete().not('id','is',null) : await supabase.from(tabelaBd).delete().in('id', linhasSelecionadasIds);
         if (error) Swal.fire('Erro', error.message, 'error');
-        else { Swal.fire('Sucesso', res.isConfirmed ? 'Tabela limpa.' : 'Excluídos com sucesso.', 'success'); setLinhasSelecionadasIds([]); setRegistroSelecionadoId(null); setRegistroSelecionadoObj(null); carregarDados(false); }
+        else { Swal.fire('Sucesso', res.isConfirmed ? 'Tabela limpa.' : 'Excluídos com sucesso.', 'success'); setLinhasSelecionadasIds([]); setRegistroSelecionadoId(null); setRegistroSelecionadoObj(null); invalidarCaches(); carregarDados(false); }
       }
     } else {
       const res = await Swal.fire({
@@ -820,7 +917,7 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         }
         const { error } = await supabase.from(tabelaBd).delete().in('id', linhasSelecionadasIds);
         if (error) Swal.fire('Erro', error.message, 'error');
-        else { Swal.fire('Sucesso', 'Excluídos com sucesso.', 'success'); setLinhasSelecionadasIds([]); setRegistroSelecionadoId(null); setRegistroSelecionadoObj(null); carregarDados(false); }
+        else { Swal.fire('Sucesso', 'Excluídos com sucesso.', 'success'); setLinhasSelecionadasIds([]); setRegistroSelecionadoId(null); setRegistroSelecionadoObj(null); invalidarCaches(); carregarDados(false); }
       }
     }
   };
@@ -861,10 +958,9 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
         </div>
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
           {temFiltroAtivo && <button onClick={limparTodosFiltros} style={{ ...btnIco, background:'#fff', border:'1px solid #cbd5e1', color:'#dc2626' }} title="Limpar filtros"><FilterX size={16} /></button>}
-          <button onClick={() => carregarDados(false)} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Atualizar"><RefreshCw size={14} className={loading ? "lucide-spin" : ""} /> Atualizar</button>
+          <button onClick={() => { invalidarCaches(); carregarDados(false); }} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }} title="Atualizar"><RefreshCw size={14} className={loading ? "lucide-spin" : ""} /> Atualizar</button>
           <button onClick={exportarDadosTabela} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:'#334155' }}><Download size={14} /> Exportar</button>
           
-          {/* Botão de Importar oculto se for view */}
           {!ehView && (
             <button onClick={importarDadosTabela} style={{ ...btnBase, background:'#f1f5f9', border:'1px solid #cbd5e1', color:'#475569' }}><Upload size={14} /> Importar</button>
           )}
@@ -878,19 +974,46 @@ export default function TabelasDados({ tabelaBd, titulo, icone = 'database', cor
             </>
           )}
 
-          {/* Botão de Excluir oculto se for view */}
           {!ehView && (
             <button onClick={excluirRegistrosSelecionados} disabled={!temSel} style={{ ...btnBase, background:'#fff', border:'1px solid #cbd5e1', color:temSel ? '#dc2626' : '#334155', opacity:temSel ? 1 : 0.4, cursor:temSel ? 'pointer' : 'not-allowed' }} title="Excluir selecionados"><Trash2 size={14} /> Excluir</button>
           )}
         </div>
       </div>
+
       <div style={{ flex:1, background:'#ffffff', borderRadius:'12px', border:'1px solid #e2e8f0', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
-        {loading ? (
-          <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100%", color:"#64748b", fontWeight:"500" }}>
-            Atualizando dados<span className="loading-dots"></span>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"100%", color:"#64748b", fontWeight:"500" }}>
+              Atualizando dados<span className="loading-dots"></span>
+            </div>
+          ) : (
+            <DataTable 
+              key={limparFiltrosTrigger} 
+              data={registros} 
+              totalBanco={totalBanco} 
+              paginaAtual={paginaAtual} 
+              registrosPorPagina={registrosPorPagina} 
+              onPageChange={setPaginaAtual} 
+              onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} 
+              onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }} 
+              onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)} 
+              filtrosExternos={filtrosColunas} 
+              tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} 
+              onSelectionChange={handleSelectionChange} 
+              totaisColunas={totaisColunas} 
+            />
+          )}
+        </div>
+
+        {!loading && totaisProntos && (
+          <div style={{ padding:'8px 16px', background:'#f8fafc', borderTop:'1px solid #e2e8f0', fontSize:'0.82rem', color:'#334155', display:'flex', gap:'16px', flexWrap:'wrap', alignItems:'center' }}>
+            <strong style={{ color:'#0f172a' }}>Totais (Banco Filtrado):</strong>
+            {Object.entries(totaisColunas).length ? Object.entries(totaisColunas).map(([col, valor]) => (
+              <span key={col} style={{ background:'#e2e8f0', padding:'2px 8px', borderRadius:'4px', fontWeight:'500' }}>
+                {col}: <strong>{Number(valor).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })}</strong>
+              </span>
+            )) : <span style={{ color:'#64748b' }}>Nenhuma coluna com TOTAL/VALOR para somar.</span>}
           </div>
-        ) : (
-          <DataTable key={limparFiltrosTrigger} data={registros} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }} onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)} filtrosExternos={filtrosColunas} tableId={`tabelas_dados_${tabelaBd}_${userIdKey}`} onSelectionChange={handleSelectionChange} />
         )}
       </div>
     </div>

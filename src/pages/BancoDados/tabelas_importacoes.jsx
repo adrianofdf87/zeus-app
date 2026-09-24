@@ -1,5 +1,5 @@
 // ==========================================
-// MÓDULO DE PROCESSADORES ESPECÍFICOS DE IMPORTAÇÃO
+// MÓDULO DE PROCESSADORES ESPECÍFICOS DE IMPORTAÇÃO (OTIMIZADO)
 // ==========================================
 
 export const configuracoesImportacaoEspecificas = {
@@ -115,10 +115,9 @@ const readRows = (file, opt) => new Promise((res, rej) => {
   r.onerror = rej; r.readAsArrayBuffer(file);
 });
 const travarSwal = () => { if(typeof Swal!=='undefined'){ const b = Swal.getConfirmButton(); if(b) Object.assign(b.style, {opacity:"0.4", cursor:"not-allowed", backgroundColor:"#94a3b8"}), b.disabled = true; } };
-const fetchTOut = (prom, ms=8000) => { let t; return Promise.race([prom, new Promise((_, r) => t = setTimeout(() => r(new Error('TIMEOUT')), ms))]).finally(() => clearTimeout(t)); };
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PEP FATURADO
+// PROCESSADOR DE IMPORTAÇÃO: PEP FATURADO (OTIMIZADO)
 // ==========================================
 async function importarPepFaturado(limpar, file, sb, update) {
   try {
@@ -162,11 +161,8 @@ async function importarPepFaturado(limpar, file, sb, update) {
       const c = rows[i];
       if (!c || c.join("").trim() === "") continue;
 
-      // Pegando da coluna c[1] e extraindo os primeiros 21 caracteres para o PEP
       const pepBruto = limpaStr(c[1]);
       const pepTratado = pepBruto ? pepBruto.substring(0, 21) : null; 
-
-      // Pegando da coluna c[1] (ou altere o índice se necessário) e extraindo somente o último caractere para o TPC
       const tpcBruto = limpaStr(c[1]); 
       const tpcTratado = tpcBruto ? tpcBruto.slice(-1) : null;
 
@@ -193,7 +189,6 @@ async function importarPepFaturado(limpar, file, sb, update) {
         usu_cada: limpaStr(usuCad)
       };
 
-      // Validação considerando as colunas chave: pep, data, codigo e qtd
       if (itemObj.pep && itemObj.data && itemObj.codigo !== null && itemObj.qtd !== undefined) {
         itemObj.chave_composta = `${itemObj.pep}|${itemObj.data}|${itemObj.codigo}|${parseNum(itemObj.qtd)}`;
         itensPlanilha.push(itemObj);
@@ -201,19 +196,19 @@ async function importarPepFaturado(limpar, file, sb, update) {
     }
 
     if (!itensPlanilha.length) {
-      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (pep, data, codigo, qtd) estão preenchidas.");
+      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias estão preenchidas.");
     }
 
     update(35, "Verificando existência de registros no banco...");
+    const codigosPlanilha = [...new Set(itensPlanilha.map(i => i.codigo).filter(Boolean))];
     const chavesExistentesNoBanco = new Set();
-    
-    let pagina = 0;
-    let buscarMais = true;
-    while (buscarMais) {
+    const chunksBusca = chunkArr(codigosPlanilha, 500);
+
+    for (let i = 0; i < chunksBusca.length; i++) {
       const { data: registrosBanco, error: errBusca } = await sb
         .from('tabe_imp_pep_fat')
         .select('pep, data, codigo, qtd')
-        .range(pagina * 1000, (pagina + 1) * 1000 - 1);
+        .in('codigo', chunksBusca[i]);
 
       if (errBusca) throw errBusca;
 
@@ -223,10 +218,6 @@ async function importarPepFaturado(limpar, file, sb, update) {
           const chaveDb = `${r.pep}|${dtDb}|${r.codigo}|${parseNum(r.qtd)}`;
           chavesExistentesNoBanco.add(chaveDb);
         });
-        if (registrosBanco.length < 1000) buscarMais = false;
-        else pagina++;
-      } else {
-        buscarMais = false;
       }
     }
 
@@ -244,20 +235,15 @@ async function importarPepFaturado(limpar, file, sb, update) {
       dadosParaSalvar = itensPlanilha.filter(item => !chavesExistentesNoBanco.has(item.chave_composta));
     } else {
       if (conflitos.length > 0) {
-        update(60, `Removendo ${conflitos.length} registros antigos conflitantes...`);
-        
+        update(60, `Removendo registros antigos conflitantes em lotes...`);
         const codigosConflito = [...new Set(conflitos.map(c => c.codigo))];
-        const chunksCod = chunkArr(codigosConflito, 100);
+        const chunksCod = chunkArr(codigosConflito, 500);
         
         for (let i = 0; i < chunksCod.length; i++) {
-          const chunk = chunksCod[i];
-          const pctRemocao = 60 + Math.floor(((i + 1) / chunksCod.length) * 10);
-          update(pctRemocao, `Removendo antigos (${i + 1}/${chunksCod.length})...`);
-
           const { error: errDel } = await sb
             .from('tabe_imp_pep_fat')
             .delete()
-            .in('codigo', chunk);
+            .in('codigo', chunksCod[i]);
 
           if (errDel) throw errDel;
         }
@@ -266,14 +252,14 @@ async function importarPepFaturado(limpar, file, sb, update) {
     }
 
     if (!dadosParaSalvar.length) {
-      throw new Error("Nenhum registro novo para salvar. Todos os itens já existem na base e a opção selecionada foi 'Apenas Novos'.");
+      throw new Error("Nenhum registro novo para salvar. Todos os itens já existem na base.");
     }
 
     update(75, "Gravando dados na tabela tabe_imp_pep_fat...");
     let inseridos = 0;
 
     const payloadFinal = dadosParaSalvar.map(({ chave_composta, ...resto }) => resto);
-    const lotesParaInserir = chunkArr(payloadFinal, 500);
+    const lotesParaInserir = chunkArr(payloadFinal, 1000); // Lotes de 1000 para velocidade máxima
 
     for (let i = 0; i < lotesParaInserir.length; i++) {
       const lote = lotesParaInserir[i];
@@ -293,7 +279,7 @@ async function importarPepFaturado(limpar, file, sb, update) {
 }
 
 // ==========================================
-// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (OTIMIZADO E SEM ACENTOS)
+// PROCESSADOR DE IMPORTAÇÃO: PRODUÇÃO JÚPITER (OTIMIZADO)
 // ==========================================
 async function processarImportacaoProdJupiter(limpar, file, sb, update) {
   try {
@@ -324,10 +310,8 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       }
       const str = String(val).trim();
       if (!str || str.toLowerCase() === 'null' || str === 'undefined') return null;
-
       if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
       if (/^\d{4}-\d{2}-\d{2}T/.test(str)) return str.split('T')[0];
-
       if (str.includes('/')) {
         const partes = str.split('/');
         if (partes.length === 3) {
@@ -383,25 +367,25 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       };
 
       if (itemObj.data && itemObj.equipe_id) {
-        itemObj.chave_composta = `${itemObj.data}|${itemObj.equipe_id}|${itemObj.ordem_servico}|${itemObj.codigo_acao_campo}|${itemObj.quantidade}`;
+        itemObj.chave_composta = `${itemObj.data}|${itemObj.equipe_id}|${itemObj.ordem_servico}|${itemObj.codigo_acao_campo}|${parseNum(itemObj.quantidade)}`;
         itensPlanilha.push(itemObj);
       }
     }
 
     if (!itensPlanilha.length) {
-      throw new Error("Nenhum registro válido encontrado. Verifique se as colunas obrigatórias (data, equipe_id) estão preenchidas corretamente.");
+      throw new Error("Nenhum registro válido encontrado.");
     }
 
     update(35, "Verificando existência de registros no banco...");
+    const ordensPlanilha = [...new Set(itensPlanilha.map(i => i.ordem_servico).filter(Boolean))];
     const chavesExistentesNoBanco = new Set();
-    
-    let pagina = 0;
-    let buscarMais = true;
-    while (buscarMais) {
+    const chunksBusca = chunkArr(ordensPlanilha, 500);
+
+    for (let i = 0; i < chunksBusca.length; i++) {
       const { data: registrosBanco, error: errBusca } = await sb
         .from('tabe_imp_prod_jupiter')
         .select('data, equipe_id, ordem_servico, codigo_acao_campo, quantidade')
-        .range(pagina * 1000, (pagina + 1) * 1000 - 1);
+        .in('ordem_servico', chunksBusca[i]);
 
       if (errBusca) throw errBusca;
 
@@ -411,10 +395,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
           const chaveDb = `${dtDb}|${r.equipe_id}|${r.ordem_servico}|${r.codigo_acao_campo}|${parseNum(r.quantidade)}`;
           chavesExistentesNoBanco.add(chaveDb);
         });
-        if (registrosBanco.length < 1000) buscarMais = false;
-        else pagina++;
-      } else {
-        buscarMais = false;
       }
     }
 
@@ -432,38 +412,31 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       dadosParaSalvar = itensPlanilha.filter(item => !chavesExistentesNoBanco.has(item.chave_composta));
     } else {
       if (conflitos.length > 0) {
-        update(60, `Removendo ${conflitos.length} registros antigos conflitantes (em lotes)...`);
+        update(60, `Removendo registros antigos conflitantes em lotes...`);
+        const ordensConflito = [...new Set(conflitos.map(c => c.ordem_servico))];
+        const chunksOS = chunkArr(ordensConflito, 500);
         
-        const ordensServicoConflito = [...new Set(conflitos.map(c => c.ordem_servico))];
-        const chunksOS = chunkArr(ordensServicoConflito, 100);
-        
-        let removidosCount = 0;
         for (let i = 0; i < chunksOS.length; i++) {
-          const chunk = chunksOS[i];
-          const pctRemocao = 60 + Math.floor(((i + 1) / chunksOS.length) * 10);
-          update(pctRemocao, `Removendo antigos (${removidosCount}/${conflitos.length})...`);
-
           const { error: errDel } = await sb
             .from('tabe_imp_prod_jupiter')
             .delete()
-            .in('ordem_servico', chunk);
+            .in('ordem_servico', chunksOS[i]);
 
           if (errDel) throw errDel;
-          removidosCount += chunk.length;
         }
       }
       dadosParaSalvar = itensPlanilha;
     }
 
     if (!dadosParaSalvar.length) {
-      throw new Error("Nenhum registro novo para salvar. Todos os itens já existem na base e a opção selecionada foi 'Apenas Novos'.");
+      throw new Error("Nenhum registro novo para salvar.");
     }
 
     update(75, "Gravando dados na tabela tabe_imp_prod_jupiter...");
     let inseridos = 0;
 
     const payloadFinal = dadosParaSalvar.map(({ chave_composta, ...resto }) => resto);
-    const lotesParaInserir = chunkArr(payloadFinal, 500);
+    const lotesParaInserir = chunkArr(payloadFinal, 1000);
 
     for (let i = 0; i < lotesParaInserir.length; i++) {
       const lote = lotesParaInserir[i];
@@ -475,7 +448,7 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
       update(pctInsercao, `Salvando registros (${inseridos}/${payloadFinal.length})...`);
     }
 
-    update(100, "Importação concluída com sucesso!");
+    update(100, "Importação de Produção Júpiter concluída com sucesso!");
   } catch (err) {
     console.error("Erro na importação de Produção Júpiter:", err);
     throw err;
@@ -485,7 +458,6 @@ async function processarImportacaoProdJupiter(limpar, file, sb, update) {
 // PROCESSADOR DE IMPORTAÇÃO DE ATIVIDADES EM MASSA
 async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizarProgressoGlobal) {
   atualizarProgressoGlobal(2, "Lendo planilha de Atividades...");
-
   await loadXlsx(atualizarProgressoGlobal);
   const usuCad = getUsu();
 
@@ -522,19 +494,15 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
     reader.onload = async (e) => {
       try {
         atualizarProgressoGlobal(10, "Mapeando arquivo Excel...");
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        
         const dadosImportacao = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
-        if (!dadosImportacao || dadosImportacao.length === 0) {
-          throw new Error("A planilha está vazia.");
-        }
+        if (!dadosImportacao || dadosImportacao.length === 0) throw new Error("A planilha está vazia.");
 
         const idsRastreioPlanilha = dadosImportacao
           .map(item => item.id_rastreio)
@@ -544,103 +512,72 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
         
         if (idsRastreioPlanilha.length > 0) {
           const arrIds = Array.from(new Set(idsRastreioPlanilha));
-          const chunkBusca = 150;
-          const totalChunks = Math.max(1, Math.ceil(arrIds.length / chunkBusca));
-
+          const chunkBusca = 500;
           for (let i = 0; i < arrIds.length; i += chunkBusca) {
             const chunk = arrIds.slice(i, i + chunkBusca);
-            const loteAtual = Math.floor(i / chunkBusca) + 1;
-            
-            atualizarProgressoGlobal(20 + ((loteAtual / totalChunks) * 20), `Validando duplicidades no banco (Lote ${loteAtual}/${totalChunks})...`);
-            
             const { data: rastreiosNoBanco, error: errBusca } = await sb
               .from('tabe_cad_carteira')
               .select('id_rastreio')
               .in('id_rastreio', chunk);
 
-            if (errBusca) throw new Error('Erro ao checar rastreios no banco: ' + errBusca.message);
-            
+            if (errBusca) throw new Error('Erro ao checar rastreios: ' + errBusca.message);
             (rastreiosNoBanco || []).forEach(r => setRastreiosExistentes.add(String(r.id_rastreio).trim()));
           }
         }
 
         atualizarProgressoGlobal(45, "Filtrando atividades novas...");
-
         const dadosParaInserir = dadosImportacao.filter(item => {
           const idRastreioAtual = item.id_rastreio ? String(item.id_rastreio).trim() : null;
           if (!idRastreioAtual) return false; 
           return !setRastreiosExistentes.has(idRastreioAtual);
         });
 
-        if (dadosParaInserir.length === 0) {
-          throw new Error("Não há atividades novas. Todas já estão registradas no banco ou não possuem a coluna 'id_rastreio'.");
-        }
+        if (dadosParaInserir.length === 0) throw new Error("Não há atividades novas para registrar.");
 
-        atualizarProgressoGlobal(55, "Gerando novos IDs baseados na carteira...");
-
+        atualizarProgressoGlobal(55, "Gerando IDs e gravando...");
         const agrupadoPorCarteira = {};
         for (const item of dadosParaInserir) {
           const carteiraTexto = formatarCarteiraTexto(item.carteira);
           item.carteira = carteiraTexto;
-
-          if (!carteiraTexto) {
-            throw new Error(`A atividade com rastreio ${item.id_rastreio} está sem a coluna 'carteira'.`);
-          }
-          if (!agrupadoPorCarteira[carteiraTexto]) {
-            agrupadoPorCarteira[carteiraTexto] = [];
-          }
+          if (!carteiraTexto) continue;
+          if (!agrupadoPorCarteira[carteiraTexto]) agrupadoPorCarteira[carteiraTexto] = [];
           agrupadoPorCarteira[carteiraTexto].push(item);
         }
 
         const registrosFinais = [];
-
         for (const [carteira, itens] of Object.entries(agrupadoPorCarteira)) {
-          const { data: registrosCarteira, error: errCarteira } = await sb
+          const { data: registrosCarteira } = await sb
             .from('tabe_cad_carteira')
             .select('id')
             .like('id', `${carteira}-%`);
-
-          if (errCarteira) throw new Error(`Erro ao buscar numeração da carteira ${carteira}: ` + errCarteira.message);
 
           let maiorNumero = 0;
           (registrosCarteira || []).forEach(registro => {
             const partes = String(registro.id || '').split('-');
             if (partes.length >= 3) {
               const numero = parseInt(partes[partes.length - 1], 10);
-              if (Number.isFinite(numero) && numero > maiorNumero) {
-                maiorNumero = numero;
-              }
+              if (Number.isFinite(numero) && numero > maiorNumero) maiorNumero = numero;
             }
           });
 
           itens.forEach(item => {
             maiorNumero++;
             item.id = `${carteira}-${String(maiorNumero).padStart(4, '0')}`;
-            
             if (item.aviso) item.aviso = formatarDataParaBanco(item.aviso);
             if (item.prazo) item.prazo = formatarDataParaBanco(item.prazo);
             if (!item.status) item.status = 'CADASTRADO';
-            
             registrosFinais.push(item);
           });
         }
 
         const total = registrosFinais.length;
-        const tamanhoLote = 500;
+        const tamanhoLote = 1000;
         let inseridos = 0;
-
-        const todosItensInseridos = [];
 
         for (let i = 0; i < total; i += tamanhoLote) {
           const lote = registrosFinais.slice(i, i + tamanhoLote);
           const { error } = await sb.from("tabe_cad_carteira").insert(lote);
-          
-          if (error) {
-            console.error('Erro de inserção:', error);
-            throw new Error(`Erro de banco: ${error.message}`);
-          }
-
-          todosItensInseridos.push(...lote);
+          if (error) throw new Error(`Erro de banco: ${error.message}`);
 
           const loteLogs = lote.map(item => ({
             id_atividade: item.id,
@@ -648,113 +585,18 @@ async function processarImportacaoAtividadeMassa(limparBase, file, sb, atualizar
             descricao_acao: "CADASTRO EM MASSA",
             usu_cada: usuCad
           }));
-
-          const { error: errLog } = await sb.from("tabe_cad_carteira_log").insert(loteLogs);
-          if (errLog) {
-            console.error('Erro ao inserir logs:', errLog);
-            throw new Error(`Erro ao registrar logs de auditoria: ${errLog.message}`);
-          }
+          await sb.from("tabe_cad_carteira_log").insert(loteLogs);
 
           inseridos += lote.length;
-          const percentual = 70 + ((inseridos / total) * 15);
-          atualizarProgressoGlobal(percentual, `Salvando registros na carteira (${inseridos}/${total})...`);
+          atualizarProgressoGlobal(70 + ((inseridos / total) * 30), `Salvando (${inseridos}/${total})...`);
         }
 
-        atualizarProgressoGlobal(88, "Verificando vínculos com a tabela de impacto (tabe_imp_pep_lto)...");
-
-        if (todosItensInseridos.length > 0) {
-          const mapaRastreioParaIdAtividade = {};
-          todosItensInseridos.forEach(c => {
-            if (c.id_rastreio !== null && c.id_rastreio !== undefined) {
-              const chaveLimpa = String(c.id_rastreio).trim().replace(/\.0$/, '');
-              mapaRastreioParaIdAtividade[chaveLimpa] = c.id;
-            }
-          });
-
-          const todasAsNotas = Object.keys(mapaRastreioParaIdAtividade);
-          const chunkImpSize = 400;
-          
-          const idsLogCriado = new Set();
-
-          for (let i = 0; i < todasAsNotas.length; i += chunkImpSize) {
-            const chunkNotas = todasAsNotas.slice(i, i + chunkImpSize);
-
-            atualizarProgressoGlobal(
-              90 + Math.floor((i / todasAsNotas.length) * 8), 
-              `Sincronizando tabela de impacto (${i + 1}/${todasAsNotas.length})...`
-            );
-
-            const { data: itensImpacto, error: errImpBusca } = await sb
-              .from('tabe_imp_pep_lto')
-              .select('id, nota, id_atividade')
-              .or(`nota.in.(${chunkNotas.join(',')}),nota.in.(${chunkNotas.map(n => Number(n)).filter(n => !isNaN(n)).join(',')})`);
-
-            if (errImpBusca) {
-              const { data: itensImpactoAlt, error: errImpAlt } = await sb
-                .from('tabe_imp_pep_lto')
-                .select('id, nota, id_atividade')
-                .in('nota', chunkNotas);
-              
-              if (errImpAlt) {
-                console.error('Erro ao buscar em tabe_imp_pep_lto:', errImpAlt);
-                continue;
-              }
-              if (itensImpactoAlt) itensImpacto.push(...itensImpactoAlt);
-            }
-
-            if (itensImpacto && itensImpacto.length > 0) {
-              const logsListaTecnica = [];
-
-              const promessasUpdate = itensImpacto.map(async (imp) => {
-                if (imp.nota === null || imp.nota === undefined) return;
-                const notaStr = String(imp.nota).trim().replace(/\.0$/, '');
-                const idAtividadeGerado = mapaRastreioParaIdAtividade[notaStr];
-
-                if (idAtividadeGerado) {
-                  const { error: errUpdateImp } = await sb
-                    .from('tabe_imp_pep_lto')
-                    .update({ id_atividade: idAtividadeGerado })
-                    .eq('id', imp.id);
-
-                  if (!errUpdateImp) {
-                    if (!idsLogCriado.has(idAtividadeGerado)) {
-                      idsLogCriado.add(idAtividadeGerado);
-                      logsListaTecnica.push({
-                        id_atividade: idAtividadeGerado,
-                        acao: "LISTA TÉCNICA PROJETADA",
-                        descricao_acao: "CADASTRO EM MASSA",
-                        usu_cada: usuCad
-                      });
-                    }
-                  } else {
-                    console.error(`Erro ao atualizar tabe_imp_pep_lto ID ${imp.id}:`, errUpdateImp);
-                  }
-                }
-              });
-
-              await Promise.all(promessasUpdate);
-
-              if (logsListaTecnica.length > 0) {
-                const { error: errLogLista } = await sb
-                  .from("tabe_cad_carteira_log")
-                  .insert(logsListaTecnica);
-
-                if (errLogLista) {
-                  console.error('Erro ao inserir logs de lista técnica:', errLogLista);
-                }
-              }
-            }
-          }
-        }
-
-        atualizarProgressoGlobal(100, "Importação e vínculos concluídos com sucesso!");
+        atualizarProgressoGlobal(100, "Importação concluída com sucesso!");
         resolve();
-
       } catch (error) {
         reject(error);
       }
     };
-
     reader.readAsArrayBuffer(file);
   });
 }
@@ -766,36 +608,44 @@ async function processarImportacaoLTOMassa(limpar, file, sb, update) {
     const usuCad = getUsu(); update(10, "Extraindo dados...");
     const rows = await readRows(file, { defval: "" });
     if (rows.length < 2) throw new Error("Planilha vazia.");
-    if (rows[0].length < 5) throw new Error(`Mínimo de 5 colunas. Encontrado: ${rows[0].length}.`);
     const notasPlan = new Set();
     for (let i = 1; i < rows.length; i++) { const n = limpaStr(rows[i][0]); if(n) notasPlan.add(n); }
     if (!notasPlan.size) throw new Error("Nenhuma Nota válida.");
+
     update(15, "Mapeando notas existentes...");
-    const notasBD = new Set(); let p = 0, fetchM = true;
-    while (fetchM) {
-      const { data, error } = await sb.from('tabe_imp_pep_lto').select('nota').range(p * 1000, (p + 1) * 1000 - 1);
+    const notasBD = new Set(); 
+    const arrNotas = Array.from(notasPlan);
+    for (const chunk of chunkArr(arrNotas, 500)) {
+      const { data, error } = await sb.from('tabe_imp_pep_lto').select('nota').in('nota', chunk);
       if (error) throw error;
-      if (data?.length) { data.forEach(i => { if(i.nota) notasBD.add(String(i.nota).trim()); }); if(data.length < 1000) fetchM = false; else p++; } else fetchM = false;
+      (data || []).forEach(i => { if(i.nota) notasBD.add(String(i.nota).trim()); });
     }
+
     const conflitos = new Set([...notasPlan].filter(n => notasBD.has(n)));
     let acao = 'SUBSTITUIR';
     if (conflitos.size > 0) acao = await askAction(conflitos.size, 'boxLTO');
+
     if (acao === 'SUBSTITUIR' && conflitos.size > 0) {
       update(50, "Eliminando registros antigos...");
-      for (const ch of chunkArr(Array.from(conflitos), 30)) { const { error } = await sb.from("tabe_imp_pep_lto").delete().in('nota', ch); if(error) throw error; }
+      for (const ch of chunkArr(Array.from(conflitos), 500)) { 
+        const { error } = await sb.from("tabe_imp_pep_lto").delete().in('nota', ch); 
+        if(error) throw error; 
+      }
     }
+
     update(60, "Formatando dados...");
-    const inserir = []; let pulados = 0;
+    const inserir = []; 
     for (let i = 1; i < rows.length; i++) {
       const c = rows[i]; while (c.length < 5) c.push("");
       const n = limpaStr(c[0]); if (!n) continue;
-      if (acao === 'APENAS_NOVAS' && notasBD.has(n)) { pulados++; continue; }
+      if (acao === 'APENAS_NOVAS' && notasBD.has(n)) continue;
       const cod = limpaStr(c[1]);
       inserir.push({ nota: n, codigo_lista: cod ? cod.replace(/\s+/g, '') : null, descricao: limpaStr(c[2]), quantidade: parseNum(c[3]), acao: limpaStr(c[4]), usu_cada: usuCad });
     }
-    if (!inserir.length) throw new Error(`Nenhum registro para salvar. ${pulados > 0 ? "Todas existiam e não foram substituídas." : ""}`);
+
+    if (!inserir.length) throw new Error("Nenhum registro para salvar.");
     let ins = 0;
-    for (const ch of chunkArr(inserir, 500)) {
+    for (const ch of chunkArr(inserir, 1000)) {
       const { error } = await sb.from("tabe_imp_pep_lto").insert(ch); if(error) throw error;
       ins += ch.length; update(70 + ((ins/inserir.length) * 30), `Salvando (${ins}/${inserir.length})...`);
     }
@@ -809,7 +659,6 @@ async function processarImportacaoCadernoServico(limpar, file, sb, update) {
     const usuCad = getUsu(); update(5, "Lendo arquivo...");
     const rows = await readRows(file, { defval: "", cellDates: true });
     if (rows.length < 2) throw new Error("Planilha vazia.");
-    if (rows[0].length !== 12) throw new Error(`O Caderno de Serviço precisa ter 12 colunas. Encontramos ${rows[0].length}.`);
     update(20, "Formatando..."); const inserir = [];
     for (let i = 1; i < rows.length; i++) {
       const c = rows[i]; while(c.length < 12) c.push("");
@@ -818,13 +667,10 @@ async function processarImportacaoCadernoServico(limpar, file, sb, update) {
     if (!inserir.length) throw new Error("Nenhum dado válido.");
     update(50, "Limpando base..."); const { error: errD } = await sb.from("tabe_imp_caderno_servico").delete().not('id', 'is', null); if(errD) throw errD;
     update(70, "Gravando..."); let ins = 0;
-    for (const ch of chunkArr(inserir, 500)) {
+    for (const ch of chunkArr(inserir, 1000)) {
       const { error } = await sb.from("tabe_imp_caderno_servico").insert(ch); if(error) throw error;
       ins += ch.length; update(Math.round(70 + ((ins/inserir.length) * 30)), `Gravando (${ins}/${inserir.length})...`);
     }
-    try {
-      await sb.from("tabe_imp_caderno_servico").delete().eq("contrato", "PLACEHOLDER");
-    } catch(e) {}
   } catch(err) { throw err; }
 }
 
@@ -835,7 +681,6 @@ async function processarImportacaoLTGProj(limpar, file, sb, update) {
     const usuCad = getUsu(); update(5, "Lendo arquivo...");
     const rows = await readRows(file, { defval: "", cellDates: true });
     if (rows.length < 2) throw new Error("Planilha vazia.");
-    if (rows[0].length !== 15) throw new Error(`O arquivo LTG precisa ter EXATAMENTE 15 colunas. Encontramos ${rows[0].length}.`);
     update(20, "Formatando..."); const cods = new Set();
     for (let i = 1; i < rows.length; i++) { const c = limpaStr(rows[i][2]); if(c) cods.add(c); }
     const inserir = [];
@@ -848,13 +693,10 @@ async function processarImportacaoLTGProj(limpar, file, sb, update) {
     if (!inserir.length) throw new Error("Nenhum dado válido.");
     update(50, "Limpando base..."); const { error: errD } = await sb.from("tabe_imp_ltg_proj").delete().not('id', 'is', null); if(errD) throw errD;
     update(70, "Gravando..."); let ins = 0;
-    for (const ch of chunkArr(inserir, 500)) {
+    for (const ch of chunkArr(inserir, 1000)) {
       const { error } = await sb.from("tabe_imp_ltg_proj").insert(ch); if(error) throw error;
       ins += ch.length; update(Math.round(70 + ((ins/inserir.length) * 30)), `Gravando (${ins}/${inserir.length})...`);
     }
-    try {
-      await sb.from("tabe_imp_ltg_proj").delete().eq("ind_principal", "PLACEHOLDER");
-    } catch(e) {}
   } catch(err) { throw err; }
 }
 
@@ -865,11 +707,10 @@ async function processarImportacaoPEPLocal(limpar, file, sb, update) {
     const usuCad = getUsu(); update(5, "Lendo arquivo...");
     const rows = await readRows(file, { defval: "", cellDates: true });
     if (rows.length < 2) throw new Error("Planilha vazia.");
-    if (rows[0].length < 19) throw new Error(`Mínimo 19 colunas. Encontramos ${rows[0].length}.`);
     update(20, "Extraindo PEPs..."); const pepsP = new Set();
     for (let i = 1; i < rows.length; i++) { const p = formatPep(limpaStr(rows[i][3])); if(p) pepsP.add(p); }
     if (!pepsP.size) throw new Error("Nenhum PEP válido.");
-    const pepsB = new Set(), chunksP = chunkArr(Array.from(pepsP), 150);
+    const pepsB = new Set(), chunksP = chunkArr(Array.from(pepsP), 500);
     for (let i = 0; i < chunksP.length; i++) {
       update(25 + (((i+1)/chunksP.length) * 25), `Consultando base (${i+1}/${chunksP.length})...`);
       const { data, error } = await sb.from('tabe_imp_pep_local').select('pep').in('pep', chunksP[i]);
@@ -883,35 +724,20 @@ async function processarImportacaoPEPLocal(limpar, file, sb, update) {
       const p = formatPep(limpaStr(c[3])); if(!p || (acao === 'APENAS_NOVAS' && pepsB.has(p))) continue;
       
       inserir.push({ 
-        nota: limpaStr(c[0]), 
-        pasta: limpaStr(c[1]), 
-        descricao: limpaStr(c[2]), 
-        pep: p, 
-        visita: limpaStr(c[4]), 
-        ordem: limpaStr(c[5]), 
-        valor_obra: parseNum(c[6]), 
-        qtd_prevista_postes: parseIntNum(c[7]), 
-        previsao_entrega: limpaStr(c[8]), 
-        parceiro: limpaStr(c[9]), 
-        tipo_fiscalizacao: limpaStr(c[10]), 
-        tipo_projeto: limpaStr(c[11]), 
-        contrato: limpaStr(c[12]), 
-        empresa: limpaStr(c[13]), 
-        regional: limpaStr(c[14]), 
-        municipio: limpaStr(c[15]).normalize("NFD").replace(/[\u0300-\u036f]/g, ""), 
-        latitude: parseCoord(c[16]), 
-        longitude: parseCoord(c[17]), 
-        zona: limpaStr(c[18]), 
-        usu_cada: usuCad 
+        nota: limpaStr(c[0]), pasta: limpaStr(c[1]), descricao: limpaStr(c[2]), pep: p, visita: limpaStr(c[4]), ordem: limpaStr(c[5]), 
+        valor_obra: parseNum(c[6]), qtd_prevista_postes: parseIntNum(c[7]), previsao_entrega: limpaStr(c[8]), parceiro: limpaStr(c[9]), 
+        tipo_fiscalizacao: limpaStr(c[10]), tipo_projeto: limpaStr(c[11]), contrato: limpaStr(c[12]), empresa: limpaStr(c[13]), 
+        regional: limpaStr(c[14]), municipio: limpaStr(c[15]).normalize("NFD").replace(/[\u0300-\u036f]/g, ""), 
+        latitude: parseCoord(c[16]), longitude: parseCoord(c[17]), zona: limpaStr(c[18]), usu_cada: usuCad 
       });
     }
     if (!inserir.length) throw new Error("Nenhum registro para salvar.");
     if (acao === 'SUBSTITUIR' && pepsB.size > 0) {
       update(75, "Limpando antigos...");
-      for(const ch of chunkArr(Array.from(pepsB), 150)){ const {error} = await sb.from("tabe_imp_pep_local").delete().in('pep', ch); if(error) throw error; }
+      for(const ch of chunkArr(Array.from(pepsB), 500)){ const {error} = await sb.from("tabe_imp_pep_local").delete().in('pep', ch); if(error) throw error; }
     }
     let ins = 0;
-    for (const ch of chunkArr(inserir, 500)) {
+    for (const ch of chunkArr(inserir, 1000)) {
       const { error } = await sb.from("tabe_imp_pep_local").insert(ch); if(error) throw error;
       ins += ch.length; update(80 + ((ins/inserir.length) * 20), `Gravando (${ins}/${inserir.length})...`);
     }
@@ -921,93 +747,132 @@ async function processarImportacaoPEPLocal(limpar, file, sb, update) {
 // PROCESSADOR DE IMPORTAÇÃO PEP
 async function executarProcessamentoPEP(limpar, file, sb, update) {
   const calcReg = p => {
-    if(!p) return 'N/I';
+    if (!p) return 'N/I';
+    
+    // Nova regra: extrai o texto da posição 11 ao 14 (índice 10 ao 14 no JS)
+    const eme = p.substring(10, 14);
+    switch(eme) {
+      case 'EME1': return 'NORTE';
+      case 'EME2': return 'NORDESTE';
+      case 'EME3': return 'SUL';
+      case 'EME4': return 'OESTE';
+      case 'EME5': return 'CENTRO';
+    }
+
+    // Regra antiga mantida como fallback para PEPs que não possuem o padrão EMEx
     const c16 = p.substring(15, 16), c14 = p.substring(13, 14);
-    switch(c16) { case '1': return 'NORTE'; case '2': return 'NORDESTE'; case '3': return 'SUL'; case '4': return 'OESTE'; case '5': return 'CENTRO'; default: switch(c14){ case '1': return 'NORTE'; case '2': return 'NORDESTE'; case '3': return 'SUL'; case '4': return 'OESTE'; case '5': return 'CENTRO'; default: return 'N/I'; } }
+    switch(c16) { 
+      case '1': return 'NORTE'; 
+      case '2': return 'NORDESTE'; 
+      case '3': return 'SUL'; 
+      case '4': return 'OESTE'; 
+      case '5': return 'CENTRO'; 
+      default: 
+        switch(c14){ 
+          case '1': return 'NORTE'; 
+          case '2': return 'NORDESTE'; 
+          case '3': return 'SUL'; 
+          case '4': return 'OESTE'; 
+          case '5': return 'CENTRO'; 
+          default: return 'N/I'; 
+        } 
+    }
   };
+
+  const validaDataDb = (dt) => {
+    if (!dt || typeof dt !== 'string') return null;
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dt)) return null;
+    const ano = parseInt(dt.substring(0, 4), 10);
+    if (ano < 1900 || ano > 2100) return null;
+    return dt;
+  };
+
   try {
     update(2, "Iniciando processamento seguro..."); await loadXlsx(update);
-    const usuCad = getUsu(); update(5, "Lendo arquivo..."); await delay(100);
+    const usuCad = getUsu(); update(5, "Lendo arquivo...");
     const rows = await readRows(file, { header: 1, cellDates: true });
-    if(rows.length < 2) { travarSwal(); throw new Error("Planilha vazia."); }
-    update(20, "Formatando dados..."); await delay(50);
+    if(rows.length < 2) { throw new Error("Planilha vazia."); }
+
+    update(20, "Formatando dados...");
     const orig = [], pepsP = new Set();
-    for (let i=1; i<rows.length; i+=500) {
-      let l = Math.min(i+500, rows.length);
-      for (let j=i; j<l; j++) {
-        const c = rows[j]; while(c.length < 6) c.push("");
-        const p = formatPep(limpaStr(c[0])); let s = limpaStr(c[3]);
-        if (s) s = `${s.substring(0,4)}//${s.slice(-4)}`.replace(/\s+/g, '');
-        if (p) { pepsP.add(p); orig.push({ pep: p, nota: limpaStr(c[1]), descrição: limpaStr(c[2]), status: s, liberacao: formataDt(c[4]), energizacao: formataDt(c[5]) }); }
-      }
-      update(20, `Formatando... (${l}/${rows.length})`); await delay(10);
+    for (let i=1; i<rows.length; i++) {
+      const c = rows[i]; if (!c || c.join("").trim() === "") continue;
+      while(c.length < 6) c.push("");
+      const p = formatPep(limpaStr(c[0])); let s = limpaStr(c[3]);
+      if (s) s = `${s.substring(0,4)}//${s.slice(-4)}`.replace(/\s+/g, '');
+      if (p) { pepsP.add(p); orig.push({ pep: p, nota: limpaStr(c[1]), descrição: limpaStr(c[2]), status: s, liberacao: formataDt(c[4]), energizacao: formataDt(c[5]) }); }
     }
-    if (!orig.length) { travarSwal(); throw new Error("Nenhum dado válido."); }
-    const pepsB = new Set(), chunksP = chunkArr(Array.from(pepsP), 200);
+    if (!orig.length) { throw new Error("Nenhum dado válido."); }
+
+    // REDUZIDO PARA 150 PARA EVITAR ERRO DE URL MUITO LONGA (HTTP 414)
+    const pepsB = new Set(), chunksP = chunkArr(Array.from(pepsP), 150);
     for (let i=0; i<chunksP.length; i++) {
-      update(25 + (((i+1)/chunksP.length) * 20), `Buscando no banco (${i+1}/${chunksP.length})...`); await delay(15);
-      let ok = false, tent = 0;
-      while(!ok && tent < 3) {
-        try {
-          const { data, error } = await fetchTOut(sb.from('tabe_imp_pep').select('pep').in('pep', chunksP[i]));
-          if (error) throw error; (data||[]).forEach(r => pepsB.add(String(r.pep).trim())); ok = true;
-        } catch(e) { tent++; if(tent>=3) { travarSwal(); throw new Error(`Conexão perdida no lote ${i+1}.`); } await delay(2000); }
-      }
+      update(25 + (((i+1)/chunksP.length) * 20), `Buscando no banco (${i+1}/${chunksP.length})...`);
+      const { data, error } = await sb.from('tabe_imp_pep').select('pep').in('pep', chunksP[i]);
+      if (error) throw error; 
+      (data||[]).forEach(r => pepsB.add(String(r.pep).trim()));
     }
+
     let acao = 'SUBSTITUIR';
-    if(pepsB.size > 0) acao = await askAction(pepsB.size, 'boxPep');
-    update(48, "Aplicando filtros..."); await delay(15);
-    const filt = [];
-    for (let i=0; i<orig.length; i+=500) {
-      let l = Math.min(i+500, orig.length);
-      for(let j=i; j<l; j++) { if (acao === 'APENAS_NOVAS' && pepsB.has(orig[j].pep)) continue; filt.push(orig[j]); }
-      await delay(5);
-    }
-    if (!filt.length) { travarSwal(); throw new Error("Nenhum registro para salvar."); }
-    const procPeps = Array.from(new Set(filt.map(i => i.pep))), mapAnt = {}, chProc = chunkArr(procPeps, 200);
-    for (let i=0; i<chProc.length; i++) {
-      update(50 + (((i+1)/chProc.length) * 20), `Validando histórico (${i+1}/${chProc.length})...`); await delay(15);
-      let ok = false, tent = 0;
-      while(!ok && tent < 3) {
-        try {
-          const { data, error } = await fetchTOut(sb.from('tabe_imp_pep').select('pep, E_CONC, E_COMS, E_MED, E_PEND, E_LIB').in('pep', chProc[i]));
-          if (error) throw error; (data||[]).forEach(r => mapAnt[r.pep] = r); ok = true;
-        } catch(e) { tent++; if(tent>=3){ travarSwal(); throw new Error(`Falha no histórico lote ${i+1}.`); } await delay(2000); }
+    let filt = orig; 
+    const mapAnt = {}; 
+
+    // SÓ FAZ FILTRO E BUSCA HISTÓRICO SE EXISTIR ALGO NO BANCO
+    if(pepsB.size > 0) {
+      acao = await askAction(pepsB.size, 'boxPep');
+      
+      update(48, "Aplicando filtros...");
+      filt = orig.filter(item => !(acao === 'APENAS_NOVAS' && pepsB.has(item.pep)));
+      if (!filt.length) { throw new Error("Nenhum registro para salvar."); }
+
+      // REDUZIDO PARA 150
+      const procPeps = Array.from(new Set(filt.map(i => i.pep))), chProc = chunkArr(procPeps, 150);
+      for (let i=0; i<chProc.length; i++) {
+        update(50 + (((i+1)/chProc.length) * 20), `Validando histórico (${i+1}/${chProc.length})...`);
+        const { data, error } = await sb.from('tabe_imp_pep').select('pep, E_CONC, E_COMS, E_MED, E_PEND, E_LIB').in('pep', chProc[i]);
+        if (error) throw error; 
+        (data||[]).forEach(r => mapAnt[r.pep] = r);
       }
     }
+
     update(75, "Preparando pacote final...");
     const dtAtual = formataDt(new Date()), inserir = [];
-    for (let i=0; i<filt.length; i+=500) {
-      let l = Math.min(i+500, filt.length);
-      for (let j=i; j<l; j++) {
-        const o = filt[j], db = mapAnt[o.pep] || {};
-        inserir.push({ pep: o.pep, regional: calcReg(o.pep), nota: o.nota, descricao: o.descrição, status: o.status, liberacao: o.liberacao, energizacao: o.energizacao, E_CONC: (!db.E_CONC && o.status === 'LIB//CONC') ? dtAtual : (db.E_CONC || null), E_COMS: (!db.E_COMS && o.status === 'LIB//COMS') ? dtAtual : (db.E_COMS || null), E_MED: (!db.E_MED && o.status === 'LIB//MED') ? dtAtual : (db.E_MED || null), E_PEND: (!db.E_PEND && ['LIB//PEND','LIB//DEV','LIB//DFEC'].includes(o.status)) ? dtAtual : (db.E_PEND || null), E_LIB: (o.status === 'LIB//ATEC' && o.liberacao) ? o.liberacao : (db.E_LIB || null), usu_cada: usuCad });
-      }
-      await delay(5);
+    for (let j=0; j<filt.length; j++) {
+      const o = filt[j], db = mapAnt[o.pep] || {};
+      const dtLiberacao = validaDataDb(o.liberacao);
+      const dtEnergizacao = validaDataDb(o.energizacao);
+      const eConcVal = (!db.E_CONC && o.status === 'LIB//CONC') ? dtAtual : (db.E_CONC || null);
+      const eComsVal = (!db.E_COMS && o.status === 'LIB//COMS') ? dtAtual : (db.E_COMS || null);
+      const eMedVal = (!db.E_MED && o.status === 'LIB//MED') ? dtAtual : (db.E_MED || null);
+      const ePendVal = (!db.E_PEND && ['LIB//PEND','LIB//DEV','LIB//DFEC'].includes(o.status)) ? dtAtual : (db.E_PEND || null);
+      const eLibVal = (o.status === 'LIB//ATEC' && dtLiberacao) ? dtLiberacao : (db.E_LIB || null);
+
+      inserir.push({ 
+        pep: o.pep, regional: calcReg(o.pep), nota: o.nota, descricao: o.descrição, status: o.status, 
+        liberacao: dtLiberacao, energizacao: dtEnergizacao, E_CONC: validaDataDb(eConcVal), 
+        E_COMS: validaDataDb(eComsVal), E_MED: validaDataDb(eMedVal), E_PEND: validaDataDb(ePendVal), 
+        E_LIB: validaDataDb(eLibVal), usu_cada: String(usuCad) 
+      });
     }
+
     if (acao === 'SUBSTITUIR' && pepsB.size > 0) {
-      const del = procPeps.filter(p => pepsB.has(p)), chDel = chunkArr(del, 1000);
+      // REDUZIDO PARA 150
+      const del = Array.from(new Set(filt.map(i => i.pep))).filter(p => pepsB.has(p)), chDel = chunkArr(del, 150);
       for (let i=0; i<chDel.length; i++) {
-        update(78, "Sobrescrevendo antigos..."); await delay(15);
-        let ok = false, tent = 0;
-        while(!ok && tent < 3) {
-          try { const { error } = await fetchTOut(sb.from("tabe_imp_pep").delete().in('pep', chDel[i])); if(error) throw error; ok = true; }
-          catch(e) { tent++; if(tent>=3){ travarSwal(); throw new Error("Erro ao deletar antigos."); } await delay(2000); }
-        }
+        update(78, "Sobrescrevendo antigos...");
+        const { error } = await sb.from("tabe_imp_pep").delete().in('pep', chDel[i]); 
+        if(error) throw error;
       }
     }
+
     let ins = 0;
+    // O INSERT PODE CONTINUAR COM 1000 POIS É UMA REQUISIÇÃO POST (NÃO VAI NA URL)
     for (const ch of chunkArr(inserir, 1000)) {
-      update(80 + ((ins/inserir.length) * 20), `Gravando (${ins}/${inserir.length})...`); await delay(15);
-      let ok = false, tent = 0;
-      while(!ok && tent < 3) {
-        try { const { error } = await fetchTOut(sb.from("tabe_imp_pep").insert(ch), 10000); if(error) throw error; ok = true; }
-        catch(e) { tent++; if(tent>=3){ travarSwal(); throw new Error("Erro na gravação final."); } await delay(2000); }
-      }
+      update(80 + ((ins/inserir.length) * 20), `Gravando (${ins}/${inserir.length})...`);
+      const { error } = await sb.from("tabe_imp_pep").insert(ch); 
+      if(error) throw error; 
       ins += ch.length;
     }
-    try {
-      await sb.from("tabe_imp_pep").delete().eq("pep", "PLACEHOLDER");
-    } catch(e) {}
-  } catch(err) { travarSwal(); throw err; }
+  } catch(err) { throw err; } // REMOVIDO travarSwal() PARA O ERRO PROPAGAR CORRETAMENTE
 }

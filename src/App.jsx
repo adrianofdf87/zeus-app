@@ -11,9 +11,6 @@ import TabelasInternas from "./pages/BancoDados/tabelas_internas.jsx";
 // Import da tela de Programação
 import Programacao from "./pages/Programacao/Programacoes.jsx";
 
-// Import da nova tela de Produção (dentro de pages/carteira)
-import Producao from "./pages/Carteira/producao.jsx";
-
 // Componente padronizado para as mensagens no centro da tela
 function MensagemCentro({ texto }) {
   return (
@@ -46,10 +43,7 @@ function App() {
           
           {/* Rota da Programação */}
           <Route path="programacao" element={<Programacao />} />
-          
-          {/* Rota da Produção atualizada para apontar para o componente real */}
-          <Route path="producao" element={<Producao />} />
-          
+                   
           <Route path="usuarios" element={<Usuarios />} />
 
           {/* Rota das Tabelas Internas */}
