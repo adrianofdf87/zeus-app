@@ -1,243 +1,243 @@
-﻿import React,{useState,useEffect,useCallback,useRef}from"react";
-import DataTable from"../../models/DataTable";
-import{supabase}from"../../services/supabase";
-import{registrarAutoMapa}from"../../services/autoMapper";
+﻿import React, { useState, useEffect, useCallback, useRef } from "react";
+import DataTable from "../../models/DataTable";
+import { supabase } from "../../services/supabase";
+import { registrarAutoMapa } from "../../services/autoMapper";
 import PermissoesTab from "./permissoes";
-import{Users,Shield,UserPlus,Edit3,Trash2,Lock,Unlock,RefreshCw,Search,FilterX}from"lucide-react";
-import Swal from"sweetalert2";
-import bcrypt from"bcryptjs";
+import { Users, Shield, UserPlus, Edit3, Trash2, Lock, Unlock, RefreshCw, Search, FilterX } from "lucide-react";
+import Swal from "sweetalert2";
+import bcrypt from "bcryptjs";
 
-export default function Usuarios(){
-  const[dadosUsuarios,setDadosUsuarios]=useState([]);
-  const[dadosBrutosMap,setDadosBrutosMap]=useState(new Map());
-  const[totalBanco,setTotalBanco]=useState(0);
-  const[carregando,setCarregando]=useState(true);
-  const[abaAtiva,setAbaAtiva]=useState("usuarios");
-  const[usuarioSelecionadoId,setUsuarioSelecionadoId]=useState(null);
-  const[usuarioSelecionadoObj,setUsuarioSelecionadoObj]=useState(null);
-  const[busca,setBusca]=useState("");
-  const[filtrosColunas,setFiltrosColunas]=useState({});
-  const[paginaAtual,setPaginaAtual]=useState(1);
-  const[registrosPorPagina,setRegistrosPorPagina]=useState(100);
-  const[limparFiltrosTrigger,setLimparFiltrosTrigger]=useState(0);
-  const isInitialMount=useRef(true);
-  const sessaoUsuario=JSON.parse(localStorage.getItem("usuario_logado")||"{}");
-  const userIdKey=sessaoUsuario.id||sessaoUsuario.email||"geral";
-  const[isDesenvolvedorLogado,setIsDesenvolvedorLogado]=useState(false);
-  const[permissoesAtivasLogado,setPermissoesAtivasLogado]=useState(new Set());
+export default function Usuarios() {
+  const [dadosUsuarios, setDadosUsuarios] = useState([]);
+  const [dadosBrutosMap, setDadosBrutosMap] = useState(new Map());
+  const [totalBanco, setTotalBanco] = useState(0);
+  const [carregando, setCarregando] = useState(true);
+  const [abaAtiva, setAbaAtiva] = useState("usuarios");
+  const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState(null);
+  const [usuarioSelecionadoObj, setUsuarioSelecionadoObj] = useState(null);
+  const [busca, setBusca] = useState("");
+  const [filtrosColunas, setFiltrosColunas] = useState({});
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [registrosPorPagina, setRegistrosPorPagina] = useState(100);
+  const [limparFiltrosTrigger, setLimparFiltrosTrigger] = useState(0);
+  const isInitialMount = useRef(true);
+  const sessaoUsuario = JSON.parse(localStorage.getItem("usuario_logado") || "{}");
+  const userIdKey = sessaoUsuario.id || sessaoUsuario.email || "geral";
+  const [isDesenvolvedorLogado, setIsDesenvolvedorLogado] = useState(false);
+  const [permissoesAtivasLogado, setPermissoesAtivasLogado] = useState(new Set());
 
-  const carregarPermissoesLogado=useCallback(async()=>{
-    if(!sessaoUsuario.id)return;
-    try{
-      const{data:userData,error:userError}=await supabase.from("tabi_cad_usuarios").select('"Perfil"').eq("id",sessaoUsuario.id).single();
-      if(userError)throw userError;
-      const perfilDb=String(userData?.Perfil||userData?.perfil||"").trim().toLowerCase();
-      const isDev=perfilDb==="desenvolvedor";
+  const carregarPermissoesLogado = useCallback(async () => {
+    if (!sessaoUsuario.id) return;
+    try {
+      const { data: userData, error: userError } = await supabase.from("tabi_cad_usuarios").select('"Perfil"').eq("id", sessaoUsuario.id).single();
+      if (userError) throw userError;
+      const perfilDb = String(userData?.Perfil || userData?.perfil || "").trim().toLowerCase();
+      const isDev = perfilDb === "desenvolvedor";
       setIsDesenvolvedorLogado(isDev);
-      if(isDev){setPermissoesAtivasLogado(new Set());return;}
-      const{data,error}=await supabase.from("tabi_cad_usuarios_permissoes").select("chave_acao").eq("usuario_id",sessaoUsuario.id);
-      if(error)throw error;
-      setPermissoesAtivasLogado(new Set((data||[]).map(p=>p.chave_acao)));
-    }catch(err){console.error("Erro ao carregar permissÃµes do usuÃ¡rio logado:",err);}
-  },[sessaoUsuario.id]);
+      if (isDev) { setPermissoesAtivasLogado(new Set()); return; }
+      const { data, error } = await supabase.from("tabi_cad_usuarios_permissoes").select("chave_acao").eq("usuario_id", sessaoUsuario.id);
+      if (error) throw error;
+      setPermissoesAtivasLogado(new Set((data || []).map(p => p.chave_acao)));
+    } catch (err) { console.error("Erro ao carregar permissões do usuário logado:", err); }
+  }, [sessaoUsuario.id]);
 
-  useEffect(()=>{carregarPermissoesLogado();},[carregarPermissoesLogado]);
+  useEffect(() => { carregarPermissoesLogado(); }, [carregarPermissoesLogado]);
 
-  useEffect(()=>{
-    registrarAutoMapa(isDesenvolvedorLogado,"ConfiguraÃ§Ãµes","UsuÃ¡rios",[
-      {nome:"Novo UsuÃ¡rio",chave:"usuarios.btn_novo"},
-      {nome:"Editar UsuÃ¡rio",chave:"usuarios.btn_editar"},
-      {nome:"Excluir UsuÃ¡rio",chave:"usuarios.btn_excluir"},
-      {nome:"Bloquear / Desbloquear",chave:"usuarios.btnBloquear"},
-      {nome:"Ocultar Checkbox",chave:"usuarios.coluna_checkbox"},
-      {nome:"Acessar Aba Perfis",chave:"usuarios.aba_permissoes"}
-    ],window.location.hash||window.location.pathname).catch(err=>{console.error("Erro no AutoMapper:",err);});
-  },[isDesenvolvedorLogado]);
+  useEffect(() => {
+    registrarAutoMapa(isDesenvolvedorLogado, "Configurações", "Usuários", [
+      { nome: "Novo Usuário", chave: "usuarios.btn_novo" },
+      { nome: "Editar Usuário", chave: "usuarios.btn_editar" },
+      { nome: "Excluir Usuário", chave: "usuarios.btn_excluir" },
+      { nome: "Bloquear / Desbloquear", chave: "usuarios.btnBloquear" },
+      { nome: "Ocultar Checkbox", chave: "usuarios.coluna_checkbox" },
+      { nome: "Acessar Aba Perfis", chave: "usuarios.aba_permissoes" }
+    ], window.location.hash || window.location.pathname).catch(err => { console.error("Erro no AutoMapper:", err); });
+  }, [isDesenvolvedorLogado]);
 
-  const temPermissao=useCallback(chave=>{if(isDesenvolvedorLogado)return true;return permissoesAtivasLogado.has(chave);},[isDesenvolvedorLogado,permissoesAtivasLogado]);
+  const temPermissao = useCallback(chave => { if (isDesenvolvedorLogado) return true; return permissoesAtivasLogado.has(chave); }, [isDesenvolvedorLogado, permissoesAtivasLogado]);
 
-  const aplicarFiltrosAuxiliares=(query)=>{
-    Object.keys(filtrosColunas).forEach(col=>{
-      const regras=filtrosColunas[col];
-      if(!Array.isArray(regras)||!regras.length)return;
-      const exatos=regras.filter(f=>!f.startsWith(">=|")&&!f.startsWith("<=|"));
-      const maiorQue=regras.find(f=>f.startsWith(">=|"))?.split(">=|")[1];
-      const menorQue=regras.find(f=>f.startsWith("<=|"))?.split("<=|")[1];
-      if(exatos.length){
-        const temNull=exatos.includes("##NULL##");
-        const vals=exatos.filter(v=>v!=="##NULL##");
-        if(temNull&&vals.length){query=query.or(`${col}.in.(${vals.join(",")}),${col}.is.null`);}
-        else if(temNull){query=query.is(col,null);}
-        else{query=query.in(col,exatos);}
+  const aplicarFiltrosAuxiliares = (query) => {
+    Object.keys(filtrosColunas).forEach(col => {
+      const regras = filtrosColunas[col];
+      if (!Array.isArray(regras) || !regras.length) return;
+      const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+      const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+      const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+      if (exatos.length) {
+        const temNull = exatos.includes("##NULL##");
+        const vals = exatos.filter(v => v !== "##NULL##");
+        if (temNull && vals.length) { query = query.or(`${col}.in.(${vals.join(",")}),${col}.is.null`); }
+        else if (temNull) { query = query.is(col, null); }
+        else { query = query.in(col, exatos); }
       }
-      if(maiorQue!==undefined&&maiorQue!=="")query=query.gte(col,Number(maiorQue));
-      if(menorQue!==undefined&&menorQue!=="")query=query.lte(col,Number(menorQue));
+      if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+      if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
     });
     return query;
   };
 
-  const carregarUsuarios=useCallback(async(isBackground=false)=>{
-    try{
-      if(!isBackground)setCarregando(true);
-      const termoBruto=busca.trim();
-      const colunasTexto=["nome","email","Telefone","Perfil","situacao","Usu_cad"];
-      const from=(paginaAtual-1)*registrosPorPagina;
-      let query=supabase.from("tabi_cad_usuarios").select("*",{count:"exact"});
-      query=aplicarFiltrosAuxiliares(query);
-      if(termoBruto.length>=2){
-        const termoLimpo=termoBruto.replace(/[,;()]/g,"").trim();
-        if(termoLimpo){query=query.or(colunasTexto.map(col=>`${col}.ilike.%${termoLimpo}%`).join(","));}
+  const carregarUsuarios = useCallback(async (isBackground = false) => {
+    try {
+      if (!isBackground) setCarregando(true);
+      const termoBruto = busca.trim();
+      const colunasTexto = ["nome", "email", "Telefone", "Perfil", "situacao", "Usu_cad"];
+      const from = (paginaAtual - 1) * registrosPorPagina;
+      let query = supabase.from("tabi_cad_usuarios").select("*", { count: "exact" });
+      query = aplicarFiltrosAuxiliares(query);
+      if (termoBruto.length >= 2) {
+        const termoLimpo = termoBruto.replace(/[,;()]/g, "").trim();
+        if (termoLimpo) { query = query.or(colunasTexto.map(col => `${col}.ilike.%${termoLimpo}%`).join(",")); }
       }
-      const{data,count,error}=await query.range(from,from+registrosPorPagina-1).order("id",{ascending:true});
-      if(error)throw error;
-      setTotalBanco(count||0);
+      const { data, count, error } = await query.range(from, from + registrosPorPagina - 1).order("id", { ascending: true });
+      if (error) throw error;
+      setTotalBanco(count || 0);
       
-      const mapaBruto=new Map();
-      const camposProibidos=["id","senha","senha_temporaria","id_sessao","data_sessao"];
-      const dadosTratados=(data||[]).map(usuario=>{
-        const novoUsuario={};
-        Object.keys(usuario).forEach(chave=>{
-          if(!camposProibidos.includes(chave.toLowerCase())){
-            let valor=usuario[chave];
-            if(typeof valor==="string"){
-              valor=chave.toLowerCase()==="email"?valor.toLowerCase():valor.toUpperCase();
+      const mapaBruto = new Map();
+      const camposProibidos = ["id", "senha", "senha_temporaria", "id_sessao", "data_sessao"];
+      const dadosTratados = (data || []).map(usuario => {
+        const novoUsuario = {};
+        Object.keys(usuario).forEach(chave => {
+          if (!camposProibidos.includes(chave.toLowerCase())) {
+            let valor = usuario[chave];
+            if (typeof valor === "string") {
+              valor = chave.toLowerCase() === "email" ? valor.toLowerCase() : valor.toUpperCase();
             }
-            novoUsuario[chave.toUpperCase()]=valor;
+            novoUsuario[chave.toUpperCase()] = valor;
           }
         });
-        const chaveIdentificacao=novoUsuario.EMAIL||novoUsuario.NOME;
+        const chaveIdentificacao = novoUsuario.EMAIL || novoUsuario.NOME;
         mapaBruto.set(chaveIdentificacao, usuario);
         return novoUsuario;
       });
 
       setDadosBrutosMap(mapaBruto);
       setDadosUsuarios(dadosTratados);
-    }catch(err){
-      console.error("Erro detalhado ao carregar usuÃ¡rios:",err);
-      Swal.fire("Erro no Supabase",err.message,"error");
-    }finally{setCarregando(false);}
-  },[paginaAtual,registrosPorPagina,busca,filtrosColunas]);
+    } catch (err) {
+      console.error("Erro detalhado ao carregar usuários:", err);
+      Swal.fire("Erro no Supabase", err.message, "error");
+    } finally { setCarregando(false); }
+  }, [paginaAtual, registrosPorPagina, busca, filtrosColunas]);
 
-  useEffect(()=>{
-    const isBg=!isInitialMount.current;
-    if(isInitialMount.current)isInitialMount.current=false;
+  useEffect(() => {
+    const isBg = !isInitialMount.current;
+    if (isInitialMount.current) isInitialMount.current = false;
     carregarUsuarios(isBg);
-  },[carregarUsuarios]);
+  }, [carregarUsuarios]);
 
-  const buscarOpcoesColunaBanco=async(coluna,filtrosAtuais={},termo="")=>{
-    const normalizarOpcao=valor=>{
-      const vazio=valor===null||valor===undefined||String(valor).trim()==="";
-      const valStr=vazio?"-":String(valor);
-      const exib=coluna.toLowerCase()==="email"?valStr.toLowerCase():valStr.toUpperCase();
-      return{chave:vazio?"##NULL##":String(valor),exibicao:exib};
+  const buscarOpcoesColunaBanco = async (coluna, filtrosAtuais = {}, termo = "") => {
+    const normalizarOpcao = valor => {
+      const vazio = valor === null || valor === undefined || String(valor).trim() === "";
+      const valStr = vazio ? "-" : String(valor);
+      const exib = coluna.toLowerCase() === "email" ? valStr.toLowerCase() : valStr.toUpperCase();
+      return { chave: vazio ? "##NULL##" : String(valor), exibicao: exib };
     };
-    try{
-      const filtrosOutrasColunas={...(filtrosAtuais||{})};
+    try {
+      const filtrosOutrasColunas = { ...(filtrosAtuais || {}) };
       delete filtrosOutrasColunas[coluna];
-      let query=supabase.from("tabi_cad_usuarios").select(coluna);
-      Object.keys(filtrosOutrasColunas).forEach(col=>{
-        const regras=filtrosOutrasColunas[col];
-        if(!Array.isArray(regras)||!regras.length)return;
-        const exatos=regras.filter(f=>!f.startsWith(">=|")&&!f.startsWith("<=|"));
-        const maiorQue=regras.find(f=>f.startsWith(">=|"))?.split(">=|")[1];
-        const menorQue=regras.find(f=>f.startsWith("<=|"))?.split("<=|")[1];
-        if(exatos.length){
-          const temNull=exatos.includes("##NULL##");
-          const vals=exatos.filter(v=>v!=="##NULL##");
-          if(temNull&&vals.length){
-            const valores=vals.map(v=>`"${String(v).replace(/\\/g,"\\\\").replace(/"/g,'\\"')}"`).join(",");
-            query=query.or(`${col}.in.(${valores}),${col}.is.null`);
-          }else if(temNull){query=query.is(col,null);}
-          else{query=query.in(col,vals);}
+      let query = supabase.from("tabi_cad_usuarios").select(coluna);
+      Object.keys(filtrosOutrasColunas).forEach(col => {
+        const regras = filtrosOutrasColunas[col];
+        if (!Array.isArray(regras) || !regras.length) return;
+        const exatos = regras.filter(f => !f.startsWith(">=|") && !f.startsWith("<=|"));
+        const maiorQue = regras.find(f => f.startsWith(">=|"))?.split(">=|")[1];
+        const menorQue = regras.find(f => f.startsWith("<=|"))?.split("<=|")[1];
+        if (exatos.length) {
+          const temNull = exatos.includes("##NULL##");
+          const vals = exatos.filter(v => v !== "##NULL##");
+          if (temNull && vals.length) {
+            const valores = vals.map(v => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",");
+            query = query.or(`${col}.in.(${valores}),${col}.is.null`);
+          } else if (temNull) { query = query.is(col, null); }
+          else { query = query.in(col, vals); }
         }
-        if(maiorQue!==undefined&&maiorQue!=="")query=query.gte(col,Number(maiorQue));
-        if(menorQue!==undefined&&menorQue!=="")query=query.lte(col,Number(menorQue));
+        if (maiorQue !== undefined && maiorQue !== "") query = query.gte(col, Number(maiorQue));
+        if (menorQue !== undefined && menorQue !== "") query = query.lte(col, Number(menorQue));
       });
-      const unicos=new Map();
-      let inicio=0;
-      const limite=1000;
-      while(true){
-        const{data,error}=await query.range(inicio,inicio+limite-1);
-        if(error)throw error;
-        (data||[]).forEach(item=>{
-          const op=normalizarOpcao(item[coluna]);
-          unicos.set(op.chave,op);
+      const unicos = new Map();
+      let inicio = 0;
+      const limite = 1000;
+      while (true) {
+        const { data, error } = await query.range(inicio, inicio + limite - 1);
+        if (error) throw error;
+        (data || []).forEach(item => {
+          const op = normalizarOpcao(item[coluna]);
+          unicos.set(op.chave, op);
         });
-        if(!data||data.length<limite)break;
-        inicio+=limite;
+        if (!data || data.length < limite) break;
+        inicio += limite;
       }
-      return Array.from(unicos.values()).filter(item=>!termo||item.exibicao.toLowerCase().includes(String(termo).toLowerCase())).sort((a,b)=>a.exibicao.localeCompare(b.exibicao,"pt-BR",{numeric:true,sensitivity:"base"}));
-    }catch(err){console.error("Erro ao buscar opÃ§Ãµes em cascata:",err);return[];}
+      return Array.from(unicos.values()).filter(item => !termo || item.exibicao.toLowerCase().includes(String(termo).toLowerCase())).sort((a, b) => a.exibicao.localeCompare(b.exibicao, "pt-BR", { numeric: true, sensitivity: "base" }));
+    } catch (err) { console.error("Erro ao buscar opções em cascata:", err); return []; }
   };
 
-  const handleSelectionChange=idsSelecionados=>{
-    if(idsSelecionados.length===1){
-      const rowId=idsSelecionados[0];
-      const indexMatch=String(rowId).match(/row-(\d+)/);
-      let obj=null;
-      if(indexMatch){
-        const idx=parseInt(indexMatch[1],10);
-        obj=dadosUsuarios[idx];
-      }else{
-        obj=dadosUsuarios.find(u=>String(u.EMAIL||u.NOME)===String(rowId));
+  const handleSelectionChange = idsSelecionados => {
+    if (idsSelecionados.length === 1) {
+      const rowId = idsSelecionados[0];
+      const indexMatch = String(rowId).match(/row-(\d+)/);
+      let obj = null;
+      if (indexMatch) {
+        const idx = parseInt(indexMatch[1], 10);
+        obj = dadosUsuarios[idx];
+      } else {
+        obj = dadosUsuarios.find(u => String(u.EMAIL || u.NOME) === String(rowId));
       }
-      if(obj){
-        const chaveBusca=obj.EMAIL||obj.NOME;
-        const usuarioReal=dadosBrutosMap.get(chaveBusca);
-        setUsuarioSelecionadoId(usuarioReal?.id||null);
-        setUsuarioSelecionadoObj({...obj, id: usuarioReal?.id});
-      }else{
+      if (obj) {
+        const chaveBusca = obj.EMAIL || obj.NOME;
+        const usuarioReal = dadosBrutosMap.get(chaveBusca);
+        setUsuarioSelecionadoId(usuarioReal?.id || null);
+        setUsuarioSelecionadoObj({ ...obj, id: usuarioReal?.id });
+      } else {
         setUsuarioSelecionadoId(null);
         setUsuarioSelecionadoObj(null);
       }
-    }else{
+    } else {
       setUsuarioSelecionadoId(null);
       setUsuarioSelecionadoObj(null);
-      if(abaAtiva==="perfis")setAbaAtiva("usuarios");
+      if (abaAtiva === "perfis") setAbaAtiva("usuarios");
     }
   };
 
-  const usuarioAtualBloqueado=()=>{
-    if(!usuarioSelecionadoObj)return false;
-    const sit=usuarioSelecionadoObj.SITUACAO||usuarioSelecionadoObj.situacao||"";
-    return String(sit).toUpperCase()==="BLOQUEADO";
+  const usuarioAtualBloqueado = () => {
+    if (!usuarioSelecionadoObj) return false;
+    const sit = usuarioSelecionadoObj.SITUACAO || usuarioSelecionadoObj.situacao || "";
+    return String(sit).toUpperCase() === "BLOQUEADO";
   };
 
-  const alternarBloqueioSelecionado=async()=>{
-    if(!usuarioSelecionadoId)return;
-    try{
+  const alternarBloqueioSelecionado = async () => {
+    if (!usuarioSelecionadoId) return;
+    try {
       setCarregando(true);
-      const novaSituacao=usuarioAtualBloqueado()?"ATIVO":"BLOQUEADO";
-      const{error}=await supabase.from("tabi_cad_usuarios").update({situacao:novaSituacao}).eq("id",usuarioSelecionadoId);
-      if(error)throw error;
+      const novaSituacao = usuarioAtualBloqueado() ? "ATIVO" : "BLOQUEADO";
+      const { error } = await supabase.from("tabi_cad_usuarios").update({ situacao: novaSituacao }).eq("id", usuarioSelecionadoId);
+      if (error) throw error;
       await carregarUsuarios(false);
-    }catch(err){Swal.fire("Erro","Falha ao alterar situaÃ§Ã£o: "+err.message,"error");}
-    finally{setCarregando(false);}
+    } catch (err) { Swal.fire("Erro", "Falha ao alterar situação: " + err.message, "error"); }
+    finally { setCarregando(false); }
   };
 
-  const excluirSelecionado=async()=>{
-    if(!usuarioSelecionadoId)return;
-    const confirm=await Swal.fire({title:"Deseja excluir?",text:"Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita.",icon:"warning",showCancelButton:true,confirmButtonColor:"#d93025",confirmButtonText:"Sim, excluir",cancelButtonText:"Cancelar"});
-    if(!confirm.isConfirmed)return;
-    try{
+  const excluirSelecionado = async () => {
+    if (!usuarioSelecionadoId) return;
+    const confirm = await Swal.fire({ title: "Deseja excluir?", text: "Esta ação não poderá ser desfeita.", icon: "warning", showCancelButton: true, confirmButtonColor: "#d93025", confirmButtonText: "Sim, excluir", cancelButtonText: "Cancelar" });
+    if (!confirm.isConfirmed) return;
+    try {
       setCarregando(true);
-      await supabase.from("tabi_cad_usuarios_permissoes").delete().eq("usuario_id",usuarioSelecionadoId);
-      const{error}=await supabase.from("tabi_cad_usuarios").delete().eq("id",usuarioSelecionadoId);
-      if(error)throw error;
-      await Swal.fire({icon:"success",title:"ExcluÃ­do!",text:"UsuÃ¡rio excluÃ­do com sucesso.",confirmButtonColor:"#005596"});
+      await supabase.from("tabi_cad_usuarios_permissoes").delete().eq("usuario_id", usuarioSelecionadoId);
+      const { error } = await supabase.from("tabi_cad_usuarios").delete().eq("id", usuarioSelecionadoId);
+      if (error) throw error;
+      await Swal.fire({ icon: "success", title: "Excluído!", text: "Usuário excluído com sucesso.", confirmButtonColor: "#005596" });
       setUsuarioSelecionadoId(null);
       setUsuarioSelecionadoObj(null);
       await carregarUsuarios(false);
-    }catch(err){Swal.fire("Erro","NÃ£o foi possÃ­vel excluir: "+err.message,"error");}
-    finally{setCarregando(false);}
+    } catch (err) { Swal.fire("Erro", "Não foi possível excluir: " + err.message, "error"); }
+    finally { setCarregando(false); }
   };
 
-  const abrirModalNovoOuEditar=async(userId=null)=>{
-    const usuario=userId&&usuarioSelecionadoObj?usuarioSelecionadoObj:{nome:"",email:"",Telefone:"",Perfil:""};
-    const{value:formValues}=await Swal.fire({
-      title:"",width:"420px",padding:"0",background:"#ffffff",
-      customClass:{popup:"swal2-enterprise-modal",actions:"swal2-custom-actions"},
-      html:`
+  const abrirModalNovoOuEditar = async (userId = null) => {
+    const usuario = userId && usuarioSelecionadoObj ? usuarioSelecionadoObj : { nome: "", email: "", Telefone: "", Perfil: "" };
+    const { value: formValues } = await Swal.fire({
+      title: "", width: "420px", padding: "0", background: "#ffffff",
+      customClass: { popup: "swal2-enterprise-modal", actions: "swal2-custom-actions" },
+      html: `
         <style>
           .swal2-enterprise-modal{border-radius:12px!important;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,.1);border:1px solid #e2e8f0;padding:0!important}
           .swal2-custom-actions{margin:0!important;padding:16px 20px 20px!important;background:#f8fafc!important;border-top:1px solid #f1f5f9!important;display:flex!important;gap:10px!important;width:100%!important;box-sizing:border-box!important}
@@ -256,135 +256,135 @@ export default function Usuarios(){
         <div class="modal-header-pro">
           <div class="modal-icon-box"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg></div>
           <div>
-            <h2 style="margin:0;font-size:1rem;font-weight:700;color:#0f172a">${userId?"EDITAR USUÃRIO":"NOVO USUÃRIO"}</h2>
-            <p style="margin:2px 0 0;font-size:.75rem;color:#64748b">Preencha os dados do usuÃ¡rio.</p>
+            <h2 style="margin:0;font-size:1rem;font-weight:700;color:#0f172a">${userId ? "EDITAR USUÁRIO" : "NOVO USUÁRIO"}</h2>
+            <p style="margin:2px 0 0;font-size:.75rem;color:#64748b">Preencha os dados do usuário.</p>
           </div>
         </div>
         <div class="modal-body-pro">
-          <div class="modal-field-group"><label class="modal-label-pro">NOME COMPLETO</label><input id="swal-nome" class="swal2-input modal-input-pro" placeholder="Nome completo" value="${String(usuario.NOME||usuario.nome||"").replace(/"/g,"&quot;")}" ${userId?"disabled":""}></div>
-          <div class="modal-field-group"><label class="modal-label-pro">E-MAIL</label><input id="swal-email" class="swal2-input modal-input-pro" placeholder="exemplo@email.com" value="${String(usuario.EMAIL||usuario.email||"").replace(/"/g,"&quot;")}" ${userId?"disabled":""}></div>
-          <div class="modal-field-group"><label class="modal-label-pro">WHATSAPP</label><input id="swal-telefone" class="swal2-input modal-input-pro" placeholder="(00) 00000-0000" value="${String(usuario.TELEFONE||usuario.Telefone||"").replace(/"/g,"&quot;")}" maxlength="15"></div>
+          <div class="modal-field-group"><label class="modal-label-pro">NOME COMPLETO</label><input id="swal-nome" class="swal2-input modal-input-pro" placeholder="Nome completo" value="${String(usuario.NOME || usuario.nome || "").replace(/"/g, "&quot;")}" ${userId ? "disabled" : ""}></div>
+          <div class="modal-field-group"><label class="modal-label-pro">E-MAIL</label><input id="swal-email" class="swal2-input modal-input-pro" placeholder="exemplo@email.com" value="${String(usuario.EMAIL || usuario.email || "").replace(/"/g, "&quot;")}" ${userId ? "disabled" : ""}></div>
+          <div class="modal-field-group"><label class="modal-label-pro">WHATSAPP</label><input id="swal-telefone" class="swal2-input modal-input-pro" placeholder="(00) 00000-0000" value="${String(usuario.TELEFONE || usuario.Telefone || "").replace(/"/g, "&quot;")}" maxlength="15"></div>
           <div class="modal-field-group"><label class="modal-label-pro">PERFIL</label>
             <select id="swal-perfil" class="swal2-input modal-input-pro" style="cursor:pointer">
-              <option value="" disabled ${!(usuario.PERFIL||usuario.Perfil)?"selected":""}>Selecione um perfil...</option>
-              <option value="Desenvolvedor" ${((usuario.PERFIL||usuario.Perfil)==="DESENVOLVEDOR"||(usuario.PERFIL||usuario.Perfil)==="Desenvolvedor")?"selected":""}>DESENVOLVEDOR</option>
-              <option value="Gerente" ${((usuario.PERFIL||usuario.Perfil)==="GERENTE"||(usuario.PERFIL||usuario.Perfil)==="Gerente")?"selected":""}>GERENTE</option>
-              <option value="Personalizado" ${((usuario.PERFIL||usuario.Perfil)==="PERSONALIZADO"||(usuario.PERFIL||usuario.Perfil)==="Personalizado")?"selected":""}>PERSONALIZADO</option>
+              <option value="" disabled ${!(usuario.PERFIL || usuario.Perfil) ? "selected" : ""}>Selecione um perfil...</option>
+              <option value="Desenvolvedor" ${((usuario.PERFIL || usuario.Perfil) === "DESENVOLVEDOR" || (usuario.PERFIL || usuario.Perfil) === "Desenvolvedor") ? "selected" : ""}>DESENVOLVEDOR</option>
+              <option value="Gerente" ${((usuario.PERFIL || usuario.Perfil) === "GERENTE" || (usuario.PERFIL || usuario.Perfil) === "Gerente") ? "selected" : ""}>GERENTE</option>
+              <option value="Personalizado" ${((usuario.PERFIL || usuario.Perfil) === "PERSONALIZADO" || (usuario.PERFIL || usuario.Perfil) === "Personalizado") ? "selected" : ""}>PERSONALIZADO</option>
             </select>
           </div>
         </div>
       `,
-      showCancelButton:true,confirmButtonText:"Salvar",cancelButtonText:"Cancelar",
-      preConfirm:()=>{
-        const telefone=document.getElementById("swal-telefone")?.value.trim()||"";
-        const perfil=document.getElementById("swal-perfil")?.value||"";
-        if(!telefone||!perfil){Swal.showValidationMessage("Preencha todos os campos obrigatÃ³rios.");return false;}
-        if(userId){return{Telefone:telefone,Perfil:perfil};}
-        const nome=document.getElementById("swal-nome")?.value.trim()||"";
-        const email=document.getElementById("swal-email")?.value.trim().toLowerCase()||"";
-        if(!nome||!email){Swal.showValidationMessage("Preencha todos os campos obrigatÃ³rios.");return false;}
-        return{nome,email,Telefone:telefone,Perfil:perfil};
+      showCancelButton: true, confirmButtonText: "Salvar", cancelButtonText: "Cancelar",
+      preConfirm: () => {
+        const telefone = document.getElementById("swal-telefone")?.value.trim() || "";
+        const perfil = document.getElementById("swal-perfil")?.value || "";
+        if (!telefone || !perfil) { Swal.showValidationMessage("Preencha todos os campos obrigatórios."); return false; }
+        if (userId) { return { Telefone: telefone, Perfil: perfil }; }
+        const nome = document.getElementById("swal-nome")?.value.trim() || "";
+        const email = document.getElementById("swal-email")?.value.trim().toLowerCase() || "";
+        if (!nome || !email) { Swal.showValidationMessage("Preencha todos os campos obrigatórios."); return false; }
+        return { nome, email, Telefone: telefone, Perfil: perfil };
       }
     });
-    if(!formValues)return;
-    try{
+    if (!formValues) return;
+    try {
       setCarregando(true);
-      if(userId){
-        const{error}=await supabase.from("tabi_cad_usuarios").update(formValues).eq("id",userId);
-        if(error)throw error;
-        if(String(userId)===String(sessaoUsuario.id)){
-          const sessaoAtualizada={...sessaoUsuario,Perfil:formValues.Perfil,perfil:formValues.Perfil};
-          localStorage.setItem("usuario_logado",JSON.stringify(sessaoAtualizada));
+      if (userId) {
+        const { error } = await supabase.from("tabi_cad_usuarios").update(formValues).eq("id", userId);
+        if (error) throw error;
+        if (String(userId) === String(sessaoUsuario.id)) {
+          const sessaoAtualizada = { ...sessaoUsuario, Perfil: formValues.Perfil, perfil: formValues.Perfil };
+          localStorage.setItem("usuario_logado", JSON.stringify(sessaoAtualizada));
         }
-      }else{
-        const senhaPlana=Math.random().toString(36).slice(-8)+"A1@";
-        const salt=bcrypt.genSaltSync(10);
-        const senhaHash=bcrypt.hashSync(senhaPlana,salt);
-        const usuarioLogadoNome=JSON.parse(localStorage.getItem("usuario_logado")||"{}")?.nome||"Sistema";
-        const{error}=await supabase.from("tabi_cad_usuarios").insert([{...formValues,senha:senhaHash,senha_temporaria:true,situacao:"ATIVO",Usu_cad:usuarioLogadoNome}]);
-        if(error)throw error;
+      } else {
+        const senhaPlana = Math.random().toString(36).slice(-8) + "A1@";
+        const salt = bcrypt.genSaltSync(10);
+        const senhaHash = bcrypt.hashSync(senhaPlana, salt);
+        const usuarioLogadoNome = JSON.parse(localStorage.getItem("usuario_logado") || "{}")?.nome || "Sistema";
+        const { error } = await supabase.from("tabi_cad_usuarios").insert([{ ...formValues, senha: senhaHash, senha_temporaria: true, situacao: "ATIVO", Usu_cad: usuarioLogadoNome }]);
+        if (error) throw error;
       }
       await carregarUsuarios(false);
       await carregarPermissoesLogado();
-      Swal.fire({icon:"success",title:"Sucesso",text:"Dados salvos com sucesso.",timer:2000,showConfirmButton:false});
-    }catch(err){Swal.fire("Erro","Erro ao salvar: "+err.message,"error");}
-    finally{setCarregando(false);}
+      Swal.fire({ icon: "success", title: "Sucesso", text: "Dados salvos com sucesso.", timer: 2000, showConfirmButton: false });
+    } catch (err) { Swal.fire("Erro", "Erro ao salvar: " + err.message, "error"); }
+    finally { setCarregando(false); }
   };
 
-  const temFiltroAtivo=busca.trim().length>0||Object.values(filtrosColunas).some(r=>Array.isArray(r)&&r.length>0);
+  const temFiltroAtivo = busca.trim().length > 0 || Object.values(filtrosColunas).some(r => Array.isArray(r) && r.length > 0);
 
-  const limparTodosFiltros=()=>{
+  const limparTodosFiltros = () => {
     setBusca("");
     setFiltrosColunas({});
     setPaginaAtual(1);
-    setLimparFiltrosTrigger(p=>p+1);
+    setLimparFiltrosTrigger(p => p + 1);
   };
 
-  const btnIco={display:"flex",alignItems:"center",justifyContent:"center",width:"32px",height:"32px",borderRadius:"6px",fontSize:".8rem",cursor:"pointer",boxSizing:"border-box",fontWeight:"600"};
+  const btnIco = { display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "6px", fontSize: ".8rem", cursor: "pointer", boxSizing: "border-box", fontWeight: "600" };
 
-  return(
-    <div style={{height:"100%",display:"flex",flexDirection:"column",gap:"12px",padding:"0 10px",boxSizing:"border-box",overflow:"hidden"}}>
-      <div style={{display:"flex",gap:"12px",borderBottom:"2px solid #e5e7eb",flexShrink:0}}>
-        <button style={{background:"transparent",border:"none",padding:"8px 14px",fontSize:".9rem",fontWeight:"600",color:abaAtiva==="usuarios"?"#005596":"#6b7280",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",borderBottom:abaAtiva==="usuarios"?"2px solid #005596":"2px solid transparent",marginBottom:"-2px"}} onClick={()=>setAbaAtiva("usuarios")}>
-          <Users size={18}/> GESTÃƒO DE USUÃRIOS
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: "12px", padding: "0 10px", boxSizing: "border-box", overflow: "hidden" }}>
+      <div style={{ display: "flex", gap: "12px", borderBottom: "2px solid #e5e7eb", flexShrink: 0 }}>
+        <button style={{ background: "transparent", border: "none", padding: "8px 14px", fontSize: ".9rem", fontWeight: "600", color: abaAtiva === "usuarios" ? "#005596" : "#6b7280", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", borderBottom: abaAtiva === "usuarios" ? "2px solid #005596" : "2px solid transparent", marginBottom: "-2px" }} onClick={() => setAbaAtiva("usuarios")}>
+          <Users size={18} /> GESTÃO DE USUÁRIOS
         </button>
-        {usuarioSelecionadoId&&temPermissao("usuarios.aba_permissoes")&&(
-          <button style={{background:"transparent",border:"none",padding:"8px 14px",fontSize:".9rem",fontWeight:"600",color:abaAtiva==="perfis"?"#005596":"#6b7280",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",borderBottom:abaAtiva==="perfis"?"2px solid #005596":"2px solid transparent",marginBottom:"-2px"}} onClick={()=>setAbaAtiva("perfis")}>
-            <Shield size={18}/> PERFIS E PERMISSÃ•ES
+        {usuarioSelecionadoId && temPermissao("usuarios.aba_permissoes") && (
+          <button style={{ background: "transparent", border: "none", padding: "8px 14px", fontSize: ".9rem", fontWeight: "600", color: abaAtiva === "perfis" ? "#005596" : "#6b7280", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", borderBottom: abaAtiva === "perfis" ? "2px solid #005596" : "2px solid transparent", marginBottom: "-2px" }} onClick={() => setAbaAtiva("perfis")}>
+            <Shield size={18} /> PERFIS E PERMISSÕES
           </button>
         )}
       </div>
 
-      <div style={{display:abaAtiva==="usuarios"?"flex":"none",flex:1,flexDirection:"column",minHeight:0,gap:"10px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px",gap:"12px",flexWrap:"wrap"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"8px",flex:"1",minWidth:"280px"}}>
-            <div style={{position:"relative",flex:"1"}}>
-              <Search size={18} style={{position:"absolute",left:"12px",top:"50%",transform:"translateY(-50%)",color:"#94a3b8"}}/>
-              <input type="text" placeholder="PESQUISAR GERAL..." value={busca} onChange={e=>{setBusca(e.target.value);setPaginaAtual(1);}} style={{width:"100%",padding:"0 12px 0 38px",height:"32px",borderRadius:"6px",border:"1px solid #cbd5e1",outline:"none",fontSize:".9rem",background:"#fff",boxSizing:"border-box"}}/>
+      <div style={{ display: abaAtiva === "usuarios" ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0, gap: "10px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1", minWidth: "280px" }}>
+            <div style={{ position: "relative", flex: "1" }}>
+              <Search size={18} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input type="text" placeholder="PESQUISAR GERAL..." value={busca} onChange={e => { setBusca(e.target.value); setPaginaAtual(1); }} style={{ width: "100%", padding: "0 12px 0 38px", height: "32px", borderRadius: "6px", border: "1px solid #cbd5e1", outline: "none", fontSize: ".9rem", background: "#fff", boxSizing: "border-box" }} />
             </div>
-            {temFiltroAtivo&&(
-              <button onClick={limparTodosFiltros} style={{...btnIco,background:"#fff",border:"1px solid #cbd5e1",color:"#dc2626"}} title="Limpar filtros">
-                <FilterX size={16}/>
+            {temFiltroAtivo && (
+              <button onClick={limparTodosFiltros} style={{ ...btnIco, background: "#fff", border: "1px solid #cbd5e1", color: "#dc2626" }} title="Limpar filtros">
+                <FilterX size={16} />
               </button>
             )}
           </div>
-          <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-            {temPermissao("usuarios.btn_novo")&&(
-              <button onClick={()=>abrirModalNovoOuEditar(null)} style={{background:"#fff",color:"#374151",border:"1px solid #cbd5e1",height:"32px",padding:"0 12px",borderRadius:"6px",fontSize:".8rem",fontWeight:"600",display:"inline-flex",alignItems:"center",gap:"6px",cursor:"pointer"}}>
-                <UserPlus size={14}/> NOVO
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {temPermissao("usuarios.btn_novo") && (
+              <button onClick={() => abrirModalNovoOuEditar(null)} style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: "32px", padding: "0 12px", borderRadius: "6px", fontSize: ".8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                <UserPlus size={14} /> NOVO
               </button>
             )}
-            {temPermissao("usuarios.btn_editar")&&(
-              <button onClick={()=>abrirModalNovoOuEditar(usuarioSelecionadoId)} disabled={!usuarioSelecionadoId} style={{background:"#fff",color:"#374151",border:"1px solid #cbd5e1",height:"32px",padding:"0 12px",borderRadius:"6px",fontSize:".8rem",fontWeight:"600",display:"inline-flex",alignItems:"center",gap:"6px",cursor:usuarioSelecionadoId?"pointer":"not-allowed",opacity:usuarioSelecionadoId?1:.4}}>
-                <Edit3 size={14}/> EDITAR
+            {temPermissao("usuarios.btn_editar") && (
+              <button onClick={() => abrirModalNovoOuEditar(usuarioSelecionadoId)} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: "32px", padding: "0 12px", borderRadius: "6px", fontSize: ".8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : .4 }}>
+                <Edit3 size={14} /> EDITAR
               </button>
             )}
-            {temPermissao("usuarios.btn_excluir")&&(
-              <button onClick={excluirSelecionado} disabled={!usuarioSelecionadoId} style={{background:"#fff",color:usuarioSelecionadoId?"#dc2626":"#374151",border:"1px solid #cbd5e1",height:"32px",padding:"0 12px",borderRadius:"6px",fontSize:".8rem",fontWeight:"600",display:"inline-flex",alignItems:"center",gap:"6px",cursor:usuarioSelecionadoId?"pointer":"not-allowed",opacity:usuarioSelecionadoId?1:.4}}>
-                <Trash2 size={14}/> EXCLUIR
+            {temPermissao("usuarios.btn_excluir") && (
+              <button onClick={excluirSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: usuarioSelecionadoId ? "#dc2626" : "#374151", border: "1px solid #cbd5e1", height: "32px", padding: "0 12px", borderRadius: "6px", fontSize: ".8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : .4 }}>
+                <Trash2 size={14} /> EXCLUIR
               </button>
             )}
-            {temPermissao("usuarios.btnBloquear")&&(
-              <button onClick={alternarBloqueioSelecionado} disabled={!usuarioSelecionadoId} style={{background:"#fff",color:"#374151",border:"1px solid #cbd5e1",height:"32px",padding:"0 12px",borderRadius:"6px",fontSize:".8rem",fontWeight:"600",display:"inline-flex",alignItems:"center",gap:"6px",cursor:usuarioSelecionadoId?"pointer":"not-allowed",opacity:usuarioSelecionadoId?1:.4}}>
-                {usuarioAtualBloqueado()?<Unlock size={14}/>:<Lock size={14}/>}
-                <span>{usuarioAtualBloqueado()?"DESBLOQUEAR":"BLOQUEAR"}</span>
+            {temPermissao("usuarios.btnBloquear") && (
+              <button onClick={alternarBloqueioSelecionado} disabled={!usuarioSelecionadoId} style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: "32px", padding: "0 12px", borderRadius: "6px", fontSize: ".8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: usuarioSelecionadoId ? "pointer" : "not-allowed", opacity: usuarioSelecionadoId ? 1 : .4 }}>
+                {usuarioAtualBloqueado() ? <Unlock size={14} /> : <Lock size={14} />}
+                <span>{usuarioAtualBloqueado() ? "DESBLOQUEAR" : "BLOQUEAR"}</span>
               </button>
             )}
-            <button onClick={()=>{carregarUsuarios(false);carregarPermissoesLogado();}} title="Atualizar Tabela" style={{background:"#fff",color:"#374151",border:"1px solid #cbd5e1",height:"32px",padding:"0 12px",borderRadius:"6px",fontSize:".8rem",fontWeight:"600",display:"inline-flex",alignItems:"center",gap:"6px",cursor:"pointer"}}>
-              <RefreshCw size={14}/> ATUALIZAR
+            <button onClick={() => { carregarUsuarios(false); carregarPermissoesLogado(); }} title="Atualizar Tabela" style={{ background: "#fff", color: "#374151", border: "1px solid #cbd5e1", height: "32px", padding: "0 12px", borderRadius: "6px", fontSize: ".8rem", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+              <RefreshCw size={14} /> ATUALIZAR
             </button>
           </div>
         </div>
 
-        {carregando?(
-          <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"40vh",color:"#64748b"}}>CARREGANDO USUÃRIOS...</div>
-        ):(
-          <DataTable key={limparFiltrosTrigger} data={dadosUsuarios} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l=>{setRegistrosPorPagina(l);setPaginaAtual(1);}} onFilterChange={f=>{setFiltrosColunas({...f});setPaginaAtual(1);}} onFetchColumnOptions={(coluna,filtros)=>buscarOpcoesColunaBanco(coluna,filtros)} filtrosExternos={filtrosColunas} tableId={`usuarios_${userIdKey}`} onSelectionChange={handleSelectionChange}/>
+        {carregando ? (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "40vh", color: "#64748b" }}>CARREGANDO USUÁRIOS...</div>
+        ) : (
+          <DataTable key={limparFiltrosTrigger} data={dadosUsuarios} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l => { setRegistrosPorPagina(l); setPaginaAtual(1); }} onFilterChange={f => { setFiltrosColunas({ ...f }); setPaginaAtual(1); }} onFetchColumnOptions={(coluna, filtros) => buscarOpcoesColunaBanco(coluna, filtros)} filtrosExternos={filtrosColunas} tableId={`usuarios_${userIdKey}`} onSelectionChange={handleSelectionChange} />
         )}
       </div>
 
-      <div style={{display:abaAtiva==="perfis"&&usuarioSelecionadoObj?"flex":"none",flex:1,flexDirection:"column",minHeight:0}}>
-        <PermissoesTab usuario={usuarioSelecionadoObj}/>
+      <div style={{ display: abaAtiva === "perfis" && usuarioSelecionadoObj ? "flex" : "none", flex: 1, flexDirection: "column", minHeight: 0 }}>
+        <PermissoesTab usuario={usuarioSelecionadoObj} />
       </div>
     </div>
   );
