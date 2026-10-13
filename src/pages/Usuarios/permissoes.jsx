@@ -1,328 +1,327 @@
-import React, { useState, useEffect } from "react";
-import { Save, ChevronDown } from "lucide-react";
-import { supabase } from "../../services/supabase";
-import Swal from "sweetalert2";
+import React,{useEffect,useMemo,useState}from"react";
+import{Save,ChevronDown,ChevronRight,Monitor,Folder,CornerDownRight,Settings,SquareMenu,Check,Minus,Link2}from"lucide-react";
+import{supabase}from"../../services/supabase";
+import Swal from"sweetalert2";
 
-const BOTOES_ESPECIFICOS_POR_TELA = {
-    "Usuários": [
-        { chave: "usuarios.btnNovo", nome: "Botão Novo" },
-        { chave: "usuarios.btn_editar", nome: "Botão Editar" },
-        { chave: "usuarios.btnExcluir", nome: "Botão Excluir" },
-        { chave: "usuarios.btnBloquear", nome: "Botão Bloquear" },
-        { chave: "usuarios.coluna_checkbox", nome: "Ocultar Checkbox / Seleção" }
-    ]
-};
+export default function PermissoesTab({usuario}){
+ const[mapa,setMapa]=useState([]);
+ const[ativas,setAtivas]=useState(new Set());
+ const[abertos,setAbertos]=useState({});
+ const[carregando,setCarregando]=useState(true);
+ const[salvando,setSalvando]=useState(false);
 
-function gerarSlug(texto) {
-    if (!texto) return "";
-    return texto.toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]/g, "_");
-}
+ const usuarioId=usuario?.id||usuario?.ID;
+ const nome=usuario?.nome||usuario?.Nome||usuario?.nome_usuario||"Usuário";
+ const perfil=usuario?.Perfil||usuario?.perfil||usuario?.perfil_nome||"Não definido";
+ const dev=String(perfil).trim().toLowerCase()==="desenvolvedor";
 
-function obterModulosDoSistema() {
-    const doc = (window.parent && window.parent.document.getElementById('sidebar')) ? window.parent.document : document;
-    const sidebar = doc.getElementById('sidebar');
-    const estruturaMenu = [];
+ useEffect(()=>{
+  let vivo=true;
+  async function carregar(){
+   if(!usuarioId){
+    setMapa([]);
+    setAtivas(new Set());
+    setCarregando(false);
+    return;
+   }
+   setCarregando(true);
+   try{
+    const{data:md,error:me}=await supabase
+     .from("tabi_sistema_mapa_permissoes")
+     .select("chave,grupo,tela,nome,tipo,rota,chave_pai,ordem,ativo")
+     .eq("ativo",true)
+     .order("ordem",{ascending:true});
 
-    if (!sidebar) {
-        return [
-            {
-                tipo: "grupo",
-                modulo: "Configurações",
-                chaveVisibilidade: "configuracoes.visivel",
-                submenus: [],
-                botoesEspecificos: BOTOES_ESPECIFICOS_POR_TELA["Usuários"] || []
-            }
-        ];
-    }
+    if(me)throw me;
 
-    const linksDiretos = sidebar.querySelectorAll(':scope > .menu > a');
-    linksDiretos.forEach(a => {
-        const span = a.querySelector('span');
-        if (span) {
-            const nomeModulo = span.textContent.trim();
-            if (nomeModulo) {
-                const slug = gerarSlug(nomeModulo);
-                estruturaMenu.push({
-                    tipo: "grupo",
-                    modulo: nomeModulo,
-                    chaveVisibilidade: `${slug}.visivel`,
-                    submenus: [],
-                    botoesEspecificos: BOTOES_ESPECIFICOS_POR_TELA[nomeModulo] || []
-                });
-            }
-        }
+    // Filtra para remover ações globais padrão (Sair e Alterar Senha)
+    const mapaFiltrado=(md||[]).filter(item=>{
+     const nomeItem=String(item.nome||"").toLowerCase();
+     const chaveItem=String(item.chave||"").toLowerCase();
+     const ehSair=nomeItem.includes("sair")||nomeItem.includes("logout")||chaveItem.includes("sair")||chaveItem.includes("logout");
+     const ehSenha=nomeItem.includes("alterar senha")||nomeItem.includes("trocar senha")||chaveItem.includes("senha");
+     return !ehSair && !ehSenha;
     });
 
-    const menuItems = sidebar.querySelectorAll('.menu-item');
-    menuItems.forEach(item => {
-        const linkPrincipal = item.querySelector('.menu-link span');
-        const nomeGrupo = linkPrincipal ? linkPrincipal.textContent.trim() : 'Menu';
+    let permissoes=[];
+    if(!dev){
+     const{data,error}=await supabase
+      .from("tabi_cad_usuarios_permissoes")
+      .select("chave_acao")
+      .eq("usuario_id",String(usuarioId));
 
-        const subLinks = item.querySelectorAll('.submenu a');
-        const submenusLista = [];
-
-        subLinks.forEach(subA => {
-            const subSpan = subA.querySelector('span');
-            if (subSpan) {
-                const nomeSub = subSpan.textContent.trim();
-                const slugSub = gerarSlug(nomeSub);
-                submenusLista.push({
-                    nome: nomeSub,
-                    chaveVisibilidade: `${slugSub}.visivel`,
-                    botoesEspecificos: BOTOES_ESPECIFICOS_POR_TELA[nomeSub] || []
-                });
-            }
-        });
-
-        const slugGrupo = gerarSlug(nomeGrupo);
-        estruturaMenu.push({
-            tipo: "grupo_com_sub",
-            modulo: nomeGrupo,
-            chaveVisibilidade: `${slugGrupo}.visivel`,
-            submenus: submenusLista,
-            botoesEspecificos: BOTOES_ESPECIFICOS_POR_TELA[nomeGrupo] || []
-        });
-    });
-
-    return estruturaMenu;
-}
-
-export default function PermissoesTab({ usuario }) {
-    const [menus, setMenus] = useState([]);
-    const [permissoesAtivas, setPermissoesAtivas] = useState(new Set());
-    const [carregando, setCarregando] = useState(true);
-    const [submenusAbertos, setSubmenusAbertos] = useState({});
-
-    const nomeUsuario = usuario?.nome || usuario?.Nome || 'Usuário';
-    const usuarioId = usuario?.id || usuario?.ID;
-    const perfilUsuario = String(usuario?.Perfil || usuario?.perfil || "").trim().toLowerCase();
-    const isDesenvolvedor = perfilUsuario === "desenvolvedor";
-
-    useEffect(() => {
-        const carregarPermissoes = async () => {
-            if (!usuarioId) return;
-            try {
-                setCarregando(true);
-                const estrutura = obterModulosDoSistema();
-                setMenus(estrutura);
-
-                let chaves = new Set();
-                if (isDesenvolvedor) {
-                    estrutura.forEach(grupo => {
-                        chaves.add(grupo.chaveVisibilidade);
-                        grupo.botoesEspecificos?.forEach(b => chaves.add(b.chave));
-                        grupo.submenus?.forEach(sub => {
-                            chaves.add(sub.chaveVisibilidade);
-                            sub.botoesEspecificos?.forEach(b => chaves.add(b.chave));
-                        });
-                    });
-                } else {
-                    const { data, error } = await supabase
-                        .from("tabi_cad_usuarios_permissoes")
-                        .select("chave_acao")
-                        .eq("usuario_id", usuarioId);
-
-                    if (error) throw error;
-                    (data || []).forEach(p => chaves.add(p.chave_acao));
-                }
-                setPermissoesAtivas(chaves);
-            } catch (err) {
-                console.error("Erro ao carregar permissões:", err);
-            } finally {
-                setCarregando(false);
-            }
-        };
-
-        carregarPermissoes();
-    }, [usuarioId]);
-
-    const toggleCheckbox = (chave) => {
-        if (isDesenvolvedor) return;
-        setPermissoesAtivas(prev => {
-            const novo = new Set(prev);
-            if (novo.has(chave)) novo.delete(chave);
-            else novo.add(chave);
-            return novo;
-        });
-    };
-
-    const toggleSelecionarTudo = (marcar) => {
-        if (isDesenvolvedor) return;
-        if (!marcar) {
-            setPermissoesAtivas(new Set());
-            return;
-        }
-        const novo = new Set();
-        menus.forEach(grupo => {
-            novo.add(grupo.chaveVisibilidade);
-            grupo.botoesEspecificos?.forEach(b => novo.add(b.chave));
-            grupo.submenus?.forEach(sub => {
-                novo.add(sub.chaveVisibilidade);
-                sub.botoesEspecificos?.forEach(b => novo.add(b.chave));
-            });
-        });
-        setPermissoesAtivas(novo);
-    };
-
-    const toggleArvore = (index) => {
-        setSubmenusAbertos(prev => ({ ...prev, [index]: !prev[index] }));
-    };
-
-    const salvarPermissoes = async () => {
-        if (isDesenvolvedor || !usuarioId) return;
-        try {
-            Swal.fire({ title: "Salvando...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            // 1. Remove antigas permissões do usuário específico
-            const { error: errDel } = await supabase
-                .from("tabi_cad_usuarios_permissoes")
-                .delete()
-                .eq("usuario_id", usuarioId);
-
-            if (errDel) throw errDel;
-
-            // 2. Insere as novas permissões ativas
-            const payload = Array.from(permissoesAtivas).map(chave => ({
-                usuario_id: String(usuarioId),
-                chave_acao: chave
-            }));
-
-            if (payload.length > 0) {
-                const { error: errIns } = await supabase
-                    .from("tabi_cad_usuarios_permissoes")
-                    .insert(payload);
-
-                if (errIns) throw errIns;
-            }
-
-            Swal.fire({ icon: "success", title: "Salvo com sucesso!", text: "As permissões foram atualizadas.", timer: 2000, showConfirmButton: false });
-        } catch (err) {
-            Swal.fire("Erro", "Não foi possível salvar as permissões: " + err.message, "error");
-        }
-    };
-
-    if (carregando) {
-        return <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>Carregando matriz de permissões...</div>;
+     if(error)throw error;
+     permissoes=(data||[]).map(x=>String(x.chave_acao||"")).filter(Boolean);
     }
 
-    return (
-        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexShrink: 0, gap: '12px', flexWrap: 'wrap' }}>
-                <div>
-                    <h3 style={{ margin: 0, color: '#1f2937', fontSize: '1.1rem' }}>Permissões do Usuário: <span style={{ color: '#005596' }}>{nomeUsuario}</span></h3>
-                    <p style={{ color: '#6b7280', fontSize: '0.82rem', margin: '4px 0 0 0' }}>
-                        <span style={{ color: '#d97706', fontWeight: 600 }}>Perfil: {usuario?.Perfil || usuario?.perfil || 'Não definido'}</span>
-                    </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <label style={{ fontSize: '0.82rem', color: '#1e293b', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', userSelect: 'none' }}>
-                        <input type="checkbox" disabled={isDesenvolvedor} onChange={(e) => toggleSelecionarTudo(e.target.checked)} style={{ width: '15px', height: '15px', accentColor: '#005596', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer' }} /> Selecionar Tudo
-                    </label>
-                    <button 
-                        disabled={isDesenvolvedor} 
-                        onClick={salvarPermissoes} 
-                        style={{ background: isDesenvolvedor ? '#94a3b8' : '#005596', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-                    >
-                        <Save size={16} /> Salvar Permissões
-                    </button>
-                </div>
-            </div>
+    if(!vivo)return;
+    setMapa(mapaFiltrado);
+    setAtivas(new Set(permissoes));
+   }catch(e){
+    console.error("Erro ao carregar permissões:",e);
+    if(vivo){
+     setMapa([]);
+     setAtivas(new Set());
+     Swal.fire("Erro",e?.message||"Não foi possível carregar as permissões.","error");
+    }
+   }finally{
+    if(vivo)setCarregando(false);
+   }
+  }
+  carregar();
+  return()=>{vivo=false};
+ },[usuarioId,dev]);
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', paddingRight: '6px' }}>
-                {menus.map((grupo, idx) => {
-                    const isOpen = !!submenusAbertos[idx];
-                    const isGrupoChecked = permissoesAtivas.has(grupo.chaveVisibilidade);
+ const normalizarRota=v=>{
+  let s=String(v||"").trim();
+  if(!s)return"";
+  try{
+   if(s.startsWith("#"))s=s.slice(1);
+   const u=new URL(s,typeof window!=="undefined"?window.location.origin:"http://localhost");
+   s=u.pathname||"/";
+  }catch{}
+  return s.replace(/\/+$/,"").toLowerCase()||"/";
+ };
 
-                    return (
-                        <div key={idx} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff', overflow: 'hidden', flexShrink: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, color: '#1e293b', fontSize: '0.95rem', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer', userSelect: 'none', flex: 1 }}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={isGrupoChecked} 
-                                        disabled={isDesenvolvedor} 
-                                        onChange={() => toggleCheckbox(grupo.chaveVisibilidade)} 
-                                        style={{ width: '16px', height: '16px', accentColor: '#005596', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer' }} 
-                                    />
-                                    <span>📂 {grupo.modulo}</span>
-                                </label>
-                                <ChevronDown 
-                                    size={18} 
-                                    onClick={() => toggleArvore(idx)} 
-                                    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#64748b', cursor: 'pointer' }} 
-                                />
-                            </div>
+ const estrutura=useMemo(()=>{
+  const itens=[...mapa];
+  const estruturais=itens.filter(x=>["menu","submenu","link"].includes(String(x.tipo||"").toLowerCase()));
+  const porChave=new Map(itens.map(x=>[x.chave,x]));
+  const filhosExplicitos=new Map();
 
-                            {isOpen && (
-                                <div style={{ padding: '14px 16px', background: '#ffffff', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {grupo.submenus && grupo.submenus.map((sub, sIdx) => {
-                                        const isSubChecked = permissoesAtivas.has(sub.chaveVisibilidade);
-                                        return (
-                                            <div key={sIdx} style={{ marginLeft: '12px', borderLeft: '2px solid #cbd5e1', paddingLeft: '12px', marginBottom: '8px' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500, fontSize: '0.88rem', color: '#475569', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer', userSelect: 'none' }}>
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={isSubChecked} 
-                                                        disabled={isDesenvolvedor} 
-                                                        onChange={() => toggleCheckbox(sub.chaveVisibilidade)} 
-                                                        style={{ width: '14px', height: '14px', accentColor: '#005596', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer' }} 
-                                                    />
-                                                    <span>🔹 {sub.nome} (Exibir Submenu)</span>
-                                                </label>
+  estruturais.forEach(item=>{
+   const pai=item.chave_pai;
+   if(!pai)return;
+   if(!filhosExplicitos.has(pai))filhosExplicitos.set(pai,[]);
+   filhosExplicitos.get(pai).push(item);
+  });
 
-                                                {sub.botoesEspecificos && sub.botoesEspecificos.length > 0 && (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px', marginTop: '6px', marginLeft: '20px' }}>
-                                                        {sub.botoesEspecificos.map((btn, bIdx) => {
-                                                            const isBtnChecked = permissoesAtivas.has(btn.chave);
-                                                            return (
-                                                                <label key={bIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#334151', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer', background: '#f1f5f9', padding: '6px 10px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                                                                    <input 
-                                                                        type="checkbox" 
-                                                                        checked={isBtnChecked} 
-                                                                        disabled={isDesenvolvedor} 
-                                                                        onChange={() => toggleCheckbox(btn.chave)} 
-                                                                        style={{ width: '13px', height: '13px', accentColor: '#005596', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer' }} 
-                                                                    />
-                                                                    <span>⚙️ {btn.nome}</span>
-                                                                </label>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+  const porRota=new Map();
+  estruturais.forEach(item=>{
+   const rota=normalizarRota(item.rota);
+   if(!rota)return;
+   if(!porRota.has(rota))porRota.set(rota,[]);
+   porRota.get(rota).push(item);
+  });
 
-                                    {grupo.botoesEspecificos && grupo.botoesEspecificos.length > 0 && (
-                                        <>
-                                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginTop: '4px' }}>Botões Específicos:</div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-                                                {grupo.botoesEspecificos.map((btn, bIdx) => {
-                                                    const isBtnChecked = permissoesAtivas.has(btn.chave);
-                                                    return (
-                                                        <label key={bIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#334151', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer', background: '#f1f5f9', padding: '6px 10px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={isBtnChecked} 
-                                                                disabled={isDesenvolvedor} 
-                                                                onChange={() => toggleCheckbox(btn.chave)} 
-                                                                style={{ width: '13px', height: '13px', accentColor: '#005596', cursor: isDesenvolvedor ? 'not-allowed' : 'pointer' }} 
-                                                            />
-                                                            <span>⚙️ {btn.nome}</span>
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
+  const adicionados=new Set();
+
+  function filhosEstruturais(pai){
+   return(filhosExplicitos.get(pai)||[])
+    .sort((a,b)=>Number(a.ordem||0)-Number(b.ordem||0))
+    .map(x=>{
+     adicionados.add(x.chave);
+     return{...x,filhos:[]};
+    });
+  }
+
+  const montarNo=(item,visitados=new Set())=>{
+   if(visitados.has(item.chave))return{...item,filhos:[]};
+   const novosVisitados=new Set(visitados);
+   novosVisitados.add(item.chave);
+   const filhos=[];
+   
+   const filhosMenu=filhosEstruturais(item.chave);
+   filhosMenu.forEach(filho=>{
+    filhos.push(montarNo(filho,novosVisitados));
+   });
+
+   const rota=normalizarRota(item.rota);
+   if(rota){
+    const relacionados=itens.filter(x=>{
+     if(!x?.chave||adicionados.has(x.chave))return false;
+     if(["menu","submenu","link"].includes(String(x.tipo||"").toLowerCase()))return false;
+     if(x.chave_pai&&porChave.has(x.chave_pai))return false;
+     return normalizarRota(x.rota)===rota;
+    }).sort((a,b)=>Number(a.ordem||0)-Number(b.ordem||0));
+
+    relacionados.forEach(x=>{
+     adicionados.add(x.chave);
+     filhos.push({...x,filhos:[]});
+    });
+   }
+   return{...item,filhos};
+  };
+
+  const raizes=estruturais.filter(item=>!item.chave_pai||!porChave.has(item.chave_pai)).sort((a,b)=>Number(a.ordem||0)-Number(b.ordem||0));
+  const arvore=raizes.map(item=>{
+   adicionados.add(item.chave);
+   return montarNo(item);
+  });
+
+  const sobras=itens.filter(x=>x?.chave&&!adicionados.has(x.chave)).sort((a,b)=>
+   String(a.grupo||"").localeCompare(String(b.grupo||""))||
+   String(a.tela||"").localeCompare(String(b.tela||""))||
+   Number(a.ordem||0)-Number(b.ordem||0)
+  );
+
+  const grupos={};
+  sobras.forEach(x=>{
+   const g=x.grupo||"Sistema";
+   if(!grupos[g])grupos[g]=[];
+   grupos[g].push({...x,filhos:[]});
+  });
+
+  return{arvore,sobrasGrupos:grupos};
+ },[mapa]);
+
+ const chavesNo=no=>[no.chave,...(no.filhos||[]).flatMap(chavesNo)].filter(Boolean);
+
+ const alternarNo=no=>{
+  if(dev)return;
+  const chaves=[...new Set(chavesNo(no))];
+  setAtivas(atual=>{
+   const novo=new Set(atual);
+   const marcar=chaves.some(x=>!novo.has(x));
+   chaves.forEach(x=>marcar?novo.add(x):novo.delete(x));
+   return novo;
+  });
+ };
+
+ const alternarChaves=chaves=>{
+  if(dev)return;
+  const lista=[...new Set(chaves.filter(Boolean))];
+  setAtivas(atual=>{
+   const novo=new Set(atual);
+   const marcar=lista.some(x=>!novo.has(x));
+   lista.forEach(x=>marcar?novo.add(x):novo.delete(x));
+   return novo;
+  });
+ };
+
+ const alternarAberto=chave=>setAbertos(atual=>({...atual,[chave]:atual[chave]===false}));
+
+ const salvar=async()=>{
+  if(dev||!usuarioId||salvando)return;
+  setSalvando(true);
+  try{
+   Swal.fire({
+    title:"Salvando...",
+    text:"Atualizando permissões do usuário.",
+    allowOutsideClick:false,
+    allowEscapeKey:false,
+    didOpen:()=>Swal.showLoading()
+   });
+
+   const{error:ed}=await supabase.from("tabi_cad_usuarios_permissoes").delete().eq("usuario_id",String(usuarioId));
+   if(ed)throw ed;
+
+   const payload=[...ativas].filter(Boolean).map(chave_acao=>({
+    usuario_id:String(usuarioId),
+    chave_acao:String(chave_acao)
+   }));
+
+   for(let i=0;i<payload.length;i+=500){
+    const{error}=await supabase.from("tabi_cad_usuarios_permissoes").insert(payload.slice(i,i+500));
+    if(error)throw error;
+   }
+
+   await Swal.fire({icon:"success",title:"Salvo!",text:"As permissões foram atualizadas.",timer:1600,showConfirmButton:false});
+  }catch(e){
+   console.error("Erro ao salvar permissões:",e);
+   Swal.fire("Erro","Não foi possível salvar: "+(e?.message||"erro desconhecido"),"error");
+  }finally{
+   setSalvando(false);
+  }
+ };
+
+ if(carregando)return<div style={{padding:40,textAlign:"center",color:"#64748b"}}>Carregando permissões...</div>;
+
+ return(
+  <div style={{height:"100%",minHeight:0,display:"flex",flexDirection:"column",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+   <div style={{padding:"16px 20px",background:"#fff",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between",gap:15,flexWrap:"wrap"}}>
+    <div>
+     <div style={{display:"flex",alignItems:"center",gap:9}}>
+      <ShieldIcon/>
+      <h3 style={{margin:0,fontSize:"1.08rem",color:"#172033"}}>Mapa de Permissões</h3>
+     </div>
+     <div style={{marginTop:5,fontSize:".78rem",color:"#64748b"}}>
+      Usuário: <b style={{color:"#334155"}}>{nome}</b> {" · "} Perfil: <b style={{color:"#005596"}}>{perfil}</b>
+     </div>
+    </div>
+    <button type="button" disabled={dev||salvando} onClick={salvar} style={{border:0,borderRadius:7,padding:"9px 15px",background:dev||salvando?"#94a3b8":"#005596",color:"#fff",display:"flex",alignItems:"center",gap:7,cursor:dev||salvando?"not-allowed":"pointer",fontWeight:600}}>
+     <Save size={16}/>{salvando?"Salvando...":"Salvar Permissões"}
+    </button>
+   </div>
+
+   {dev&&<div style={{margin:"12px 16px 0",padding:"9px 12px",borderRadius:7,background:"#eff6ff",border:"1px solid #bfdbfe",color:"#1e3a8a",fontSize:".78rem"}}>⚠️ <b>Desenvolvedor:</b> acesso total liberado automaticamente.</div>}
+
+   <div style={{overflowY:"auto",padding:"4px 16px 18px",flex:1,minHeight:0}}>
+    {estrutura.arvore.map(no=><No key={no.chave} no={no} nivel={0} dev={dev} ativas={ativas} abertos={abertos} alternarNo={alternarNo} alternarAberto={alternarAberto}/>)}
+
+    {Object.entries(estrutura.sobrasGrupos).map(([grupo,itens])=>{
+     const chaveGrupo=`sobra:${grupo}`;
+     const total=[...new Set(itens.flatMap(chavesNo))];
+     const marcadas=dev?total.length:total.filter(x=>ativas.has(x)).length;
+     const est={total:total.length,marcadas,completo:total.length>0&&marcadas===total.length,parcial:marcadas>0&&marcadas<total.length};
+     return(
+      <section key={chaveGrupo} style={{marginTop:10,background:"#fff",border:"1px solid #dbe3ec",borderRadius:9,overflow:"hidden"}}>
+       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",background:"#eef3f8"}}>
+        <BulkBox estado={est} disabled={dev} onClick={()=>alternarChaves(total)}/>
+        <Folder size={16}/><b>{grupo}</b>
+        <span style={countStyle}>{est.marcadas}/{est.total}</span>
+       </div>
+       <div style={{padding:"5px 10px 12px"}}>
+        {itens.map(no=><No key={no.chave} no={no} nivel={0} dev={dev} ativas={ativas} abertos={abertos} alternarNo={alternarNo} alternarAberto={alternarAberto}/>)}
+       </div>
+      </section>
+     );
+    })}
+
+    {!estrutura.arvore.length&&!Object.keys(estrutura.sobrasGrupos).length&&<div style={{padding:40,textAlign:"center",color:"#64748b"}}>Nenhum item mapeado.</div>}
+   </div>
+  </div>
+ );
 }
+
+function No({no,nivel,dev,ativas,abertos,alternarNo,alternarAberto}){
+ const filhos=no.filhos||[];
+ const temFilhos=filhos.length>0;
+ const aberto=abertos[no.chave]!==false;
+ const chaves=chavesDoNo(no);
+ const marcadas=dev?chaves.length:chaves.filter(x=>ativas.has(x)).length;
+ const estado={total:chaves.length,marcadas,completo:chaves.length>0&&marcadas===chaves.length,parcial:marcadas>0&&marcadas<chaves.length};
+ const tipo=String(no.tipo||"botao").toLowerCase();
+
+ return(
+  <div style={{marginTop:6,marginLeft:nivel*16}}>
+   <div style={{display:"flex",alignItems:"center",gap:7,minHeight:33,padding:"5px 8px",background:"#fff",border:"1px solid #e2e8f0",borderRadius:7}}>
+    {temFilhos?<button type="button" onClick={()=>alternarAberto(no.chave)} style={iconButton}>{aberto?<ChevronDown size={15}/>:<ChevronRight size={15}/>}</button>:<span style={{width:19}}/>}
+    <BulkBox estado={estado} disabled={dev} onClick={()=>alternarNo(no)}/>
+    <IconeTipo tipo={tipo}/>
+    <div title={no.rota?`Rota: ${no.rota}`:no.chave} style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:tipo==="menu"?".82rem":".76rem",fontWeight:tipo==="menu"?700:tipo==="submenu"?600:500,color:tipo==="menu"?"#334155":"#64748b"}}>
+     {no.nome||no.chave}
+    </div>
+    <span style={{fontSize:".60rem",color:"#94a3b8",textTransform:"uppercase",flexShrink:0}}>{tipo}</span>
+   </div>
+   {temFilhos&&aberto&&<div style={{marginLeft:12,paddingLeft:10,borderLeft:"2px solid #e2e8f0"}}>{filhos.map(filho=><No key={filho.chave} no={filho} nivel={nivel+1} dev={dev} ativas={ativas} abertos={abertos} alternarNo={alternarNo} alternarAberto={alternarAberto}/>)}</div>}
+  </div>
+ );
+}
+
+function chavesDoNo(no){return[no.chave,...(no.filhos||[]).flatMap(chavesDoNo)].filter(Boolean);}
+
+function IconeTipo({tipo}){
+ if(tipo==="menu")return<Folder size={14} color="#475569"/>;
+ if(tipo==="submenu")return<CornerDownRight size={14} color="#64748b"/>;
+ if(tipo==="link")return<Link2 size={14} color="#64748b"/>;
+ if(tipo==="tela")return<Monitor size={14} color="#005596"/>;
+ if(tipo==="aba")return<SquareMenu size={14} color="#64748b"/>;
+ return<Settings size={14} color="#94a3b8"/>;
+}
+
+function BulkBox({estado,onClick,disabled}){
+ return(
+  <button type="button" disabled={disabled} onClick={onClick} style={{width:18,height:18,padding:0,border:`1px solid ${estado.completo||estado.parcial?"#005596":"#94a3b8"}`,borderRadius:4,background:estado.completo?"#005596":estado.parcial?"#e0effa":"#fff",color:estado.completo?"#fff":"#005596",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:disabled?"default":"pointer",flexShrink:0}}>
+   {estado.completo?<Check size={12} strokeWidth={3}/>:estado.parcial?<Minus size={12} strokeWidth={3}/>:null}
+  </button>
+ );
+}
+
+function ShieldIcon(){
+ return<div style={{width:30,height:30,borderRadius:7,background:"#e8f1f8",display:"grid",placeItems:"center",color:"#005596",fontSize:15}}>✓</div>;
+}
+
+const iconButton={border:0,background:"transparent",padding:2,cursor:"pointer",display:"flex",alignItems:"center",color:"#64748b"};
+const countStyle={marginLeft:"auto",fontSize:".67rem",fontWeight:650,color:"#64748b",background:"#fff",border:"1px solid #dbe3ec",borderRadius:20,padding:"3px 8px"};
+const pillStyle={display:"inline-flex",alignItems:"center",gap:4,padding:"3px 7px",background:"#fff",border:"1px solid #e2e8f0",borderRadius:5,fontWeight:650,color:"#64748b"};
