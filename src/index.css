@@ -36,7 +36,7 @@ input::-ms-clear{display:none!important;}
     display:none;
     position:relative;
     overflow:hidden;
-    background:url("./public/Login_1.webp") center/cover no-repeat;
+    background:url("/public/Login_1.webp") center/cover no-repeat;
 }
 
 /* A imagem lateral APENAS aparecerá em Desktops grandes (a partir de 1024px de largura) */
