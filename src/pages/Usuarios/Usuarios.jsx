@@ -2,7 +2,7 @@
 import DataTable from"../../models/DataTable";
 import{supabase}from"../../services/supabase";
 import{registrarAutoMapa}from"../../services/autoMapper";
-import PermissoesTab from"./Permissoes";
+import PermissoesTab from "./permissoes";
 import{Users,Shield,UserPlus,Edit3,Trash2,Lock,Unlock,RefreshCw,Search,FilterX}from"lucide-react";
 import Swal from"sweetalert2";
 import bcrypt from"bcryptjs";
