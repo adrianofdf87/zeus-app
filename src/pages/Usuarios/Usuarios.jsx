@@ -1,4 +1,4 @@
-import React,{useState,useEffect,useCallback,useRef}from"react";
+﻿import React,{useState,useEffect,useCallback,useRef}from"react";
 import DataTable from"../../models/DataTable";
 import{supabase}from"../../services/supabase";
 import{registrarAutoMapa}from"../../services/autoMapper";
@@ -38,16 +38,16 @@ export default function Usuarios(){
       const{data,error}=await supabase.from("tabi_cad_usuarios_permissoes").select("chave_acao").eq("usuario_id",sessaoUsuario.id);
       if(error)throw error;
       setPermissoesAtivasLogado(new Set((data||[]).map(p=>p.chave_acao)));
-    }catch(err){console.error("Erro ao carregar permissões do usuário logado:",err);}
+    }catch(err){console.error("Erro ao carregar permissÃµes do usuÃ¡rio logado:",err);}
   },[sessaoUsuario.id]);
 
   useEffect(()=>{carregarPermissoesLogado();},[carregarPermissoesLogado]);
 
   useEffect(()=>{
-    registrarAutoMapa(isDesenvolvedorLogado,"Configurações","Usuários",[
-      {nome:"Novo Usuário",chave:"usuarios.btn_novo"},
-      {nome:"Editar Usuário",chave:"usuarios.btn_editar"},
-      {nome:"Excluir Usuário",chave:"usuarios.btn_excluir"},
+    registrarAutoMapa(isDesenvolvedorLogado,"ConfiguraÃ§Ãµes","UsuÃ¡rios",[
+      {nome:"Novo UsuÃ¡rio",chave:"usuarios.btn_novo"},
+      {nome:"Editar UsuÃ¡rio",chave:"usuarios.btn_editar"},
+      {nome:"Excluir UsuÃ¡rio",chave:"usuarios.btn_excluir"},
       {nome:"Bloquear / Desbloquear",chave:"usuarios.btnBloquear"},
       {nome:"Ocultar Checkbox",chave:"usuarios.coluna_checkbox"},
       {nome:"Acessar Aba Perfis",chave:"usuarios.aba_permissoes"}
@@ -113,7 +113,7 @@ export default function Usuarios(){
       setDadosBrutosMap(mapaBruto);
       setDadosUsuarios(dadosTratados);
     }catch(err){
-      console.error("Erro detalhado ao carregar usuários:",err);
+      console.error("Erro detalhado ao carregar usuÃ¡rios:",err);
       Swal.fire("Erro no Supabase",err.message,"error");
     }finally{setCarregando(false);}
   },[paginaAtual,registrosPorPagina,busca,filtrosColunas]);
@@ -167,7 +167,7 @@ export default function Usuarios(){
         inicio+=limite;
       }
       return Array.from(unicos.values()).filter(item=>!termo||item.exibicao.toLowerCase().includes(String(termo).toLowerCase())).sort((a,b)=>a.exibicao.localeCompare(b.exibicao,"pt-BR",{numeric:true,sensitivity:"base"}));
-    }catch(err){console.error("Erro ao buscar opções em cascata:",err);return[];}
+    }catch(err){console.error("Erro ao buscar opÃ§Ãµes em cascata:",err);return[];}
   };
 
   const handleSelectionChange=idsSelecionados=>{
@@ -211,24 +211,24 @@ export default function Usuarios(){
       const{error}=await supabase.from("tabi_cad_usuarios").update({situacao:novaSituacao}).eq("id",usuarioSelecionadoId);
       if(error)throw error;
       await carregarUsuarios(false);
-    }catch(err){Swal.fire("Erro","Falha ao alterar situação: "+err.message,"error");}
+    }catch(err){Swal.fire("Erro","Falha ao alterar situaÃ§Ã£o: "+err.message,"error");}
     finally{setCarregando(false);}
   };
 
   const excluirSelecionado=async()=>{
     if(!usuarioSelecionadoId)return;
-    const confirm=await Swal.fire({title:"Deseja excluir?",text:"Esta ação não poderá ser desfeita.",icon:"warning",showCancelButton:true,confirmButtonColor:"#d93025",confirmButtonText:"Sim, excluir",cancelButtonText:"Cancelar"});
+    const confirm=await Swal.fire({title:"Deseja excluir?",text:"Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita.",icon:"warning",showCancelButton:true,confirmButtonColor:"#d93025",confirmButtonText:"Sim, excluir",cancelButtonText:"Cancelar"});
     if(!confirm.isConfirmed)return;
     try{
       setCarregando(true);
       await supabase.from("tabi_cad_usuarios_permissoes").delete().eq("usuario_id",usuarioSelecionadoId);
       const{error}=await supabase.from("tabi_cad_usuarios").delete().eq("id",usuarioSelecionadoId);
       if(error)throw error;
-      await Swal.fire({icon:"success",title:"Excluído!",text:"Usuário excluído com sucesso.",confirmButtonColor:"#005596"});
+      await Swal.fire({icon:"success",title:"ExcluÃ­do!",text:"UsuÃ¡rio excluÃ­do com sucesso.",confirmButtonColor:"#005596"});
       setUsuarioSelecionadoId(null);
       setUsuarioSelecionadoObj(null);
       await carregarUsuarios(false);
-    }catch(err){Swal.fire("Erro","Não foi possível excluir: "+err.message,"error");}
+    }catch(err){Swal.fire("Erro","NÃ£o foi possÃ­vel excluir: "+err.message,"error");}
     finally{setCarregando(false);}
   };
 
@@ -256,8 +256,8 @@ export default function Usuarios(){
         <div class="modal-header-pro">
           <div class="modal-icon-box"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg></div>
           <div>
-            <h2 style="margin:0;font-size:1rem;font-weight:700;color:#0f172a">${userId?"EDITAR USUÁRIO":"NOVO USUÁRIO"}</h2>
-            <p style="margin:2px 0 0;font-size:.75rem;color:#64748b">Preencha os dados do usuário.</p>
+            <h2 style="margin:0;font-size:1rem;font-weight:700;color:#0f172a">${userId?"EDITAR USUÃRIO":"NOVO USUÃRIO"}</h2>
+            <p style="margin:2px 0 0;font-size:.75rem;color:#64748b">Preencha os dados do usuÃ¡rio.</p>
           </div>
         </div>
         <div class="modal-body-pro">
@@ -278,11 +278,11 @@ export default function Usuarios(){
       preConfirm:()=>{
         const telefone=document.getElementById("swal-telefone")?.value.trim()||"";
         const perfil=document.getElementById("swal-perfil")?.value||"";
-        if(!telefone||!perfil){Swal.showValidationMessage("Preencha todos os campos obrigatórios.");return false;}
+        if(!telefone||!perfil){Swal.showValidationMessage("Preencha todos os campos obrigatÃ³rios.");return false;}
         if(userId){return{Telefone:telefone,Perfil:perfil};}
         const nome=document.getElementById("swal-nome")?.value.trim()||"";
         const email=document.getElementById("swal-email")?.value.trim().toLowerCase()||"";
-        if(!nome||!email){Swal.showValidationMessage("Preencha todos os campos obrigatórios.");return false;}
+        if(!nome||!email){Swal.showValidationMessage("Preencha todos os campos obrigatÃ³rios.");return false;}
         return{nome,email,Telefone:telefone,Perfil:perfil};
       }
     });
@@ -326,11 +326,11 @@ export default function Usuarios(){
     <div style={{height:"100%",display:"flex",flexDirection:"column",gap:"12px",padding:"0 10px",boxSizing:"border-box",overflow:"hidden"}}>
       <div style={{display:"flex",gap:"12px",borderBottom:"2px solid #e5e7eb",flexShrink:0}}>
         <button style={{background:"transparent",border:"none",padding:"8px 14px",fontSize:".9rem",fontWeight:"600",color:abaAtiva==="usuarios"?"#005596":"#6b7280",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",borderBottom:abaAtiva==="usuarios"?"2px solid #005596":"2px solid transparent",marginBottom:"-2px"}} onClick={()=>setAbaAtiva("usuarios")}>
-          <Users size={18}/> GESTÃO DE USUÁRIOS
+          <Users size={18}/> GESTÃƒO DE USUÃRIOS
         </button>
         {usuarioSelecionadoId&&temPermissao("usuarios.aba_permissoes")&&(
           <button style={{background:"transparent",border:"none",padding:"8px 14px",fontSize:".9rem",fontWeight:"600",color:abaAtiva==="perfis"?"#005596":"#6b7280",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",borderBottom:abaAtiva==="perfis"?"2px solid #005596":"2px solid transparent",marginBottom:"-2px"}} onClick={()=>setAbaAtiva("perfis")}>
-            <Shield size={18}/> PERFIS E PERMISSÕES
+            <Shield size={18}/> PERFIS E PERMISSÃ•ES
           </button>
         )}
       </div>
@@ -377,7 +377,7 @@ export default function Usuarios(){
         </div>
 
         {carregando?(
-          <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"40vh",color:"#64748b"}}>CARREGANDO USUÁRIOS...</div>
+          <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"40vh",color:"#64748b"}}>CARREGANDO USUÃRIOS...</div>
         ):(
           <DataTable key={limparFiltrosTrigger} data={dadosUsuarios} totalBanco={totalBanco} paginaAtual={paginaAtual} registrosPorPagina={registrosPorPagina} onPageChange={setPaginaAtual} onLimitChange={l=>{setRegistrosPorPagina(l);setPaginaAtual(1);}} onFilterChange={f=>{setFiltrosColunas({...f});setPaginaAtual(1);}} onFetchColumnOptions={(coluna,filtros)=>buscarOpcoesColunaBanco(coluna,filtros)} filtrosExternos={filtrosColunas} tableId={`usuarios_${userIdKey}`} onSelectionChange={handleSelectionChange}/>
         )}
